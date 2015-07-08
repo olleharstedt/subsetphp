@@ -6,5 +6,6 @@
 open Parser_hack
 
 let _ =
-  let parser_return = program (Relative_path.Dummy, "") "<?php $a = 10;" in
+  SharedMem.(init default_config);
+  let parser_return = program (Relative_path.Hhi, "asd.php") "<?php $a = 10;" in
   ()
