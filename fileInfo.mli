@@ -27,6 +27,7 @@ open Utils
 type file_type =
   | PhpFile
   | HhFile
+[@@deriving show]
 
 type mode =
   | Mdecl    (* just declare signatures, don't check anything *)
@@ -39,6 +40,7 @@ type mode =
 (*****************************************************************************)
 
 type id = Pos.t * string
+[@@deriving show]
 
 type t = {
   file_mode : mode option;
@@ -49,6 +51,7 @@ type t = {
   comments : (Pos.t * string) list;
   consider_names_just_for_autoload: bool;
 }
+[@@deriving show]
 
 (*****************************************************************************)
 (* The simplified record used after parsing. *)
