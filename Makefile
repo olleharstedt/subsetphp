@@ -1,4 +1,4 @@
-parser_hack.cmx: parser_heap.cmx ast.cmx namespaces.cmx parser_hack.cmi parser_hack.ml
+parser_hack.cmx: lint.cmx lexer_hack.cmx parser_heap.cmx ast.cmx namespaces.cmx parser_hack.cmi parser_hack.ml
 	ocamlopt -c ast.cmx namespaces.cmx ide.cmx parser_hack.ml
 
 parser_hack.cmi: parser_hack.mli
@@ -31,7 +31,7 @@ prefix.cmi: prefix.mli
 prefix.cmx: prefix.cmi prefix.ml
 	ocamlopt -c prefix.ml
 
-ast.cmx: pos.cmx namespace_env.cmx ast.ml
+ast.cmx: fileInfo.cmx pos.cmx namespace_env.cmx ast.ml
 	ocamlopt -c fileInfo.cmx namespace_env.cmx ast.ml
 
 namespace_env.cmx: utils.cmx namespace_env.ml
@@ -40,7 +40,7 @@ namespace_env.cmx: utils.cmx namespace_env.ml
 lexer_hack.cmx: lexer_hack.ml
 	ocamlfind ocamlopt -c lexer_hack.ml
 
-lexer_hack.ml: lexer_hack.mll
+lexer_hack.ml: utils.cmx pos.cmx errors.cmx lexer_hack.mll
 	ocamllex lexer_hack.mll
 
 utils.cmx: ident.cmx utils.ml
@@ -105,5 +105,18 @@ errors.cmi: errors.mli
 
 errors.cmx: pos.cmx errors.cmi errors.ml
 	ocamlopt -c errors.ml
+
+fileInfo.cmi: pos.cmx utils.cmx fileInfo.mli
+	ocamlopt -c fileInfo.mli
+
+fileInfo.cmx: fileInfo.cmi fileInfo.ml
+	ocamlopt -c fileInfo.ml
+
+lint.cmi: pos.cmx lint.mli
+	ocamlopt -c lint.mli
+
+lint.cmx: lint.cmi errors.cmx lint.ml
+	ocamlopt -c lint.ml
+
 clean:
 	rm *.o *.cmi *.cmx
