@@ -1,3 +1,6 @@
+subsetphp: realpath.o hh_shared.o parser_hack.cmx main.ml
+	ocamlopt -linkall ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx main.ml -o subsetphp
+
 parser_hack.cmx: lint.cmx lexer_hack.cmx parser_heap.cmx ast.cmx namespaces.cmx parser_hack.cmi parser_hack.ml
 	ocamlopt -c ast.cmx namespaces.cmx ide.cmx parser_hack.ml
 
@@ -117,6 +120,12 @@ lint.cmi: pos.cmx lint.mli
 
 lint.cmx: lint.cmi errors.cmx lint.ml
 	ocamlopt -c lint.ml
+
+hh_shared.o: hh_shared.c
+	gcc -c hh_shared.c
+
+realpath.o: realpath.c
+	gcc -c realpath.c
 
 clean:
 	rm *.o *.cmi *.cmx
