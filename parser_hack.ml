@@ -466,9 +466,9 @@ and get_header env =
   | `explicit_mode ->
       let _token = L.token env.file env.lb in
       (match Lexing.lexeme env.lb with
-      | "strict" when !(Ide.is_ide_mode) ->
+      | "strict" (*when !(Ide.is_ide_mode)*) ->
           FileInfo.HhFile, Some FileInfo.Mpartial
-      | "strict" -> FileInfo.HhFile, Some FileInfo.Mstrict
+      (*| "strict" -> FileInfo.HhFile, Some FileInfo.Mstrict*)
       | ("decl"|"only-headers") -> FileInfo.HhFile, Some FileInfo.Mdecl
       | "partial" -> FileInfo.HhFile, Some FileInfo.Mpartial
       | _ ->
