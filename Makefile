@@ -1,5 +1,5 @@
 subsetphp: realpath.o hh_shared.o parser_hack.cmx main.ml
-	ocamlopt -linkall ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx main.ml -o subsetphp
+	ocamlfind ocamlopt -package ppx_deriving.show -linkall ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx main.ml -o subsetphp
 
 parser_hack.cmx: lint.cmx lexer_hack.cmx parser_heap.cmx ast.cmx namespaces.cmx parser_hack.cmi parser_hack.ml
 	ocamlopt -c ast.cmx namespaces.cmx ide.cmx parser_hack.ml
@@ -35,10 +35,10 @@ prefix.cmx: prefix.cmi prefix.ml
 	ocamlopt -c prefix.ml
 
 ast.cmx: fileInfo.cmx pos.cmx namespace_env.cmx ast.ml
-	ocamlopt -c fileInfo.cmx namespace_env.cmx ast.ml
+	ocamlfind ocamlopt -package ppx_deriving.show -c fileInfo.cmx namespace_env.cmx ast.ml
 
 namespace_env.cmx: utils.cmx namespace_env.ml
-	ocamlopt -c namespace_env.ml 
+	ocamlfind ocamlopt -package ppx_deriving.show -c namespace_env.ml 
 
 lexer_hack.cmx: lexer_hack.ml
 	ocamlfind ocamlopt -c lexer_hack.ml
@@ -56,7 +56,7 @@ eventLogger.cmx: eventLogger.ml
 	ocamlopt -c eventLogger.ml
 
 pos.cmx: utils.cmx relative_path.cmx hh_json.cmx pos.ml
-	ocamlopt -c pos.ml
+	ocamlfind ocamlopt -package ppx_deriving.show -c pos.ml
 
 relative_path.cmx: path.cmx relative_path.ml
 	ocamlopt -c relative_path.ml
@@ -110,10 +110,10 @@ errors.cmx: pos.cmx errors.cmi errors.ml
 	ocamlopt -c errors.ml
 
 fileInfo.cmi: pos.cmx utils.cmx fileInfo.mli
-	ocamlopt -c fileInfo.mli
+	ocamlfind ocamlopt -package ppx_deriving.show -c fileInfo.mli
 
 fileInfo.cmx: fileInfo.cmi fileInfo.ml
-	ocamlopt -c fileInfo.ml
+	ocamlfind ocamlopt -package ppx_deriving.show -c fileInfo.ml
 
 lint.cmi: pos.cmx lint.mli
 	ocamlopt -c lint.mli

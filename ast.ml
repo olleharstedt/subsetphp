@@ -17,18 +17,22 @@ type cst_kind =
   | Cst_define
   (* The constant was introduced with: const X = ...; *)
   | Cst_const
+[@@deriving show]
 
 (*****************************************************************************)
 (* The Abstract Syntax Tree *)
 (*****************************************************************************)
 
 type id = Pos.t * string
+[@@deriving show]
 type pstring = Pos.t * string
+[@@deriving show]
 
 type variance =
   | Covariant
   | Contravariant
   | Invariant
+[@@deriving show]
 
 type program = def list
 
@@ -340,6 +344,7 @@ and catch = id * id * block
 and field = expr * expr
 
 and attr = id * expr
+[@@deriving show]
 
  (* with tarzan *)
 

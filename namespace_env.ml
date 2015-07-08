@@ -9,8 +9,9 @@
  *)
 
 type env = {
-  ns_uses: string Utils.SMap.t;
+  ns_uses: string Utils.SMap.t [@opaque];
   ns_name: string option;
 }
+[@@deriving show]
 
 let empty = { ns_uses = Utils.SMap.empty; ns_name = None }

@@ -15,12 +15,14 @@ open Utils
  * and pos_end actually form a half-open interval (i.e. pos_end points to the
  * character *after* the last character of the relevant lexeme.) *)
 type 'a pos = {
-  pos_file: 'a ;
-  pos_start: Lexing.position ;
-  pos_end: Lexing.position ;
+  pos_file: 'a [@opaque];
+  pos_start: Lexing.position [@opaque];
+  pos_end: Lexing.position [@opaque];
 }
+[@@deriving show]
 
-type t = Relative_path.t pos
+type t = Relative_path.t pos [@opaque]
+[@@deriving show]
 
 type absolute = string pos
 
