@@ -54,8 +54,19 @@ How to deal with autoload?
 
 ```php
 function a() {
-  b(); // Not yet defined?
+  b(); // b() inferred as void -> void
 }
 
-function b() {}
+function b() {} // Check so b() corresponds to already inferred type
+```
+
+```php
+if (true) {
+  $a = 10; // $a inferred as int?
+}
+else {
+  $a = "foo";
+}
+
+// What type has $a here? Should init $a = 0 before if?
 ```
