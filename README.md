@@ -2,6 +2,8 @@ Type-inferred strict subset of PHP
 
 Because Hacklang is not strict enough.
 
+_Disclaimer: Nothing is implemented yet._
+
 ```php
 $a = 1.0 + 1; // OK, only one number type: number. Because lack of type-hints and + works on everything.
 echo 1; // Error: `echo` expects string (only allow print()?). Or don't allow functions without paranthesis?
@@ -38,10 +40,22 @@ function foo($a, $b) {
   return $a + $b;
 }
 
-foo("hej", 10); // Type error
+foo("hej", 10); // Type error: expected int, got string.
 ```
 
 ```php
 $a = "asd";
 $b = $a . $a;
+```
+
+How to deal with `_POST` etc?
+
+How to deal with autoload?
+
+```php
+function a() {
+  b(); // Not yet defined?
+}
+
+function b() {}
 ```
