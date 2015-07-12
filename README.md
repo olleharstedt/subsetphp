@@ -70,3 +70,38 @@ else {
 
 // What type has $a here? Should init $a = 0 before if?
 ```
+
+Can't infer this?
+
+```php
+function f($cond) {
+  if ($cond) {  // $cond inferred as bool
+    $x = new A();
+  else {
+    $x = new B();
+  }
+
+  return $x;  // What type has $x? If A and B implements more than one interface? Hack does Unresolved[A, B]. Require phpdoc?
+
+  // Force use of settype, and then read second argument? settype($var, "bool");
+
+}
+```
+
+Test for null? How does Hack do the nullable types trick? Flow sensitive type-inference.
+
+```php
+function(?int $x) : int {
+  if ($x !== null) {
+    return $x;
+  } else {
+    return 42;
+  }
+}
+```
+
+Method chaining.
+
+```php
+  $this->foo()->bar();
+```
