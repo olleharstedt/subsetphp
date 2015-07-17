@@ -7,6 +7,7 @@
  *)
 
 open List
+open Ast
 
 type term =
   AST_ID of string
@@ -24,7 +25,7 @@ type term =
 (* Infix function composition *)
 let (@@) f g x = f (g x)
 
-type typ = VAR of string | INT | BOOL | ARROW of typ * typ
+type typ = Var of string | Int | Bool | Arrow of typ * typ
 [@@deriving show]
 
 (*  A substitution is just a function typ -> typ.  *)
@@ -34,17 +35,17 @@ let identity (t : typ) = t
 (*  replace (a, t) is the substitution that just replaces a with t.  *)
 
 let rec replace at b = match at, b with
-|  (a, t), VAR b -> if a = b then t else VAR b
-|  (a, t), (ARROW (t1, t2)) ->
-      ARROW (replace (a, t) t1, replace (a, t) t2)
+|  (a, t), Var b -> if a = b then t else Var b
+|  (a, t), (Arrow (t1, t2)) ->
+      Arrow (replace (a, t) t1, replace (a, t) t2)
 |   (* No effect on other types. *)
     (a, t), t1 -> t1
 
 (*  occurs : string * typ -> bool  *)
 
 let rec occurs a b = match a, b with
-| (a, VAR b) -> (a = b)
-| (a, ARROW(t1, t2)) -> occurs a t1 || occurs a t2
+| (a, Var b) -> (a = b)
+| (a, Arrow(t1, t2)) -> occurs a t1 || occurs a t2
 | (a, _) -> false
 
 exception Circularity
@@ -53,14 +54,14 @@ exception Mismatch
 (*  unify : typ * typ -> (typ -> typ)  *)
 
 let rec unify (a : typ) t = match a, t with
-| (VAR a, t) ->
-      if VAR a = t then identity
+| (Var a, t) ->
+      if Var a = t then identity
       else if occurs a t then raise Circularity
       else replace (a, t) (* TODO Currying here? *)
-| (t, VAR a) -> unify (VAR a) t
-| (INT, INT) -> identity
-| (BOOL, BOOL) -> identity
-| (ARROW(t1, t2), ARROW(t3, t4)) ->
+| (t, Var a) -> unify (Var a) t
+| (Int, Int) -> identity
+| (Bool, Bool) -> identity
+| (Arrow(t1, t2), Arrow(t3, t4)) ->
       let s1 = unify t1 t3 in
       let s2 = unify (s1 t2) (s1 t4) in
       s2 @@ s1
@@ -90,7 +91,7 @@ let newtypevar () =
     cnt := ! cnt + 1;
     typevars := map (fun s -> s ^ string_of_int (! cnt)) letters
   ) else ();
-  let tmp = VAR (hd (! typevars)) in
+  let tmp = Var (hd (! typevars)) in
   (typevars := tl (! typevars));
   tmp
 
@@ -109,31 +110,31 @@ let rec w env t = match env, t with
 
 | (env, AST_NUM _)   ->
       (* E |- n : int *)
-      (identity, INT)
+      (identity, Int)
 
 | (env, AST_BOOL _) ->
       (* E |- true : bool
          E |- false : bool *)
-      (identity, BOOL)
+      (identity, Bool)
 
 | (env, AST_SUCC) ->
       (* E |- succ : int -> int *)
-      (identity, ARROW (INT, INT))
+      (identity, Arrow (Int, Int))
 
 | (env, AST_PRED) ->
       (* E |- pred : int -> int *)
-      (identity, ARROW (INT, INT))
+      (identity, Arrow (Int, Int))
 
 | (env, AST_ISZERO) ->
       (* E |- iszero : int -> bool *)
-      (identity, ARROW (INT, BOOL))
+      (identity, Arrow (Int, Bool))
 
 | (env, AST_IF (e1, e2, e3)) ->
       (* E |- e1 : bool  E |- e2 : t  E |- e3 : t
          ----------------------------------------
          E |- if e1 then e2 else e3 : t           *)
       let (s1, t1) = w env e1 in
-      let s2 = unify t1 BOOL in
+      let s2 = unify t1 Bool in
       let (s3, t2) = w (s2 @@ s1 @@ env) e2 in
       let (s4, t3) = w (s3 @@ s2 @@ s1 @@ env) e3 in
       let s5 = unify (s4 t2) t3 in
@@ -145,7 +146,7 @@ let rec w env t = match env, t with
          E |- fn x => e : t1 -> t2 *)
       let t1 = newtypevar() in
       let (s, t2) = w (update env x t1) e in
-        (s, s (ARROW (t1, t2)))
+        (s, s (Arrow (t1, t2)))
 
 | (env, AST_APP (e1, e2)) ->
       (* E |- e1 : t1 -> t2  E |- e2 : t1
@@ -154,7 +155,7 @@ let rec w env t = match env, t with
       let (s1, t1) = w env e2 in
       let t2 = newtypevar() in
       let (s2, t3) = w (s1 @@ env) e1 in
-      let s3 = unify (s2 t3) (ARROW ((s2 @@ s1) t1, t2)) in
+      let s3 = unify (s2 t3) (Arrow ((s2 @@ s1) t1, t2)) in
       let s = s3 @@ s2 @@ s1 in
         (s, s t2)
 
@@ -175,16 +176,16 @@ let rec w env t = match env, t with
  *)
 
 let rec canonical' env t = match env, t with
-| (env, VAR v) ->
+| (env, Var v) ->
     begin
       try env, (env v) with UnboundID ->
         let t = newtypevar() in
         (update env v t), t
     end
-| (env, ARROW (t1, t2)) ->
+| (env, Arrow (t1, t2)) ->
       let (env, t1') = canonical' env t1 in
       let (env, t2') = canonical' env t2 in
-        (env, ARROW (t1', t2'))
+        (env, Arrow (t1', t2'))
 | (env, x) -> (env, x)
 
 let canonical t =
