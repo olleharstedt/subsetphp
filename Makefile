@@ -127,5 +127,8 @@ hh_shared.o: hh_shared.c
 realpath.o: realpath.c
 	gcc -c realpath.c
 
+type_test: type.ml
+	ocamlfind ocamlopt -package ppx_deriving.show type.ml -o type_test
+
 clean:
 	rm *.o *.cmi *.cmx
