@@ -25,7 +25,7 @@ type term =
 (* Infix function composition *)
 let (@@) f g x = f (g x)
 
-type typ = Var of string | Int | Bool | Arrow of typ * typ
+type typ = Var of string | Number | Bool | Arrow of typ * typ
 [@@deriving show]
 
 (*  A substitution is just a function typ -> typ.  *)
@@ -59,7 +59,7 @@ let rec unify (a : typ) t = match a, t with
       else if occurs a t then raise Circularity
       else replace (a, t) (* TODO Currying here? *)
 | (t, Var a) -> unify (Var a) t
-| (Int, Int) -> identity
+| (Number, Number) -> identity
 | (Bool, Bool) -> identity
 | (Arrow(t1, t2), Arrow(t3, t4)) ->
       let s1 = unify t1 t3 in
@@ -110,7 +110,7 @@ let rec w env t = match env, t with
 
 | (env, AST_NUM _)   ->
       (* E |- n : int *)
-      (identity, Int)
+      (identity, Number)
 
 | (env, AST_BOOL _) ->
       (* E |- true : bool
@@ -119,15 +119,15 @@ let rec w env t = match env, t with
 
 | (env, AST_SUCC) ->
       (* E |- succ : int -> int *)
-      (identity, Arrow (Int, Int))
+      (identity, Arrow (Number, Number))
 
 | (env, AST_PRED) ->
       (* E |- pred : int -> int *)
-      (identity, Arrow (Int, Int))
+      (identity, Arrow (Number, Number))
 
 | (env, AST_ISZERO) ->
       (* E |- iszero : int -> bool *)
-      (identity, Arrow (Int, Bool))
+      (identity, Arrow (Number, Bool))
 
 | (env, AST_IF (e1, e2, e3)) ->
       (* E |- e1 : bool  E |- e2 : t  E |- e3 : t
