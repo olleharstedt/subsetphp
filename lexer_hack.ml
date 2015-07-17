@@ -3247,12 +3247,12 @@ and __ocaml_lex_header_rec file lexbuf __ocaml_lex_state =
 # 3248 "lexer_hack.ml"
 
   | 9 ->
-# 589 "lexer_hack.mll"
-                                ( `php_mode )
+# 590 "lexer_hack.mll"
+                                ( `default_mode )
 # 3253 "lexer_hack.ml"
 
   | 10 ->
-# 590 "lexer_hack.mll"
+# 591 "lexer_hack.mll"
                                 ( `error )
 # 3258 "lexer_hack.ml"
 
@@ -3264,22 +3264,22 @@ and next_newline_or_close_cb lexbuf =
 and __ocaml_lex_next_newline_or_close_cb_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 593 "lexer_hack.mll"
+# 594 "lexer_hack.mll"
                        ( () )
 # 3270 "lexer_hack.ml"
 
   | 1 ->
-# 594 "lexer_hack.mll"
+# 595 "lexer_hack.mll"
                        ( Lexing.new_line lexbuf )
 # 3275 "lexer_hack.ml"
 
   | 2 ->
-# 595 "lexer_hack.mll"
+# 596 "lexer_hack.mll"
                        ( back lexbuf )
 # 3280 "lexer_hack.ml"
 
   | 3 ->
-# 596 "lexer_hack.mll"
+# 597 "lexer_hack.mll"
                        ( next_newline_or_close_cb lexbuf )
 # 3285 "lexer_hack.ml"
 
@@ -3291,22 +3291,22 @@ and look_for_open_cb lexbuf =
 and __ocaml_lex_look_for_open_cb_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 599 "lexer_hack.mll"
+# 600 "lexer_hack.mll"
                        ( () )
 # 3297 "lexer_hack.ml"
 
   | 1 ->
-# 600 "lexer_hack.mll"
+# 601 "lexer_hack.mll"
                        ( Lexing.new_line lexbuf; look_for_open_cb lexbuf )
 # 3302 "lexer_hack.ml"
 
   | 2 ->
-# 601 "lexer_hack.mll"
+# 602 "lexer_hack.mll"
                        ( () )
 # 3307 "lexer_hack.ml"
 
   | 3 ->
-# 602 "lexer_hack.mll"
+# 603 "lexer_hack.mll"
                        ( look_for_open_cb lexbuf )
 # 3312 "lexer_hack.ml"
 
@@ -3318,12 +3318,12 @@ and varname lexbuf =
 and __ocaml_lex_varname_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 609 "lexer_hack.mll"
+# 610 "lexer_hack.mll"
                        ( Tword  )
 # 3324 "lexer_hack.ml"
 
   | 1 ->
-# 610 "lexer_hack.mll"
+# 611 "lexer_hack.mll"
                        ( Terror )
 # 3329 "lexer_hack.ml"
 
@@ -3335,27 +3335,27 @@ and format_comment lexbuf =
 and __ocaml_lex_format_comment_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 617 "lexer_hack.mll"
+# 618 "lexer_hack.mll"
                        ( Tspace         )
 # 3341 "lexer_hack.ml"
 
   | 1 ->
-# 618 "lexer_hack.mll"
+# 619 "lexer_hack.mll"
                        ( Tnewline       )
 # 3346 "lexer_hack.ml"
 
   | 2 ->
-# 619 "lexer_hack.mll"
+# 620 "lexer_hack.mll"
                        ( Teof           )
 # 3351 "lexer_hack.ml"
 
   | 3 ->
-# 620 "lexer_hack.mll"
+# 621 "lexer_hack.mll"
                        ( Tclose_comment )
 # 3356 "lexer_hack.ml"
 
   | 4 ->
-# 621 "lexer_hack.mll"
+# 622 "lexer_hack.mll"
                        ( Tany           )
 # 3361 "lexer_hack.ml"
 
@@ -3367,377 +3367,377 @@ and format_token lexbuf =
 and __ocaml_lex_format_token_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 624 "lexer_hack.mll"
+# 625 "lexer_hack.mll"
                        ( Tspace        )
 # 3373 "lexer_hack.ml"
 
   | 1 ->
-# 625 "lexer_hack.mll"
+# 626 "lexer_hack.mll"
                        ( Tnewline      )
 # 3378 "lexer_hack.ml"
 
   | 2 ->
-# 626 "lexer_hack.mll"
+# 627 "lexer_hack.mll"
                        ( Topen_comment )
 # 3383 "lexer_hack.ml"
 
   | 3 ->
-# 627 "lexer_hack.mll"
+# 628 "lexer_hack.mll"
                        ( Tline_comment )
 # 3388 "lexer_hack.ml"
 
   | 4 ->
-# 628 "lexer_hack.mll"
+# 629 "lexer_hack.mll"
                        ( Tline_comment )
 # 3393 "lexer_hack.ml"
 
   | 5 ->
-# 629 "lexer_hack.mll"
+# 630 "lexer_hack.mll"
                        ( Tdquote       )
 # 3398 "lexer_hack.ml"
 
   | 6 ->
-# 630 "lexer_hack.mll"
+# 631 "lexer_hack.mll"
                        ( Tquote        )
 # 3403 "lexer_hack.ml"
 
   | 7 ->
-# 631 "lexer_hack.mll"
+# 632 "lexer_hack.mll"
                        ( Theredoc      )
 # 3408 "lexer_hack.ml"
 
   | 8 ->
-# 632 "lexer_hack.mll"
+# 633 "lexer_hack.mll"
                        ( Tint          )
 # 3413 "lexer_hack.ml"
 
   | 9 ->
-# 633 "lexer_hack.mll"
+# 634 "lexer_hack.mll"
                        ( Tfloat        )
 # 3418 "lexer_hack.ml"
 
   | 10 ->
-# 634 "lexer_hack.mll"
+# 635 "lexer_hack.mll"
                        ( Tat           )
 # 3423 "lexer_hack.ml"
 
   | 11 ->
-# 635 "lexer_hack.mll"
+# 636 "lexer_hack.mll"
                        ( Tclose_php    )
 # 3428 "lexer_hack.ml"
 
   | 12 ->
-# 636 "lexer_hack.mll"
+# 637 "lexer_hack.mll"
                        ( Tword         )
 # 3433 "lexer_hack.ml"
 
   | 13 ->
-# 637 "lexer_hack.mll"
+# 638 "lexer_hack.mll"
                        ( Tlvar         )
 # 3438 "lexer_hack.ml"
 
   | 14 ->
-# 638 "lexer_hack.mll"
+# 639 "lexer_hack.mll"
                        ( Tdollar       )
 # 3443 "lexer_hack.ml"
 
   | 15 ->
-# 639 "lexer_hack.mll"
+# 640 "lexer_hack.mll"
                        ( Tbacktick     )
 # 3448 "lexer_hack.ml"
 
   | 16 ->
-# 640 "lexer_hack.mll"
+# 641 "lexer_hack.mll"
                        ( Tphp          )
 # 3453 "lexer_hack.ml"
 
   | 17 ->
-# 641 "lexer_hack.mll"
+# 642 "lexer_hack.mll"
                        ( Thh           )
 # 3458 "lexer_hack.ml"
 
   | 18 ->
-# 642 "lexer_hack.mll"
+# 643 "lexer_hack.mll"
                        ( Tlp           )
 # 3463 "lexer_hack.ml"
 
   | 19 ->
-# 643 "lexer_hack.mll"
+# 644 "lexer_hack.mll"
                        ( Trp           )
 # 3468 "lexer_hack.ml"
 
   | 20 ->
-# 644 "lexer_hack.mll"
+# 645 "lexer_hack.mll"
                        ( Tsc           )
 # 3473 "lexer_hack.ml"
 
   | 21 ->
-# 645 "lexer_hack.mll"
+# 646 "lexer_hack.mll"
                        ( Tcolon        )
 # 3478 "lexer_hack.ml"
 
   | 22 ->
-# 646 "lexer_hack.mll"
+# 647 "lexer_hack.mll"
                        ( Tcolcol       )
 # 3483 "lexer_hack.ml"
 
   | 23 ->
-# 647 "lexer_hack.mll"
+# 648 "lexer_hack.mll"
                        ( Tcomma        )
 # 3488 "lexer_hack.ml"
 
   | 24 ->
-# 648 "lexer_hack.mll"
+# 649 "lexer_hack.mll"
                        ( Teq           )
 # 3493 "lexer_hack.ml"
 
   | 25 ->
-# 649 "lexer_hack.mll"
+# 650 "lexer_hack.mll"
                        ( Tbareq        )
 # 3498 "lexer_hack.ml"
 
   | 26 ->
-# 650 "lexer_hack.mll"
+# 651 "lexer_hack.mll"
                        ( Tpluseq       )
 # 3503 "lexer_hack.ml"
 
   | 27 ->
-# 651 "lexer_hack.mll"
+# 652 "lexer_hack.mll"
                        ( Tstareq       )
 # 3508 "lexer_hack.ml"
 
   | 28 ->
-# 652 "lexer_hack.mll"
+# 653 "lexer_hack.mll"
                        ( Tslasheq      )
 # 3513 "lexer_hack.ml"
 
   | 29 ->
-# 653 "lexer_hack.mll"
+# 654 "lexer_hack.mll"
                        ( Tdoteq        )
 # 3518 "lexer_hack.ml"
 
   | 30 ->
-# 654 "lexer_hack.mll"
+# 655 "lexer_hack.mll"
                        ( Tminuseq      )
 # 3523 "lexer_hack.ml"
 
   | 31 ->
-# 655 "lexer_hack.mll"
+# 656 "lexer_hack.mll"
                        ( Tpercenteq    )
 # 3528 "lexer_hack.ml"
 
   | 32 ->
-# 656 "lexer_hack.mll"
+# 657 "lexer_hack.mll"
                        ( Txoreq        )
 # 3533 "lexer_hack.ml"
 
   | 33 ->
-# 657 "lexer_hack.mll"
+# 658 "lexer_hack.mll"
                        ( Tampeq        )
 # 3538 "lexer_hack.ml"
 
   | 34 ->
-# 658 "lexer_hack.mll"
+# 659 "lexer_hack.mll"
                        ( Tlshifteq     )
 # 3543 "lexer_hack.ml"
 
   | 35 ->
-# 659 "lexer_hack.mll"
+# 660 "lexer_hack.mll"
                        ( Trshifteq     )
 # 3548 "lexer_hack.ml"
 
   | 36 ->
-# 660 "lexer_hack.mll"
+# 661 "lexer_hack.mll"
                        ( Teqeq         )
 # 3553 "lexer_hack.ml"
 
   | 37 ->
-# 661 "lexer_hack.mll"
+# 662 "lexer_hack.mll"
                        ( Teqeqeq       )
 # 3558 "lexer_hack.ml"
 
   | 38 ->
-# 662 "lexer_hack.mll"
+# 663 "lexer_hack.mll"
                        ( Tdiff         )
 # 3563 "lexer_hack.ml"
 
   | 39 ->
-# 663 "lexer_hack.mll"
+# 664 "lexer_hack.mll"
                        ( Tdiff2        )
 # 3568 "lexer_hack.ml"
 
   | 40 ->
-# 664 "lexer_hack.mll"
+# 665 "lexer_hack.mll"
                        ( Tbar          )
 # 3573 "lexer_hack.ml"
 
   | 41 ->
-# 665 "lexer_hack.mll"
+# 666 "lexer_hack.mll"
                        ( Tbarbar       )
 # 3578 "lexer_hack.ml"
 
   | 42 ->
-# 666 "lexer_hack.mll"
+# 667 "lexer_hack.mll"
                        ( Tampamp       )
 # 3583 "lexer_hack.ml"
 
   | 43 ->
-# 667 "lexer_hack.mll"
+# 668 "lexer_hack.mll"
                        ( Tplus         )
 # 3588 "lexer_hack.ml"
 
   | 44 ->
-# 668 "lexer_hack.mll"
+# 669 "lexer_hack.mll"
                        ( Tminus        )
 # 3593 "lexer_hack.ml"
 
   | 45 ->
-# 669 "lexer_hack.mll"
+# 670 "lexer_hack.mll"
                        ( Tstar         )
 # 3598 "lexer_hack.ml"
 
   | 46 ->
-# 670 "lexer_hack.mll"
+# 671 "lexer_hack.mll"
                        ( Tstarstar     )
 # 3603 "lexer_hack.ml"
 
   | 47 ->
-# 671 "lexer_hack.mll"
+# 672 "lexer_hack.mll"
                        ( Tslash        )
 # 3608 "lexer_hack.ml"
 
   | 48 ->
-# 672 "lexer_hack.mll"
+# 673 "lexer_hack.mll"
                        ( Tbslash       )
 # 3613 "lexer_hack.ml"
 
   | 49 ->
-# 673 "lexer_hack.mll"
+# 674 "lexer_hack.mll"
                        ( Txor          )
 # 3618 "lexer_hack.ml"
 
   | 50 ->
-# 674 "lexer_hack.mll"
+# 675 "lexer_hack.mll"
                        ( Tpercent      )
 # 3623 "lexer_hack.ml"
 
   | 51 ->
-# 675 "lexer_hack.mll"
+# 676 "lexer_hack.mll"
                        ( Tlcb          )
 # 3628 "lexer_hack.ml"
 
   | 52 ->
-# 676 "lexer_hack.mll"
+# 677 "lexer_hack.mll"
                        ( Trcb          )
 # 3633 "lexer_hack.ml"
 
   | 53 ->
-# 677 "lexer_hack.mll"
+# 678 "lexer_hack.mll"
                        ( Tlb           )
 # 3638 "lexer_hack.ml"
 
   | 54 ->
-# 678 "lexer_hack.mll"
+# 679 "lexer_hack.mll"
                        ( Trb           )
 # 3643 "lexer_hack.ml"
 
   | 55 ->
-# 679 "lexer_hack.mll"
+# 680 "lexer_hack.mll"
                        ( Tdot          )
 # 3648 "lexer_hack.ml"
 
   | 56 ->
-# 680 "lexer_hack.mll"
+# 681 "lexer_hack.mll"
                        ( Tlte          )
 # 3653 "lexer_hack.ml"
 
   | 57 ->
-# 681 "lexer_hack.mll"
+# 682 "lexer_hack.mll"
                        ( Tlt           )
 # 3658 "lexer_hack.ml"
 
   | 58 ->
-# 682 "lexer_hack.mll"
+# 683 "lexer_hack.mll"
                        ( Tgt           )
 # 3663 "lexer_hack.ml"
 
   | 59 ->
-# 683 "lexer_hack.mll"
+# 684 "lexer_hack.mll"
                        ( Tgte          )
 # 3668 "lexer_hack.ml"
 
   | 60 ->
-# 684 "lexer_hack.mll"
+# 685 "lexer_hack.mll"
                        ( Tltlt         )
 # 3673 "lexer_hack.ml"
 
   | 61 ->
-# 685 "lexer_hack.mll"
+# 686 "lexer_hack.mll"
                        ( Tsarrow       )
 # 3678 "lexer_hack.ml"
 
   | 62 ->
-# 686 "lexer_hack.mll"
+# 687 "lexer_hack.mll"
                        ( Tnsarrow      )
 # 3683 "lexer_hack.ml"
 
   | 63 ->
-# 687 "lexer_hack.mll"
+# 688 "lexer_hack.mll"
                        ( Tarrow        )
 # 3688 "lexer_hack.ml"
 
   | 64 ->
-# 688 "lexer_hack.mll"
+# 689 "lexer_hack.mll"
                        ( Tlambda       )
 # 3693 "lexer_hack.ml"
 
   | 65 ->
-# 689 "lexer_hack.mll"
+# 690 "lexer_hack.mll"
                        ( Tem           )
 # 3698 "lexer_hack.ml"
 
   | 66 ->
-# 690 "lexer_hack.mll"
+# 691 "lexer_hack.mll"
                        ( Tqm           )
 # 3703 "lexer_hack.ml"
 
   | 67 ->
-# 691 "lexer_hack.mll"
+# 692 "lexer_hack.mll"
                        ( Tamp          )
 # 3708 "lexer_hack.ml"
 
   | 68 ->
-# 692 "lexer_hack.mll"
+# 693 "lexer_hack.mll"
                        ( Ttild         )
 # 3713 "lexer_hack.ml"
 
   | 69 ->
-# 693 "lexer_hack.mll"
+# 694 "lexer_hack.mll"
                        ( Tincr         )
 # 3718 "lexer_hack.ml"
 
   | 70 ->
-# 694 "lexer_hack.mll"
+# 695 "lexer_hack.mll"
                        ( Tdecr         )
 # 3723 "lexer_hack.ml"
 
   | 71 ->
-# 695 "lexer_hack.mll"
+# 696 "lexer_hack.mll"
                        ( Tunderscore   )
 # 3728 "lexer_hack.ml"
 
   | 72 ->
-# 696 "lexer_hack.mll"
+# 697 "lexer_hack.mll"
                        ( Tellipsis     )
 # 3733 "lexer_hack.ml"
 
   | 73 ->
-# 697 "lexer_hack.mll"
+# 698 "lexer_hack.mll"
                        ( Teof          )
 # 3738 "lexer_hack.ml"
 
   | 74 ->
-# 698 "lexer_hack.mll"
+# 699 "lexer_hack.mll"
                        ( Terror        )
 # 3743 "lexer_hack.ml"
 
@@ -3749,82 +3749,82 @@ and format_xhptoken lexbuf =
 and __ocaml_lex_format_xhptoken_rec lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 701 "lexer_hack.mll"
+# 702 "lexer_hack.mll"
                        ( Teof        )
 # 3755 "lexer_hack.ml"
 
   | 1 ->
-# 702 "lexer_hack.mll"
+# 703 "lexer_hack.mll"
                        ( Tnewline    )
 # 3760 "lexer_hack.ml"
 
   | 2 ->
-# 703 "lexer_hack.mll"
+# 704 "lexer_hack.mll"
                        ( Tspace      )
 # 3765 "lexer_hack.ml"
 
   | 3 ->
-# 704 "lexer_hack.mll"
+# 705 "lexer_hack.mll"
                        ( Tlt         )
 # 3770 "lexer_hack.ml"
 
   | 4 ->
-# 705 "lexer_hack.mll"
+# 706 "lexer_hack.mll"
                        ( Tgt         )
 # 3775 "lexer_hack.ml"
 
   | 5 ->
-# 706 "lexer_hack.mll"
+# 707 "lexer_hack.mll"
                        ( Tlcb        )
 # 3780 "lexer_hack.ml"
 
   | 6 ->
-# 707 "lexer_hack.mll"
+# 708 "lexer_hack.mll"
                        ( Trcb        )
 # 3785 "lexer_hack.ml"
 
   | 7 ->
-# 708 "lexer_hack.mll"
+# 709 "lexer_hack.mll"
                        ( Tslash      )
 # 3790 "lexer_hack.ml"
 
   | 8 ->
-# 709 "lexer_hack.mll"
+# 710 "lexer_hack.mll"
                        ( Tdquote     )
 # 3795 "lexer_hack.ml"
 
   | 9 ->
-# 710 "lexer_hack.mll"
+# 711 "lexer_hack.mll"
                        ( Topen_comment      )
 # 3800 "lexer_hack.ml"
 
   | 10 ->
-# 711 "lexer_hack.mll"
+# 712 "lexer_hack.mll"
                        ( Tclose_comment     )
 # 3805 "lexer_hack.ml"
 
   | 11 ->
-# 712 "lexer_hack.mll"
+# 713 "lexer_hack.mll"
                        ( Tline_comment      )
 # 3810 "lexer_hack.ml"
 
   | 12 ->
-# 713 "lexer_hack.mll"
+# 714 "lexer_hack.mll"
                        ( Tword              )
 # 3815 "lexer_hack.ml"
 
   | 13 ->
-# 714 "lexer_hack.mll"
+# 715 "lexer_hack.mll"
                        ( Topen_xhp_comment  )
 # 3820 "lexer_hack.ml"
 
   | 14 ->
-# 715 "lexer_hack.mll"
+# 716 "lexer_hack.mll"
                        ( Tclose_xhp_comment )
 # 3825 "lexer_hack.ml"
 
   | 15 ->
-# 716 "lexer_hack.mll"
+# 717 "lexer_hack.mll"
                        ( Terror             )
 # 3830 "lexer_hack.ml"
 

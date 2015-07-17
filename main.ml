@@ -5,11 +5,25 @@
 
 open Parser_hack
 
+(**
+ * Read file, return string, no escape
+ *
+ * @param filename string
+ * @return string
+ *)
+let read_file filename =
+  let in_channel = open_in filename in
+  let file_content = ref "" in
+  (try while true do begin
+    let line = input_line in_channel in
+    file_content := !file_content ^ line
+  end done
+  with End_of_file -> close_in in_channel);
+  (*eprintf "file_content = %s" !file_content;*)
+  !file_content
+
 let _ =
   SharedMem.(init default_config);
-  let parser_return = program (Relative_path.Root, "") "
-  <?hh
-  function fn() {}
-  $a = 10 + 25;
-  " in
+  let file_content = read_file "test.php" in
+  let parser_return = program (Relative_path.Root, "") file_content in
   print_endline (Ast.show_program parser_return.ast)

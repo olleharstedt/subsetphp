@@ -586,7 +586,8 @@ and header file = parse
   | "<?hh"                      { `default_mode }
   | "<?hh" ws* "//"             { `explicit_mode }
   | "<?php" ws* "//" ws* "decl" { `php_decl_mode }
-  | "<?php"                     { `php_mode }
+  (*| "<?php"                     { `php_mode }*)
+  | "<?php"                     { `default_mode } (* We want to parse everything, always *)
   | _                           { `error }
 
 and next_newline_or_close_cb = parse
