@@ -146,13 +146,13 @@ end
         let rec f = function
           | 0 -> []
           | n -> new_var level :: f (n - 1)
-    in
-        f num_params
         in
+        f num_params
+      in
       let return_ty = new_var level in
       tvar := Link (TArrow(param_ty_list, return_ty)) ;
       param_ty_list, return_ty
-          | _ -> error "expected a function"
+  | _ -> error "expected a function"
 
 
   let rec infer env level = function
