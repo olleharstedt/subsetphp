@@ -156,11 +156,12 @@ end
 
 
   let rec infer env level = function
-    | Var name -> begin
-      try
-        instantiate level (Env.lookup env name)
-      with Not_found -> error ("variable " ^ name ^ " not found")
-    end
+    | Var name ->
+        begin
+          try
+            instantiate level (Env.lookup env name)
+          with Not_found -> error ("variable " ^ name ^ " not found")
+        end
     | Fun(param_list, body_expr) ->
         let param_ty_list = List.map (fun _ -> new_var level) param_list in
         let fn_env = List.fold_left2
