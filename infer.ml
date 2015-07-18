@@ -178,8 +178,8 @@ end
         let param_ty_list, return_ty =
           match_fun_ty (List.length arg_list) (infer env level fn_expr)
         in
-      List.iter2
-        (fun param_ty arg_expr -> unify param_ty (infer env level arg_expr))
-        param_ty_list arg_list
-      ;
-      return_ty
+        List.iter2
+          (fun param_ty arg_expr -> unify param_ty (infer env level arg_expr))
+          param_ty_list arg_list
+        ;
+        return_ty
