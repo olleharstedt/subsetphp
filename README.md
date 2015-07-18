@@ -88,7 +88,7 @@ function f($cond) {
 }
 ```
 
-Test for null? How does Hack do the nullable types trick? Flow sensitive type-inference.
+Test for null? How does Hack do the nullable types trick? Flow sensitive type-inference?
 
 ```php
 function(?int $x) : int {
@@ -104,4 +104,13 @@ Method chaining.
 
 ```php
   $this->foo()->bar();
+```
+
+By letting fixed-size array be internally represented as tuples, we can enforce correct usage of the `list` operator:
+```php
+function f($a) {
+  return array($a, $a, $a);
+}
+
+list($b, $c) = f(10);  // Error: list expected tuple 'a * 'a, but got 'a * 'a * 'a
 ```
