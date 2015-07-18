@@ -1,6 +1,7 @@
 <?php
 
 $a = 10;
+$a = 'asd';
 
 /*
 [(Ast.Stmt
