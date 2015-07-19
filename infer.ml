@@ -185,7 +185,7 @@ let rec match_fun_ty num_params = function
  * @param exprs expr list
  * @return ty
  *)
-let rec infer env level (exprs : expr_ list) =
+let rec infer_exprs env level (exprs : expr_ list) =
   Env.dump env;
   match exprs with
   | [] ->
@@ -213,13 +213,13 @@ let rec infer env level (exprs : expr_ list) =
   (*| Let(var_name, value_expr, body_expr) ->*)
   (*| Lvar(var_name, value_expr) :: tail ->*)
   | Binop (Eq None, (_, Lvar (_, var_name)), (_, (value_expr))) :: tail ->
-      let var_ty = infer env (level + 1) [value_expr] in
+      let var_ty = infer_exprs env (level + 1) [value_expr] in
       let generalized_ty = generalize level var_ty in
-      let already_exists = try Env.lookup env var_name; true with
+      let already_exists = try ignore (Env.lookup env var_name); true with
         | Not_found -> false
       in
       if already_exists then unify (Env.lookup env var_name) generalized_ty;
-      infer (Env.extend env var_name generalized_ty) level tail
+      infer_exprs (Env.extend env var_name generalized_ty) level tail
   (*
   | Call(fn_expr, arg_list) ->
       let param_ty_list, return_ty =
@@ -234,7 +234,7 @@ let rec infer env level (exprs : expr_ list) =
   | _ -> failwith "Not implemented: infer"
 
 let _ =
-  let ast1 = [Let("a", Num 10); Let("a", String "asd")] in
+  (*let ast1 = [Let("a", Num 10); Let("a", String "asd")] in*)
   let ast2 = [
     Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
       (Pos.none, (Ast.String (Pos.none, "asd"))));
@@ -242,7 +242,7 @@ let _ =
       (Pos.none, (Ast.Int (Pos.none, "123"))))]
 
   in
-  let result = infer Env.empty 0 ast2 in
+  let result = infer_exprs Env.empty 0 ast2 in
   print_endline (show_ty result)
 
   (*
@@ -257,9 +257,29 @@ let _ =
                                 in
                                 *)
 (*
+
+ $a = 'asd';
+
  (Ast.Stmt
     (Ast.Expr
        (<opaque>,
         Ast.Binop ((Ast.Eq None), (<opaque>, (Ast.Lvar (<opaque>, "$a"))),
           (<opaque>, (Ast.String (<opaque>, "asd")))))))]
+*)
+
+(*
+
+ function foo() { $a = 10; }
+
+ (Ast.Fun
+    { Ast.f_mode = FileInfo.Mpartial; f_tparams = []; f_ret = None;
+      f_ret_by_ref = false; f_name = (<opaque>, "\\foo"); f_params = [
+      ];
+      f_body = [(Ast.Expr
+                   (<opaque>,
+                    Ast.Binop ((Ast.Eq None),
+                      (<opaque>, (Ast.Lvar (<opaque>, "$a"))),
+                      (<opaque>, (Ast.Int (<opaque>, "10"))))))];
+      f_user_attributes = []; f_mtime = 0.; f_fun_kind = Ast.FSync;
+      f_namespace = { Namespace_env.ns_uses = <opaque>; ns_name = None } })]
 *)

@@ -3,6 +3,10 @@
 $a = 10;
 $a = 'asd';
 
+function foo() {
+  $a = 10;
+}
+
 /*
 [(Ast.Stmt
     (Ast.Expr
