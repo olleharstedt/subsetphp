@@ -1,11 +1,7 @@
 <?php
 
-$a = 10;
+$a = 10 + 20 + 20;
 $a = 'asd';
-
-function foo() {
-  $a = 10;
-}
 
 /*
 [(Ast.Stmt

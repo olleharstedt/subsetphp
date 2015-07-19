@@ -72,10 +72,11 @@ module Env = struct
    * @return unit
    *)
   let dump env =
+    print_endline "[ env = ";
     StringMap.iter (fun key value ->
-      print_endline (Printf.sprintf "key = %s, value = %s" key (show_ty value))
+      print_endline (Printf.sprintf "    %s : %s" key (show_ty value))
     ) env;
-    print_endline "enddump"
+    print_endline "]"
 end
 
 
@@ -255,7 +256,16 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
         | Not_found -> false
       in
       if already_exists then unify (Env.lookup env var_name) generalized_ty;
+
       infer_exprs (Env.extend env var_name generalized_ty) level tail
+
+  | Binop (Plus, (_, expr1), (_, expr2)) :: [] ->
+      let (env, expr1_ty) = infer_exprs env level [expr1] in
+      let (env, expr2_ty) = infer_exprs env level [expr2] in
+      unify expr1_ty TNum;
+      unify expr2_ty TNum;
+      (env, TNum)
+
   (*
   | Call(fn_expr, arg_list) ->
       let param_ty_list, return_ty =
@@ -267,7 +277,23 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
       ;
       return_ty
   *)
-  | _ -> failwith "Not implemented: infer"
+  | _ -> failwith "Not implemented: infer_exprs"
+
+(**
+ * Infer binary operation, like +, -, >= ...
+ *
+ * @return env
+ *)
+and infer_bop env level bop expr1 expr2 =
+  match bop, expr1, expr2 with
+  | Plus, expr1, epxr2 ->
+      let (env, expr1_ty) = infer_exprs env level [expr1] in
+      let (env, expr2_ty) = infer_exprs env level [expr2] in
+      unify expr1_ty TNum;
+      unify expr2_ty TNum;
+      env
+  | _ ->
+      failwith "Not implemented: infer_bop"
 
 (**
  * Read file, return string, no escape
