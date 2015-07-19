@@ -219,6 +219,10 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) =
       (* Statement can ignore expression return types *)
       let (env, _) = infer_exprs env 0 [expr] in
       env
+  | Expr (_, expr) :: tail ->
+      (* Statement can ignore expression return types *)
+      let (env, _) = infer_exprs env 0 [expr] in
+      infer_stmts env level tail
   | Noop :: _ ->
       env
   | stmt :: _ -> failwith (Printf.sprintf "Not implemented: infer_stmt: %s" (show_stmt stmt))
@@ -301,7 +305,7 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
       ;
       return_ty
   *)
-  | _ -> failwith "Not implemented: infer_exprs"
+  | expr :: _ -> failwith (Printf.sprintf "Not implemented: infer_exprs: %s" (show_expr_ expr))
 
 (**
  * Infer numerical binary operations, like +, -

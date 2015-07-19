@@ -1,6 +1,10 @@
 <?hh
 
-function foo($a) { }
+function foo($a) { 
+  $a = 10; 
+}
+
+foo(5);
 
 /*
 [(Ast.Stmt
