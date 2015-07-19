@@ -2,6 +2,8 @@
  * Code taken from: https://github.com/tomprimozic/type-systems
  *)
 
+open Ast
+
 type name = string
 [@@deriving show]
 
@@ -136,7 +138,7 @@ let instantiate level ty =
   let rec f ty = match ty with
     | TNum | TString | TUnit | TConst _ -> ty
     | TVar {contents = Link ty} -> f ty
-    | TVar {contents = Generic id} -> 
+    | TVar {contents = Generic id} ->
         begin
           try
             Hashtbl.find id_var_map id
@@ -162,7 +164,7 @@ let rec match_fun_ty num_params = function
         param_ty_list, return_ty
   | TVar {contents = Link ty} -> match_fun_ty num_params ty
   | TVar ({contents = Unbound(id, level)} as tvar) ->
-      let param_ty_list = 
+      let param_ty_list =
         let rec f = function
           | 0 -> []
           | n -> new_var level :: f (n - 1)
@@ -175,13 +177,22 @@ let rec match_fun_ty num_params = function
   | _ -> error "expected a function"
 
 
-let rec infer env level exprs = 
+(**
+ * Infer types
+ *
+ * @param env
+ * @param level int
+ * @param exprs expr list
+ * @return ty
+ *)
+let rec infer env level (exprs : expr_ list) =
   Env.dump env;
   match exprs with
-  | [] -> TUnit
-  | String _ :: _ -> 
+  | [] ->
+      TUnit
+  | String (_, _) :: [] ->
       TString
-  | Num _ :: _ -> 
+  | Int (_, _) :: [] | Float (_, _) :: [] ->
       TNum
   (*
   | Var name ->
@@ -200,7 +211,8 @@ let rec infer env level exprs =
       TArrow(param_ty_list, return_ty)
   *)
   (*| Let(var_name, value_expr, body_expr) ->*)
-  | Let(var_name, value_expr) :: tail ->
+  (*| Lvar(var_name, value_expr) :: tail ->*)
+  | Binop (Eq None, (_, Lvar (_, var_name)), (_, (value_expr))) :: tail ->
       let var_ty = infer env (level + 1) [value_expr] in
       let generalized_ty = generalize level var_ty in
       let already_exists = try Env.lookup env var_name; true with
@@ -223,7 +235,14 @@ let rec infer env level exprs =
 
 let _ =
   let ast1 = [Let("a", Num 10); Let("a", String "asd")] in
-  let result = infer Env.empty 0 ast1 in
+  let ast2 = [
+    Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
+      (Pos.none, (Ast.String (Pos.none, "asd"))));
+    Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
+      (Pos.none, (Ast.Int (Pos.none, "123"))))]
+
+  in
+  let result = infer Env.empty 0 ast2 in
   print_endline (show_ty result)
 
   (*
@@ -237,3 +256,10 @@ let _ =
                                                         Fail (Some msg)
                                 in
                                 *)
+(*
+ (Ast.Stmt
+    (Ast.Expr
+       (<opaque>,
+        Ast.Binop ((Ast.Eq None), (<opaque>, (Ast.Lvar (<opaque>, "$a"))),
+          (<opaque>, (Ast.String (<opaque>, "asd")))))))]
+*)

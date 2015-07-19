@@ -131,7 +131,7 @@ type_test: utils.cmx path.cmx relative_path.cmx pos.cmx namespace_env.cmx fileIn
 	ocamlfind ocamlopt -package ppx_deriving.show ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx type.ml -o type_test
 
 type_test2: infer.ml
-	ocamlfind ocamlopt -package ppx_deriving.show infer.ml -o type_test2
+	ocamlfind ocamlopt -package ppx_deriving.show ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.ml -o type_test2
 
 clean:
 	rm *.o *.cmi *.cmx
