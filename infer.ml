@@ -65,6 +65,12 @@ module Env = struct
   let empty : env = StringMap.empty
   let extend env name ty = StringMap.add name ty env
   let lookup env name = StringMap.find name env
+
+  (**
+   * Print environment
+   *
+   * @return unit
+   *)
   let dump env =
     StringMap.iter (fun key value ->
       print_endline (Printf.sprintf "key = %s, value = %s" key (show_ty value))
@@ -130,7 +136,8 @@ let rec generalize level = function
   | TArrow(param_ty_list, return_ty) ->
       TArrow(List.map (generalize level) param_ty_list, generalize level return_ty)
   | TVar {contents = Link ty} -> generalize level ty
-  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString _ | TNum _ | TConst _ as ty -> ty
+  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TNum | TConst _ as ty -> ty
+
   | _ -> failwith "generalize error"
 
 let instantiate level ty =
@@ -176,6 +183,35 @@ let rec match_fun_ty num_params = function
       param_ty_list, return_ty
   | _ -> error "expected a function"
 
+(**
+ * @return unit
+ *)
+let rec infer_program env level (defs : def list) =
+  match defs with
+  | [] ->
+      ()
+  | Stmt stmt :: tail ->
+      let env = infer_stmts env level [stmt] in
+      infer_program env level tail
+  | _ -> failwith "Not implemented: infer_program"
+
+(**
+ * Infer statement
+ *
+ * @param env
+ * @param level int
+ * @param stmt stmt
+ * @return env
+ *)
+and infer_stmts (env : Env.env) level (stmts : stmt list) =
+  match stmts with
+  | [] ->
+      env
+  | Expr (_, expr) :: [] ->
+      (* Statement can ignore expression return types *)
+      let (env, _) = infer_exprs env 0 [expr] in
+      env
+  | _ -> failwith "Not implemented: infer_stmt"
 
 (**
  * Infer types
@@ -183,17 +219,17 @@ let rec match_fun_ty num_params = function
  * @param env
  * @param level int
  * @param exprs expr list
- * @return ty
+ * @return env * ty
  *)
-let rec infer_exprs env level (exprs : expr_ list) =
+and infer_exprs (env : Env.env) level (exprs : expr_ list) =
   Env.dump env;
   match exprs with
   | [] ->
-      TUnit
+      (env, TUnit)
   | String (_, _) :: [] ->
-      TString
+      (env, TString)
   | Int (_, _) :: [] | Float (_, _) :: [] ->
-      TNum
+      (env, TNum)
   (*
   | Var name ->
       begin
@@ -213,7 +249,7 @@ let rec infer_exprs env level (exprs : expr_ list) =
   (*| Let(var_name, value_expr, body_expr) ->*)
   (*| Lvar(var_name, value_expr) :: tail ->*)
   | Binop (Eq None, (_, Lvar (_, var_name)), (_, (value_expr))) :: tail ->
-      let var_ty = infer_exprs env (level + 1) [value_expr] in
+      let (env, var_ty) = infer_exprs env (level + 1) [value_expr] in
       let generalized_ty = generalize level var_ty in
       let already_exists = try ignore (Env.lookup env var_name); true with
         | Not_found -> false
@@ -233,17 +269,51 @@ let rec infer_exprs env level (exprs : expr_ list) =
   *)
   | _ -> failwith "Not implemented: infer"
 
+(**
+ * Read file, return string, no escape
+ *
+ * @param filename string
+ * @return string
+ *)
+let read_file filename =
+  let in_channel = open_in filename in
+  let file_content = ref "" in
+  (try while true do begin
+    let line = input_line in_channel in
+    file_content := !file_content ^ line
+  end done
+  with End_of_file -> close_in in_channel);
+  (*eprintf "file_content = %s" !file_content;*)
+  !file_content
+
 let _ =
+  let open Parser_hack in
+  SharedMem.(init default_config);
+  let file_content = read_file "test.php" in
+  let parser_return = Parser_hack.program (Relative_path.Root, "") file_content in
+  print_endline (Ast.show_program parser_return.ast);
+
   (*let ast1 = [Let("a", Num 10); Let("a", String "asd")] in*)
+  (*
   let ast2 = [
-    Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
-      (Pos.none, (Ast.String (Pos.none, "asd"))));
+     (Ast.Stmt
+        (Ast.Expr (Pos.none,
+        Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
+          (Pos.none, (Ast.String (Pos.none, "asd")))))));
+     (Ast.Stmt
+        (Ast.Expr (Pos.none,
+        Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
+          (Pos.none, (Ast.Int (Pos.none, "123")))))));
+      (*
     Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
       (Pos.none, (Ast.Int (Pos.none, "123"))))]
-
+  *)
+  ] 
   in
-  let result = infer_exprs Env.empty 0 ast2 in
-  print_endline (show_ty result)
+  *)
+  infer_program Env.empty 0 parser_return.ast
+
+  (*print_endline (show_ty result_ty)*)
 
   (*
       let result =
