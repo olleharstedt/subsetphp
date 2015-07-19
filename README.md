@@ -50,7 +50,8 @@ $b = $a . $a;
 
 How to deal with `_POST` etc?
 
-How to deal with autoload?
+How to deal with autoload? Compile files into type-information so that we don't have to traverse
+all files each time we type-check?
 
 ```php
 function a() {
