@@ -188,11 +188,18 @@ let rec match_fun_ty num_params = function
  * @return unit
  *)
 let rec infer_program env level (defs : def list) =
+  Env.dump env;
   match defs with
   | [] ->
       ()
   | Stmt stmt :: tail ->
       let env = infer_stmts env level [stmt] in
+      infer_program env level tail
+  | Fun fun_ :: tail ->
+      let (_, fun_name) = fun_.f_name in
+      let (env, fn_ty) = infer_fun env level fun_ in
+      let env = Env.extend env fun_name fn_ty in
+      (*infer_exprs (Env.extend env var_name generalized_ty) level tail;*)
       infer_program env level tail
   | _ -> failwith "Not implemented: infer_program"
 
@@ -212,7 +219,28 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) =
       (* Statement can ignore expression return types *)
       let (env, _) = infer_exprs env 0 [expr] in
       env
-  | _ -> failwith "Not implemented: infer_stmt"
+  | Noop :: _ ->
+      env
+  | stmt :: _ -> failwith (Printf.sprintf "Not implemented: infer_stmt: %s" (show_stmt stmt))
+
+(**
+ * @return env * ty
+ *
+  f_params          : fun_param list;
+ *)
+and infer_fun env level fun_ =
+  (*let param_ty_list = List.map (fun _ -> new_var level) param_list in*)
+  let param_list = List.map (fun param -> match param.param_id with
+    | _, name -> name
+  ) fun_.f_params in
+  let param_ty_list = List.map (fun _ -> new_var level) param_list in
+  let fn_env = List.fold_left2
+    (fun env param_name param_ty -> Env.extend env param_name param_ty)
+    env param_list param_ty_list
+  in
+  let body_expr = fun_.f_body in
+  let _ = infer_stmts fn_env level body_expr in
+  (env, TArrow(param_ty_list, TUnit))
 
 (**
  * Infer types
@@ -259,12 +287,8 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
 
       infer_exprs (Env.extend env var_name generalized_ty) level tail
 
-  | Binop (Plus, (_, expr1), (_, expr2)) :: [] ->
-      let (env, expr1_ty) = infer_exprs env level [expr1] in
-      let (env, expr2_ty) = infer_exprs env level [expr2] in
-      unify expr1_ty TNum;
-      unify expr2_ty TNum;
-      (env, TNum)
+  | Binop (bop, (_, expr1), (_, expr2)) :: [] when is_numerical_op bop ->
+      (infer_numberical_op env level bop expr1 expr2, TNum)
 
   (*
   | Call(fn_expr, arg_list) ->
@@ -280,13 +304,13 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
   | _ -> failwith "Not implemented: infer_exprs"
 
 (**
- * Infer binary operation, like +, -, >= ...
+ * Infer numerical binary operations, like +, -
  *
  * @return env
  *)
-and infer_bop env level bop expr1 expr2 =
-  match bop, expr1, expr2 with
-  | Plus, expr1, epxr2 ->
+and infer_numberical_op env level bop expr1 expr2 =
+  match bop with
+  | Plus | Minus | Star | Slash | Starstar | Percent ->
       let (env, expr1_ty) = infer_exprs env level [expr1] in
       let (env, expr2_ty) = infer_exprs env level [expr2] in
       unify expr1_ty TNum;
@@ -295,6 +319,11 @@ and infer_bop env level bop expr1 expr2 =
   | _ ->
       failwith "Not implemented: infer_bop"
 
+and is_numerical_op = function
+  | Plus | Minus | Star | Slash | Starstar | Percent ->
+      true
+  | _ ->
+      false
 (**
  * Read file, return string, no escape
  *
@@ -334,7 +363,7 @@ let _ =
     Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
       (Pos.none, (Ast.Int (Pos.none, "123"))))]
   *)
-  ] 
+  ]
   in
   *)
   infer_program Env.empty 0 parser_return.ast
