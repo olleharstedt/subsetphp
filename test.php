@@ -1,10 +1,10 @@
-<?hh
+<?php
 
 function foo($a) { 
   $a = 10; 
 }
 
-foo(5);
+foo('asd');
 
 /*
 [(Ast.Stmt

@@ -10,7 +10,7 @@ type name = string
 type expr =
   | Var of name                           (* variable *)
   | Call of expr * expr list              (* application *)
-  | Fun of name list * expr               (* abstraction *)
+  | Fun of name * expr list              (* abstraction, name of function and args *)
   (*| Let of name * expr * expr           (* let *)*)
   | Let of name * expr                    (* PHP variables don't have scope *)
   | Num of int                            (* PHP can't infer int or float, use num *)
@@ -27,7 +27,7 @@ type level = int
 type ty =
   | TConst of name                    (* type constant: `int` or `bool` *)
   | TApp of ty * ty list              (* type application: `list[int]` *)
-  | TArrow of ty list * ty            (* function type: `(int, int) -> int` *)
+  | TArrow of ty list * ty            (* function type: e.g. `(int, int) -> int` *)
   | TVar of tvar ref                  (* type variable *)
   | TNum
   | TString
@@ -79,6 +79,13 @@ module Env = struct
     print_endline "]"
 end
 
+(**
+ * Turn type expr into expr_
+ * Strip Pos, that is
+ *)
+let expr_of_expr_ expr =
+  match expr with
+  | (pos, expr_) -> expr_
 
 let occurs_check_adjust_levels tvar_id tvar_level ty =
   let rec f = function
@@ -163,7 +170,13 @@ let instantiate level ty =
   in
   f ty
 
-
+(**
+ * Gives type of function?
+ *
+ * @param num_params      Number of parameters to function
+ * @param ty ?
+ * @return ty list * ty   List of param types and return type
+ *)
 let rec match_fun_ty num_params = function
   | TArrow(param_ty_list, return_ty) ->
       if List.length param_ty_list <> num_params then
@@ -196,9 +209,16 @@ let rec infer_program env level (defs : def list) =
       let env = infer_stmts env level [stmt] in
       infer_program env level tail
   | Fun fun_ :: tail ->
-      let (_, fun_name) = fun_.f_name in
+      let open Namespace_env in
+      let (_, fn_name) = fun_.f_name in
+      let namespace_name = fun_.f_namespace.ns_name in
+      let fn_name = String.sub fn_name 1 (String.length fn_name - 1) in  (* Strip leading \ (namespace thing) *)
+      (match namespace_name with
+      | Some _ -> failwith "namespaces not implemented"
+      | None -> ()
+      );
       let (env, fn_ty) = infer_fun env level fun_ in
-      let env = Env.extend env fun_name fn_ty in
+      let env = Env.extend env fn_name fn_ty in
       (*infer_exprs (Env.extend env var_name generalized_ty) level tail;*)
       infer_program env level tail
   | _ -> failwith "Not implemented: infer_program"
@@ -215,10 +235,12 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) =
   match stmts with
   | [] ->
       env
+      (*
   | Expr (_, expr) :: [] ->
       (* Statement can ignore expression return types *)
       let (env, _) = infer_exprs env 0 [expr] in
       env
+      *)
   | Expr (_, expr) :: tail ->
       (* Statement can ignore expression return types *)
       let (env, _) = infer_exprs env 0 [expr] in
@@ -291,8 +313,52 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
 
       infer_exprs (Env.extend env var_name generalized_ty) level tail
 
+  (* Numerical op *)
   | Binop (bop, (_, expr1), (_, expr2)) :: [] when is_numerical_op bop ->
       (infer_numberical_op env level bop expr1 expr2, TNum)
+
+  | Call ((_, Id (_, fn_name)), arg_list, dontknow) :: _ ->
+      print_endline fn_name;
+      let arg_list  = List.map (fun expr -> expr_of_expr_ expr) arg_list in
+      let fn_ty = try Some (Env.lookup env fn_name) with | Not_found -> None in
+      (match fn_ty with
+      | Some ty ->
+          (match ty with
+          | TArrow (args, return_ty) ->
+              List.iter2
+                (fun param_ty arg_expr -> 
+                  let (env, ty) = infer_exprs env level [arg_expr] in
+                  unify param_ty ty
+                )
+                args arg_list
+              ;
+          | _ ->
+              failwith "Not a function?"
+          );
+          ()
+      | None ->
+          (* Infer function type here
+           * How much can we infer from a function usage in PHP? Lack of syntax for optional argument
+           * screw things up
+           *)
+          ()
+      );
+      (*
+      let param_ty_list, return_ty =
+        match_fun_ty (List.length arg_list) (infer_exprs env level [dontknow])
+      in
+      *)
+      (*
+      List.iter2
+        (fun param_ty arg_expr -> 
+          let (env, ty) = infer_exprs env level [arg_expr] in
+          unify param_ty ty
+        )
+        param_ty_list arg_list
+      ;
+      return_ty
+      *)
+      env, TUnit
 
   (*
   | Call(fn_expr, arg_list) ->
