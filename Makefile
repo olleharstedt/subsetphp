@@ -1,4 +1,4 @@
-all: subsetphp
+all: subsetphp test
 
 subsetphp: realpath.o hh_shared.o parser_hack.cmx infer.cmx main.ml
 	ocamlfind ocamlopt -package ppx_deriving.show -linkall ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.cmx main.ml -o subsetphp
@@ -134,6 +134,10 @@ type_test: utils.cmx path.cmx relative_path.cmx pos.cmx namespace_env.cmx fileIn
 
 infer.cmx: infer.ml
 	ocamlfind ocamlopt -g -package ppx_deriving.show ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.ml -o type_test2
+
+test: subsetphp test.ml
+	ocamlfind ocamlopt -g -package ppx_deriving.show,oUnit ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.cmx test.ml -o test
+
 
 clean:
 	rm *.o *.cmi *.cmx
