@@ -6,6 +6,9 @@ Because maybe you can't commit to a new language/architecture.
 
 _Disclaimer: Nothing is implemented yet._
 
+Notes
+-----
+
 ```php
 $a = 1.0 + 1; // OK, only one number type: number. Because lack of type-hints and + works on everything.
 echo 1; // Error: `echo` expects string (only allow print()?). Or don't allow functions without paranthesis?
@@ -121,3 +124,14 @@ list($b, $c) = f(10);  // Error: list expected tuple 'a * 'a, but got 'a * 'a * 
 Enforce case-sensitivity? Forbid `Array()` but allow `array()` etc. More info: `https://wiki.theory.org/YourLanguageSucks#PHP_sucks_because`.
 
 Forbid any non-prepared statements to database. But you can concat strings? Like `"SELECT " . $a . " FROM " . $b`. Mark as "dirty" string that cannot be used in query?
+
+LLVM
+----
+
+Motivated? HHVM will add some LLVM-support - why should I?
+
+How to represent the IR, without breaking parser/lexer from Hack?
+
+What PHP-features _cannot_ be used from LLVM? Reflection?
+
+Hack vs strict Hack vs LLVM. No benchmark for strict Hack?
