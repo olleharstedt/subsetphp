@@ -2,6 +2,8 @@ Type-inferred strict subset of PHP
 
 Because Hacklang is not strict enough.
 
+Because maybe you can't commit to a new language/architecture.
+
 _Disclaimer: Nothing is implemented yet._
 
 ```php

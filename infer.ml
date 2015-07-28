@@ -373,8 +373,9 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
   (*| Let(var_name, value_expr, body_expr) ->*)
   (*| Lvar(var_name, value_expr) :: tail ->*)
   | Binop (Eq None, (_, Lvar (_, var_name)), (_, (value_expr))) :: tail ->
-      let (env, var_ty) = infer_exprs env (level + 1) [value_expr] in
-      let generalized_ty = generalize level var_ty in
+      let (env, value_ty) = infer_exprs env (level + 1) [value_expr] in
+      if value_ty = TUnit then failwith "Right-hand can't evaluate to void";
+      let generalized_ty = generalize level value_ty in
       let already_exists = try ignore (Env.lookup env var_name); true with
         | Not_found -> false
       in
@@ -385,6 +386,14 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
   (* Numerical op *)
   | Binop (bop, (_, expr1), (_, expr2)) :: [] when is_numerical_op bop ->
       (infer_numberical_op env level bop expr1 expr2, TNum)
+
+  | Lvar (pos, var_name) :: [] ->  (* TODO: What if tail? *)
+      let var_type = try Some (Env.lookup env var_name) with | Not_found -> None in
+      let var_type = (match var_type with
+      | None -> failwith "Can't use variable before it's defined"
+      | Some var_type -> var_type)
+      in
+      env, var_type
 
   | Call ((_, Id (_, fn_name)), arg_list, dontknow) :: _ ->
       print_endline fn_name;
