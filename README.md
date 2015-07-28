@@ -135,3 +135,9 @@ How to represent the IR, without breaking parser/lexer from Hack?
 What PHP-features _cannot_ be used from LLVM? Reflection?
 
 Hack vs strict Hack vs LLVM. No benchmark for strict Hack?
+
+17:07:14 - Drup: No
+17:07:25 - Drup: php -> ast -> typed ast -> IR -> llvm
+17:07:57 - ollehar: why do I need IR in that equation?
+17:08:31 - ggole: You might want to do your own transformations
+17:08:46 - Drup: because you can't write custom optimisations on the typed ast and writing optimisation on the llvm one is quite painful
