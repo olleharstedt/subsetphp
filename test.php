@@ -1,10 +1,14 @@
 <?php
 
+$b = 12;
+
 function foo($a) { 
-  $a = 10; 
+  return 10;
 }
 
-foo('asd');
+$b = foo(10);
+foo(10);
+
 
 /*
 [(Ast.Stmt

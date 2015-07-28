@@ -3,6 +3,7 @@
  *)
 
 open Ast
+open Printf
 
 type name = string
 [@@deriving show]
@@ -60,22 +61,27 @@ let error msg = raise (Error msg)
 
 module Env = struct
   module StringMap = Map.Make (String)
-  type env = ty StringMap.t
+  type env = ty StringMap.t * ty option  (* normal mappings * return type *)
 
-  let empty : env = StringMap.empty
-  let extend env name ty = StringMap.add name ty env
-  let lookup env name = StringMap.find name env
+  let empty : env = (StringMap.empty, None)
+  let extend env name ty = 
+    let new_mapping = StringMap.add name ty (fst env) in
+    (new_mapping, (snd env))
+  let lookup env name = StringMap.find name (fst env)
+  let new_return_type env ty : env =
+    (fst env, ty)
 
   (**
    * Print environment
    *
    * @return unit
    *)
-  let dump env =
+  let dump (env : env) =
     print_endline "[ env = ";
     StringMap.iter (fun key value ->
-      print_endline (Printf.sprintf "    %s : %s" key (show_ty value))
-    ) env;
+      print_endline (sprintf "    %s : %s" key (show_ty value))
+    ) (fst env);
+    print_endline (sprintf "    return type = %s" (match snd env with Some ty -> show_ty ty | None -> "None"));
     print_endline "]"
 end
 
@@ -132,7 +138,10 @@ let rec unify ty1 ty2 =
     | ty, TVar ({contents = Unbound(id, level)} as tvar) ->
         occurs_check_adjust_levels id level ty ;
         tvar := Link ty
-    | _, _ -> error ("cannot unify types " ^ show_ty ty1 ^ " and " ^ show_ty ty2)
+    | _, _ -> 
+        let bt = Printexc.get_backtrace () in
+        print_endline bt;
+        error ("cannot unify types " ^ show_ty ty1 ^ " and " ^ show_ty ty2)
 
 
 
@@ -144,9 +153,10 @@ let rec generalize level = function
   | TArrow(param_ty_list, return_ty) ->
       TArrow(List.map (generalize level) param_ty_list, generalize level return_ty)
   | TVar {contents = Link ty} -> generalize level ty
-  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TNum | TConst _ as ty -> ty
+  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TNum | TUnit | TConst _ as ty -> ty
 
-  | _ -> failwith "generalize error"
+  | ty -> failwith (sprintf "generalize error: %s" (show_ty ty))
+
 
 let instantiate level ty =
   let id_var_map = Hashtbl.create 10 in
@@ -200,7 +210,7 @@ let rec match_fun_ty num_params = function
 (**
  * @return unit
  *)
-let rec infer_program env level (defs : def list) =
+let rec infer_program (env : Env.env) level (defs : def list) =
   Env.dump env;
   match defs with
   | [] ->
@@ -225,6 +235,7 @@ let rec infer_program env level (defs : def list) =
 
 (**
  * Infer statement
+ * All statements return type TUnit
  *
  * @param env
  * @param level int
@@ -232,6 +243,7 @@ let rec infer_program env level (defs : def list) =
  * @return env
  *)
 and infer_stmts (env : Env.env) level (stmts : stmt list) =
+  Env.dump env;
   match stmts with
   | [] ->
       env
@@ -247,26 +259,72 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) =
       infer_stmts env level tail
   | Noop :: _ ->
       env
-  | stmt :: _ -> failwith (Printf.sprintf "Not implemented: infer_stmt: %s" (show_stmt stmt))
+  | Block stmts :: tail ->
+      let env = infer_stmts env level stmts in
+      infer_stmts env level tail
+
+  | If (e, b1, b2) :: tail ->
+
+      let env = infer_stmts env level b1 in
+      let env = infer_stmts env level b2 in
+      infer_stmts env level tail
+
+  | Return (pos, expr_opt) :: tail -> 
+      (match expr_opt, env with
+      | None, (_, return_ty) ->
+          (match return_ty with
+          | Some ty ->
+              unify ty TUnit
+          | None ->
+              ()
+          );
+          let env = (fst env, Some TUnit) in
+          infer_stmts env level tail
+      | Some (pos, expr_), (_, current_return_ty) ->
+          let (env, return_ty) = infer_exprs env level [expr_] in
+          (match current_return_ty with
+          | Some ty ->
+              unify return_ty ty
+          | None ->
+              ()
+          );
+          let env = Env.new_return_type env (Some return_ty) in
+          infer_stmts env level tail
+      )
+  | stmt :: _ -> failwith (sprintf "Not implemented: infer_stmt: %s" (show_stmt stmt))
 
 (**
  * @return env * ty
  *
   f_params          : fun_param list;
  *)
-and infer_fun env level fun_ =
+and infer_fun (env : Env.env) level fun_ =
   (*let param_ty_list = List.map (fun _ -> new_var level) param_list in*)
   let param_list = List.map (fun param -> match param.param_id with
     | _, name -> name
   ) fun_.f_params in
   let param_ty_list = List.map (fun _ -> new_var level) param_list in
+
+  (* New scope for function *)
+  (* TODO: Global variables? *)
+  let empty_env = Env.empty in
+
   let fn_env = List.fold_left2
     (fun env param_name param_ty -> Env.extend env param_name param_ty)
-    env param_list param_ty_list
+    empty_env param_list param_ty_list
   in
   let body_expr = fun_.f_body in
-  let _ = infer_stmts fn_env level body_expr in
-  (env, TArrow(param_ty_list, TUnit))
+
+  (* Get the return type from the body of the function *)
+  let fn_env = infer_stmts fn_env level body_expr in
+  let return_type = match snd fn_env with
+  | Some ty -> ty
+  | None -> TUnit
+  in
+
+  print_endline (sprintf "return type = %s" (show_ty return_type));
+
+  (env, TArrow(param_ty_list, return_type))
 
 (**
  * Infer types
@@ -321,7 +379,7 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
       print_endline fn_name;
       let arg_list  = List.map (fun expr -> expr_of_expr_ expr) arg_list in
       let fn_ty = try Some (Env.lookup env fn_name) with | Not_found -> None in
-      (match fn_ty with
+      let return_ty = (match fn_ty with
       | Some ty ->
           (match ty with
           | TArrow (args, return_ty) ->
@@ -332,17 +390,18 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
                 )
                 args arg_list
               ;
+              return_ty
           | _ ->
               failwith "Not a function?"
-          );
-          ()
+          )
       | None ->
           (* Infer function type here
            * How much can we infer from a function usage in PHP? Lack of syntax for optional argument
            * screw things up
            *)
-          ()
-      );
+          failwith "not implemented: infer function type before definition"
+      )
+      in
       (*
       let param_ty_list, return_ty =
         match_fun_ty (List.length arg_list) (infer_exprs env level [dontknow])
@@ -358,7 +417,7 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
       ;
       return_ty
       *)
-      env, TUnit
+      env, return_ty
 
   (*
   | Call(fn_expr, arg_list) ->
@@ -371,7 +430,7 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
       ;
       return_ty
   *)
-  | expr :: _ -> failwith (Printf.sprintf "Not implemented: infer_exprs: %s" (show_expr_ expr))
+  | expr :: _ -> failwith (sprintf "Not implemented: infer_exprs: %s" (show_expr_ expr))
 
 (**
  * Infer numerical binary operations, like +, -
@@ -412,6 +471,8 @@ let read_file filename =
   !file_content
 
 let _ =
+  Printexc.record_backtrace true;
+  
   let open Parser_hack in
   SharedMem.(init default_config);
   let file_content = read_file "test.php" in
