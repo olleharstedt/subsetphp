@@ -61,15 +61,20 @@ let error msg = raise (Error msg)
 
 module Env = struct
   module StringMap = Map.Make (String)
-  type env = ty StringMap.t * ty option  (* normal mappings * return type *)
+  type env = {
+    map : ty StringMap.t;
+    return_ty : ty option;
+  }
+  
+  (* ty StringMap.t * ty option  (* normal mappings * return type *)*)
 
-  let empty : env = (StringMap.empty, None)
+  let empty : env = {map = StringMap.empty; return_ty = None}
   let extend env name ty = 
-    let new_mapping = StringMap.add name ty (fst env) in
-    (new_mapping, (snd env))
-  let lookup env name = StringMap.find name (fst env)
+    let new_mapping = StringMap.add name ty (env.map) in
+    {env with map = new_mapping}
+  let lookup env name = StringMap.find name env.map
   let new_return_type env ty : env =
-    (fst env, ty)
+    {env with return_ty = ty}
 
   (**
    * Print environment
@@ -80,8 +85,8 @@ module Env = struct
     print_endline "[ env = ";
     StringMap.iter (fun key value ->
       print_endline (sprintf "    %s : %s" key (show_ty value))
-    ) (fst env);
-    print_endline (sprintf "    return type = %s" (match snd env with Some ty -> show_ty ty | None -> "None"));
+    ) env.map;
+    print_endline (sprintf "    return type = %s" (match env.return_ty with Some ty -> show_ty ty | None -> "None"));
     print_endline "]"
 end
 
@@ -155,7 +160,7 @@ let rec generalize level = function
   | TVar {contents = Link ty} -> generalize level ty
   | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TNum | TUnit | TConst _ as ty -> ty
 
-  | ty -> failwith (sprintf "generalize error: %s" (show_ty ty))
+  (*| ty -> failwith (sprintf "generalize error: %s" (show_ty ty))*)
 
 
 let instantiate level ty =
@@ -274,19 +279,20 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) =
       infer_stmts env level tail
 
   | Return (pos, expr_opt) :: tail -> 
-      (match expr_opt, env with
-      | None, (_, return_ty) ->
-          (match return_ty with
+      let open Env in
+      (match expr_opt with
+      | None ->
+          (match env.return_ty with
           | Some ty ->
               unify ty TUnit
           | None ->
               ()
           );
-          let env = (fst env, Some TUnit) in
+          let env = {env with return_ty = Some TUnit} in
           infer_stmts env level tail
-      | Some (pos, expr_), (_, current_return_ty) ->
+      | Some (pos, expr_) ->
           let (env, return_ty) = infer_exprs env level [expr_] in
-          (match current_return_ty with
+          (match env.return_ty with
           | Some ty ->
               unify return_ty ty
           | None ->
@@ -303,6 +309,7 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) =
   f_params          : fun_param list;
  *)
 and infer_fun (env : Env.env) level fun_ =
+  let open Env in
   (*let param_ty_list = List.map (fun _ -> new_var level) param_list in*)
   let param_list = List.map (fun param -> match param.param_id with
     | _, name -> name
@@ -321,7 +328,7 @@ and infer_fun (env : Env.env) level fun_ =
 
   (* Get the return type from the body of the function *)
   let fn_env = infer_stmts fn_env level body_expr in
-  let return_type = match snd fn_env with
+  let return_type = match fn_env.return_ty with
   | Some ty -> ty
   | None -> TUnit
   in

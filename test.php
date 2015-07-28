@@ -8,7 +8,6 @@ function foo($a) {
 
 $b = foo(10);
 
-
 /*
 [(Ast.Stmt
     (Ast.Expr
