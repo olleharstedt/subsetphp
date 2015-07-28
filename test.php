@@ -1,13 +1,12 @@
 <?php
 
-$b = 12;
+$b = 1 + 12;
 
 function foo($a) { 
   return 10;
 }
 
 $b = foo(10);
-foo(10);
 
 
 /*

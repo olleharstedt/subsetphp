@@ -254,8 +254,12 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) =
       env
       *)
   | Expr (_, expr) :: tail ->
-      (* Statement can ignore expression return types *)
-      let (env, _) = infer_exprs env 0 [expr] in
+
+      let (env, ty) = infer_exprs env 0 [expr] in
+
+      (* All expressions in statements must return unit *)
+      unify TUnit ty;
+
       infer_stmts env level tail
   | Noop :: _ ->
       env
