@@ -1,6 +1,6 @@
 <?php
 
-$b = 1 + 12;
+$b = foo();
 
 function foo($a) { 
   return 10;

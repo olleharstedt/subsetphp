@@ -464,51 +464,6 @@ and is_numerical_op = function
       true
   | _ ->
       false
-(**
- * Read file, return string, no escape
- *
- * @param filename string
- * @return string
- *)
-let read_file filename =
-  let in_channel = open_in filename in
-  let file_content = ref "" in
-  (try while true do begin
-    let line = input_line in_channel in
-    file_content := !file_content ^ line
-  end done
-  with End_of_file -> close_in in_channel);
-  (*eprintf "file_content = %s" !file_content;*)
-  !file_content
-
-let _ =
-  Printexc.record_backtrace true;
-  
-  let open Parser_hack in
-  SharedMem.(init default_config);
-  let file_content = read_file "test.php" in
-  let parser_return = Parser_hack.program (Relative_path.Root, "") file_content in
-  print_endline (Ast.show_program parser_return.ast);
-
-  (*let ast1 = [Let("a", Num 10); Let("a", String "asd")] in*)
-  (*
-  let ast2 = [
-     (Ast.Stmt
-        (Ast.Expr (Pos.none,
-        Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
-          (Pos.none, (Ast.String (Pos.none, "asd")))))));
-     (Ast.Stmt
-        (Ast.Expr (Pos.none,
-        Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
-          (Pos.none, (Ast.Int (Pos.none, "123")))))));
-      (*
-    Ast.Binop ((Ast.Eq None), (Pos.none, (Ast.Lvar (Pos.none, "$a"))),
-      (Pos.none, (Ast.Int (Pos.none, "123"))))]
-  *)
-  ]
-  in
-  *)
-  infer_program Env.empty 0 parser_return.ast
 
   (*print_endline (show_ty result_ty)*)
 

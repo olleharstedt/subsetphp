@@ -4,6 +4,7 @@
  *)
 
 open Parser_hack
+open Infer
 
 (**
  * Read file, return string, no escape
@@ -22,8 +23,22 @@ let read_file filename =
   (*eprintf "file_content = %s" !file_content;*)
   !file_content
 
+  (*
 let _ =
   SharedMem.(init default_config);
   let file_content = read_file "test.php" in
   let parser_return = program (Relative_path.Root, "") file_content in
   print_endline (Ast.show_program parser_return.ast)
+*)
+
+
+let _ =
+  Printexc.record_backtrace true;
+  
+  let open Parser_hack in
+  SharedMem.(init default_config);
+  let file_content = read_file "test.php" in
+  let parser_return = Parser_hack.program (Relative_path.Root, "") file_content in
+  print_endline (Ast.show_program parser_return.ast);
+
+  infer_program Env.empty 0 parser_return.ast
