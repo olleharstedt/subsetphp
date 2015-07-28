@@ -138,6 +138,11 @@ infer.cmx: infer.ml
 test: subsetphp test.ml
 	ocamlfind ocamlopt -g -linkpkg -package ppx_deriving.show,oUnit ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.cmx test.ml -o test
 
+llvm_test: subsetphp llvm.ml
+	ocamlfind ocamlopt -cc g++ -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -cc g++ -package llvm,llvm.bitreader -linkpkg llvm_test.ml -o llvm_test
+	#export OCAMLPATH=/usr/lib/ocaml/llvm-$(LLVM_VERSION)
+	#ocamlbuild -classic-display -j 0 -cflags -w,@a-4  -use-ocamlfind -pkgs llvm,llvm.bitreader  -I src -build-dir build/tutorial01 tutorial01.byte
+
 
 clean:
 	rm *.o *.cmi *.cmx
