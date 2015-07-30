@@ -1,28 +1,48 @@
-Type-inferred strict subset of PHP
+Type-inferred strict subset of PHP with LLVM-bindings possibly.
 
 Because Hacklang is not strict enough.
 
-Because maybe you can't commit to a new language/architecture.
+Because maybe you can't/don't want to commit to another architecture.
 
 _Disclaimer: Nothing is implemented yet._
+
+Version goals
+-------------
+
+- 0.0.1: Make a web-page where you can try out the type-inference.
+         Prototype llvm-bindings.
+         Prototype AST with types.
+         Type-infer int and string and functions return value.
+         Use binary math operations and concatenations.
+- 0.0.2: Type-infer arrays.
+- 0.1.0: Benchmark the first program on benchmarkgames, compare with Java, PHP, Hack (strict), Rust, C.
+- 1.0.0: Convert something (framework?) to subsetphp and run it, benchmark.
+
+TODO: Make up a working solution for optional arguments.
+
+TODO: Better error messages using Pos.
+
+TODO: Polymorphism.
 
 Notes
 -----
 
 ```php
-$a = 1.0 + 1; // OK, only one number type: number. Because lack of type-hints and + works on everything.
-echo 1; // Error: `echo` expects string (only allow print()?). Or don't allow functions without paranthesis?
-function_returning_int(); // Error: Must cast to (void) to use function returning non-void without catching output (like ignore in OCaml)
-$a == $b; // Error: Don't allow == anymore
-"bla bla $a"; // Error: No more magic quotes, use sprintf instead.
-'bla bla'; // Error: Use only double-quotations for quotes
-$a[0]; // Only works on strings and arrays
-@foo(); // Don't allow @?
-function foo(int $i) {} // Actually enforce int here. Same with float/string/array. TODO: Can't, because "got int, expected int".
-if (): ... endif; // Error: Don't allow alternative syntax
-$foo[bar]; // Error: Don't allow keys without quotes.
-!$foo; // Only allow ! on bools
-10 . "asd"; // Error: Can't concat number with string
+$a = 1.0 + 1;  // OK, only one number type: number. Because lack of type-hints and + works on everything. TODO: int/float might be a performance bottle-neck?
+echo 1;  // Error: `echo` expects string (only allow print()?). Or don't allow functions without paranthesis?
+function_returning_int();  // Error: Must cast to (void) to use function returning non-void without catching output (like ignore in OCaml)
+$a == $b;  // Error: Don't allow == anymore
+$obj === $obj2;  // Don't allow === on objects? Because it behaves differently than === on values. Always use $obj.equal($obj2).
+"bla bla $a";  // Error: No more magic quotes, use sprintf instead.
+'bla bla';  // Error: Use only double-quotations for quotes
+$a[0];  // Only works on strings and arrays
+@foo();  // Don't allow @?
+function foo(int $i) {}  // Actually enforce int here. Same with float/string/array. TODO: Can't, because "got int, expected int". PHP 7?
+if (): ... endif;  // Error: Don't allow alternative syntax
+$foo[bar];  // Error: Don't allow keys without quotes.
+!$foo;  // Only allow ! on bools
+10 . "asd";  // Error: Can't concat number with string
+$query = "SELECT * FROM table WHERE a = " . $a;  // Dirty string because of concatenation with variable, can't be used in database queries.
 ```
 
 From IRC:
@@ -125,6 +145,10 @@ Enforce case-sensitivity? Forbid `Array()` but allow `array()` etc. More info: `
 
 Forbid any non-prepared statements to database. But you can concat strings? Like `"SELECT " . $a . " FROM " . $b`. Mark as "dirty" string that cannot be used in query?
 
+In OCaml you sometimes want to add type-hints to improve the error messages from the type-checker. No way to do this in subsetphp? Can statically check phpdoc annotations? But not enforce them.
+
+LLVM-compiled and FastCGI? How? API to let user decide what to run only once, when the process starts, like config setup? As in OCaml.
+
 LLVM
 ----
 
@@ -136,8 +160,12 @@ What PHP-features _cannot_ be used from LLVM? Reflection?
 
 Hack vs strict Hack vs LLVM. No benchmark for strict Hack?
 
-17:07:14 - Drup: No
-17:07:25 - Drup: php -> ast -> typed ast -> IR -> llvm
-17:07:57 - ollehar: why do I need IR in that equation?
-17:08:31 - ggole: You might want to do your own transformations
-17:08:46 - Drup: because you can't write custom optimisations on the typed ast and writing optimisation on the llvm one is quite painful
+Call PHP-functions from LLVM? Like `var_dump` etc.
+
+> 17:07:25 - Drup: php -> ast -> typed ast -> IR -> llvm
+>
+> 17:07:57 - ollehar: why do I need IR in that equation?
+>
+> 17:08:31 - ggole: You might want to do your own transformations
+>
+> 17:08:46 - Drup: because you can't write custom optimisations on the typed ast and writing optimisation on the llvm one is quite painful
