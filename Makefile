@@ -1,4 +1,4 @@
-all: subsetphp test
+all: subsetphp test llvm_test llvm_test_compile
 
 subsetphp: realpath.o hh_shared.o parser_hack.cmx infer.cmx main.ml
 	ocamlfind ocamlopt -package ppx_deriving.show -linkall ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.cmx main.ml -o subsetphp
@@ -138,11 +138,14 @@ infer.cmx: infer.ml
 test: subsetphp test.ml
 	ocamlfind ocamlopt -g -linkpkg -package ppx_deriving.show,oUnit ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.cmx test.ml -o test
 
-llvm_test: subsetphp llvm.ml
-	ocamlfind ocamlopt -cc g++ -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -cc g++ -package llvm,llvm.bitreader -linkpkg llvm_test.ml -o llvm_test
-	#export OCAMLPATH=/usr/lib/ocaml/llvm-$(LLVM_VERSION)
-	#ocamlbuild -classic-display -j 0 -cflags -w,@a-4  -use-ocamlfind -pkgs llvm,llvm.bitreader  -I src -build-dir build/tutorial01 tutorial01.byte
+llvm_test: subsetphp llvm_test.ml
+	ocamlfind ocamlopt -cc g++ -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -cc g++ -package llvm,llvm.bitreader,llvm.bitwriter,llvm.target,llvm.analysis -linkpkg llvm_test.ml -o llvm_test
 
+llvm_test_compile: llvm_test
+	./llvm_test
+	llc-3.6 llvm_test.bc
+	clang-3.6 -c llvm_test.s
+	clang-3.6 -o test llvm_test.o
 
 clean:
 	rm *.o *.cmi *.cmx
