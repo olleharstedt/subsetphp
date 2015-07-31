@@ -21,6 +21,22 @@
  *)
 
 open Llvm
+open Typedast
+
+(**
+ * Generate LLVM IR for program
+ *)
+let codegen_program program =
+  ()
+
+let codegen_def def = 
+  ()
+
+let codegen_stmt stmt =
+  ()
+
+let codegen_expr expr_ = match expr_ with
+  | Id (id, ty) -> ()
 
 let _ =
   let llctx = global_context () in

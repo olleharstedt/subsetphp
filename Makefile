@@ -39,6 +39,9 @@ prefix.cmx: prefix.cmi prefix.ml
 ast.cmx: fileInfo.cmx pos.cmx namespace_env.cmx ast.ml
 	ocamlfind ocamlopt -package ppx_deriving.show -c fileInfo.cmx namespace_env.cmx ast.ml
 
+typedast.cmx: typedast.ml
+	ocamlfind ocamlopt -package ppx_deriving.show -c fileInfo.cmx namespace_env.cmx typedast.ml
+
 namespace_env.cmx: utils.cmx namespace_env.ml
 	ocamlfind ocamlopt -package ppx_deriving.show -c namespace_env.ml 
 
@@ -138,8 +141,8 @@ infer.cmx: infer.ml
 test: subsetphp test.ml
 	ocamlfind ocamlopt -g -linkpkg -package ppx_deriving.show,oUnit ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.cmx test.ml -o test
 
-llvm_test: subsetphp llvm_test.ml
-	ocamlfind ocamlopt -cc g++ -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -cc g++ -package llvm,llvm.bitreader,llvm.bitwriter,llvm.target,llvm.analysis -linkpkg llvm_test.ml -o llvm_test
+llvm_test: subsetphp typedast.cmx llvm_test.ml
+	ocamlfind ocamlopt -cc g++ -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -cc g++ -package llvm,llvm.bitreader,llvm.bitwriter,llvm.target,llvm.analysis -linkpkg typedast.cmx llvm_test.ml -o llvm_test
 
 llvm_test_compile: llvm_test
 	./llvm_test
