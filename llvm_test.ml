@@ -37,6 +37,8 @@ let codegen_stmt stmt =
 
 let codegen_expr expr_ = match expr_ with
   | Id (id, ty) -> ()
+  | Lvar (id, ty) -> ()
+  | Number nr -> ()
 
 let _ =
   let llctx = global_context () in

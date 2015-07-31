@@ -12,6 +12,7 @@ type ty =
   | TUnit
 
 type id = Pos.t * string
+type pstring = Pos.t * string
 
 type program = def list
 
@@ -24,3 +25,5 @@ and stmt =
 and expr = Pos.t * expr_
 and expr_ =
   | Id of id * ty  (* Added type here *)
+  | Lvar of id * ty
+  | Number of float
