@@ -41,4 +41,6 @@ let _ =
   let parser_return = Parser_hack.program (Relative_path.Root, "") file_content in
   print_endline (Ast.show_program parser_return.ast);
 
-  infer_program Env.empty 0 parser_return.ast
+  let program = infer_program Env.empty 0 parser_return.ast in
+  print_endline "Typedast.show_program";
+  Typedast.show_program program;

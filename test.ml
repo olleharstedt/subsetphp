@@ -41,7 +41,7 @@ let test_variable_assignment2 test_ctxt =
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   let ty = infer_program Env.empty 0 parser_return.ast in
-  assert_equal ~msg:"" () ty
+  assert_equal ~msg:""  [] ty
 
 let test_variable_assignment3 test_ctxt =
   let code = "
@@ -92,7 +92,7 @@ let test_function_return_type3 test_ctxt =
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   let inferred_type = infer_program Env.empty 0 parser_return.ast in
-  assert_equal () inferred_type
+  assert_equal [] inferred_type
 
 let test_function_return_type4 test_ctxt =
   let code = "

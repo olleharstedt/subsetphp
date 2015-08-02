@@ -26,12 +26,13 @@ type level = int
 [@@deriving show]
 
 type ty =
-  | TConst of name                    (* type constant: `int` or `bool` *)
+  | TConst of name                    (* type constant: `int` or `bool`. TODO: Used? *)
   | TApp of ty * ty list              (* type application: `list[int]` *)
   | TArrow of ty list * ty            (* function type: e.g. `(int, int) -> int` *)
   | TVar of tvar ref                  (* type variable *)
   | TNum
   | TString
+  | TBoolean
   | TUnit
 [@@deriving show]
 
@@ -65,11 +66,11 @@ module Env = struct
     map : ty StringMap.t;
     return_ty : ty option;
   }
-  
+
   (* ty StringMap.t * ty option  (* normal mappings * return type *)*)
 
   let empty : env = {map = StringMap.empty; return_ty = None}
-  let extend env name ty = 
+  let extend env name ty =
     let new_mapping = StringMap.add name ty (env.map) in
     {env with map = new_mapping}
   let lookup env name = StringMap.find name env.map
@@ -89,6 +90,22 @@ module Env = struct
     print_endline (sprintf "    return type = %s" (match env.return_ty with Some ty -> show_ty ty | None -> "None"));
     print_endline "]"
 end
+
+(**
+ * Map from ty to Typedast.ty
+ *
+ * @param ty
+ * @return Typedast.ty
+ *)
+let rec ty_of_ty typ =
+  match typ with
+  | TConst _ | TApp _ | TVar _ -> failwith "ty_of_ty: Has no correspondance in Typedast"
+  | TNum -> Typedast.TNumber
+  | TString -> Typedast.TString
+  | TBoolean -> Typedast.TBoolean
+  | TUnit -> Typedast.TUnit
+  | TArrow (args, ret) ->
+      Typedast.TArrow ([], ty_of_ty ret)
 
 (**
  * Turn type expr into expr_
@@ -116,7 +133,7 @@ let occurs_check_adjust_levels tvar_id tvar_level ty =
     | TArrow(param_ty_list, return_ty) ->
         List.iter f param_ty_list ;
         f return_ty
-    | TNum | TString | TUnit | TConst _ -> ()
+    | TNum | TString | TBoolean | TUnit | TConst _ -> ()
   in
   f ty
 
@@ -143,7 +160,7 @@ let rec unify ty1 ty2 =
     | ty, TVar ({contents = Unbound(id, level)} as tvar) ->
         occurs_check_adjust_levels id level ty ;
         tvar := Link ty
-    | _, _ -> 
+    | _, _ ->
         let bt = Printexc.get_backtrace () in
         print_endline bt;
         error ("cannot unify types " ^ show_ty ty1 ^ " and " ^ show_ty ty2)
@@ -158,7 +175,7 @@ let rec generalize level = function
   | TArrow(param_ty_list, return_ty) ->
       TArrow(List.map (generalize level) param_ty_list, generalize level return_ty)
   | TVar {contents = Link ty} -> generalize level ty
-  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TNum | TUnit | TConst _ as ty -> ty
+  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TNum | TBoolean | TUnit | TConst _ as ty -> ty
 
   (*| ty -> failwith (sprintf "generalize error: %s" (show_ty ty))*)
 
@@ -166,7 +183,7 @@ let rec generalize level = function
 let instantiate level ty =
   let id_var_map = Hashtbl.create 10 in
   let rec f ty = match ty with
-    | TNum | TString | TUnit | TConst _ -> ty
+    | TNum | TString | TBoolean | TUnit | TConst _ -> ty
     | TVar {contents = Link ty} -> f ty
     | TVar {contents = Generic id} ->
         begin
@@ -213,30 +230,59 @@ let rec match_fun_ty num_params = function
   | _ -> error "expected a function"
 
 (**
- * @return unit
+ * Infer type of program
+ * A program is a list of definitions
+ *
+ * @param env scope environment
+ * @param level ?
+ * @param defs program
+ * @return Typedast.program
  *)
-let rec infer_program (env : Env.env) level (defs : def list) =
-  Env.dump env;
-  match defs with
-  | [] ->
-      ()
-  | Stmt stmt :: tail ->
-      let env = infer_stmts env level [stmt] in
-      infer_program env level tail
-  | Fun fun_ :: tail ->
-      let open Namespace_env in
-      let (_, fn_name) = fun_.f_name in
-      let namespace_name = fun_.f_namespace.ns_name in
-      let fn_name = String.sub fn_name 1 (String.length fn_name - 1) in  (* Strip leading \ (namespace thing) *)
-      (match namespace_name with
-      | Some _ -> failwith "namespaces not implemented"
-      | None -> ()
-      );
-      let (env, fn_ty) = infer_fun env level fun_ in
-      let env = Env.extend env fn_name fn_ty in
-      (*infer_exprs (Env.extend env var_name generalized_ty) level tail;*)
-      infer_program env level tail
-  | _ -> failwith "Not implemented: infer_program"
+let rec infer_program (env : Env.env) level (defs : def list) : Typedast.program =
+  (**
+   * @param typed_program Collect typed subexpressions and return
+   *)
+  let rec aux env level defs (typed_program : Typedast.program) =
+    Env.dump env;
+    match defs with
+    | [] ->
+        typed_program
+    | Stmt stmt :: tail ->
+        let (typed_stmt, env) = infer_stmt env level stmt in
+        aux env level tail (Typedast.Stmt typed_stmt :: typed_program)
+    | Fun fun_ :: tail ->
+        let open Namespace_env in
+        let (_, fn_name) = fun_.f_name in
+        let namespace_name = fun_.f_namespace.ns_name in
+        let fn_name = String.sub fn_name 1 (String.length fn_name - 1) in  (* Strip leading \ (namespace thing) *)
+        (match namespace_name with
+        | Some _ -> failwith "namespaces not implemented"
+        | None -> ()
+        );
+        let (typed_fn, env, fn_ty) = infer_fun env level fun_ in
+        let env = Env.extend env fn_name fn_ty in
+        (*infer_exprs (Env.extend env var_name generalized_ty) level tail;*)
+        aux env level tail (typed_fn :: typed_program)
+    | _ -> failwith "Not implemented: infer_program"
+  in
+  aux env level defs []
+
+(**
+ * Small helper function to infer type of stmt list, which
+ * is of course unit, and update the env.
+ *
+ * @return Typedast.stmt list * env
+ *)
+and infer_block env level (stmts : stmt list) : Typedast.block * Env.env =
+  let _env = ref env in
+  let typed_stmts = ref [] in
+  for i = 0 to List.length stmts - 1 do
+    let stmt = List.nth stmts i in
+    let (typed_stmt, env) = infer_stmt env level stmt in
+    _env := env;
+    typed_stmts := typed_stmt :: !typed_stmts;
+  done;
+  !typed_stmts, !_env
 
 (**
  * Infer statement
@@ -245,13 +291,14 @@ let rec infer_program (env : Env.env) level (defs : def list) =
  * @param env
  * @param level int
  * @param stmt stmt
- * @return env
+ * @return Typedast.program * env
  *)
-and infer_stmts (env : Env.env) level (stmts : stmt list) =
+(*
+and infer_stmts (env : Env.env) level (stmts : stmt list) (typed_stmts : Typedast.program) : (Typedast.program * Env.env) =
   Env.dump env;
   match stmts with
   | [] ->
-      env
+      (typed_stmts, env)
       (*
   | Expr (_, expr) :: [] ->
       (* Statement can ignore expression return types *)
@@ -265,20 +312,20 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) =
       (* All expressions in statements must return unit *)
       unify TUnit ty;
 
-      infer_stmts env level tail
+      infer_stmts env level tail typed_stmts
   | Noop :: _ ->
-      env
+      (typed_stmts, env)
   | Block stmts :: tail ->
-      let env = infer_stmts env level stmts in
-      infer_stmts env level tail
+      let (new_typed_stmts, env) = infer_stmts env level stmts typed_stmts in
+      infer_stmts env level tail (new_typed_stmts @ typed_stmts)
 
   | If (e, b1, b2) :: tail ->
 
-      let env = infer_stmts env level b1 in
-      let env = infer_stmts env level b2 in
-      infer_stmts env level tail
+      let (new_typed_stmts, env) = infer_stmts env level b1 typed_stmts in
+      let (new_typed_stmts, env) = infer_stmts env level b2 (new_typed_stmts @ typed_stmts) in
+      infer_stmts env level tail new_typed_stmts
 
-  | Return (pos, expr_opt) :: tail -> 
+  | Return (pos, expr_opt) :: tail ->
       let open Env in
       (match expr_opt with
       | None ->
@@ -289,7 +336,7 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) =
               ()
           );
           let env = {env with return_ty = Some TUnit} in
-          infer_stmts env level tail
+          infer_stmts env level tail typed_stmts
       | Some (pos, expr_) ->
           let (env, return_ty) = infer_exprs env level [expr_] in
           (match env.return_ty with
@@ -299,16 +346,72 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) =
               ()
           );
           let env = Env.new_return_type env (Some return_ty) in
-          infer_stmts env level tail
+          infer_stmts env level tail typed_stmts
       )
   | stmt :: _ -> failwith (sprintf "Not implemented: infer_stmt: %s" (show_stmt stmt))
+*)
+and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
+  Env.dump env;
+  match stmt with
+  | Expr (pos, expr) ->
+
+      let (typed_expr, env, ty) = infer_expr env 0 expr in
+
+      (* All expressions in statements must return unit *)
+      unify TUnit ty;
+
+      Typedast.Expr (Typedast.TUnit, (pos, typed_expr)), env
+
+      (*infer_stmts env level tail typed_stmts*)
+      (*
+  | Noop ->
+      (typed_stmts, env)
+*)
+  | Block stmts ->
+      let (block, env) = infer_block env level stmts in
+      Typedast.Block block, env
+
+  | If (e, block1, block2) ->
+
+      let (typed_stmts_block1, env) = infer_block env level block1 in
+      let (typed_stmts_block2, env) = infer_block env level block2 in
+      let (pos, expr_) = e in
+      let (typed_expr, env, e_ty) = infer_expr env level expr_ in
+
+      (* If-clause most be bool *)
+      unify TBoolean e_ty;
+
+      Typedast.If ((pos, typed_expr), typed_stmts_block1, typed_stmts_block2), env
+
+  | Return (pos, expr_opt) ->
+      let open Env in
+      (match expr_opt with
+      | None ->
+          (match env.return_ty with
+          | Some ty ->
+              unify ty TUnit
+          | None ->
+              ()
+          );
+          let env = {env with return_ty = Some TUnit} in
+          infer_stmts env level tail typed_stmts
+      | Some (pos, expr_) ->
+          let (env, return_ty) = infer_exprs env level [expr_] in
+          (match env.return_ty with
+          | Some ty ->
+              unify return_ty ty
+          | None ->
+              ()
+          );
+          let env = Env.new_return_type env (Some return_ty) in
+          infer_stmts env level tail typed_stmts
+      )
+  | stmt -> failwith (sprintf "Not implemented: infer_stmt: %s" (show_stmt stmt))
 
 (**
- * @return env * ty
- *
-  f_params          : fun_param list;
+ * @return Typedast.def * env * ty
  *)
-and infer_fun (env : Env.env) level fun_ =
+and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
   let open Env in
   (*let param_ty_list = List.map (fun _ -> new_var level) param_list in*)
   let param_list = List.map (fun param -> match param.param_id with
@@ -327,7 +430,7 @@ and infer_fun (env : Env.env) level fun_ =
   let body_expr = fun_.f_body in
 
   (* Get the return type from the body of the function *)
-  let fn_env = infer_stmts fn_env level body_expr in
+  let (_, fn_env) = infer_stmts fn_env level body_expr [] in
   let return_type = match fn_env.return_ty with
   | Some ty -> ty
   | None -> TUnit
@@ -335,7 +438,13 @@ and infer_fun (env : Env.env) level fun_ =
 
   print_endline (sprintf "return type = %s" (show_ty return_type));
 
-  (env, TArrow(param_ty_list, return_type))
+  let typed_fn = Typedast.(Fun {
+    f_name = fun_.f_name;  (* TODO: Fix pos *)
+    f_params = Typedast.create_typed_params env fun_.f_params;
+    f_ret = ty_of_ty return_type;
+  }) in
+
+  (typed_fn, env, TArrow(param_ty_list, return_type))
 
 (**
  * Infer types
@@ -345,7 +454,8 @@ and infer_fun (env : Env.env) level fun_ =
  * @param exprs expr list
  * @return env * ty
  *)
-and infer_exprs (env : Env.env) level (exprs : expr_ list) =
+(*
+and infer_exprs (env : Env.env) level (exprs : expr_ list) : Typedast.expr_ * Env.env * ty =
   Env.dump env;
   match exprs with
   | [] ->
@@ -404,7 +514,7 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
           (match ty with
           | TArrow (args, return_ty) ->
               List.iter2
-                (fun param_ty arg_expr -> 
+                (fun param_ty arg_expr ->
                   let (env, ty) = infer_exprs env level [arg_expr] in
                   unify param_ty ty
                 )
@@ -429,7 +539,112 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) =
       *)
       (*
       List.iter2
-        (fun param_ty arg_expr -> 
+        (fun param_ty arg_expr ->
+          let (env, ty) = infer_exprs env level [arg_expr] in
+          unify param_ty ty
+        )
+        param_ty_list arg_list
+      ;
+      return_ty
+      *)
+      env, return_ty
+
+  (*
+  | Call(fn_expr, arg_list) ->
+      let param_ty_list, return_ty =
+        match_fun_ty (List.length arg_list) (infer env level fn_expr)
+      in
+      List.iter2
+        (fun param_ty arg_expr -> unify param_ty (infer env level arg_expr))
+        param_ty_list arg_list
+      ;
+      return_ty
+  *)
+  | expr :: _ -> failwith (sprintf "Not implemented: infer_exprs: %s" (show_expr_ expr))
+*)
+and infer_expr (env : Env.env) level (expr_ : expr_) : Typedast.expr_ * Env.env * ty =
+  Env.dump env;
+  match expr with
+  | String (pos, str) :: [] ->
+      (Typedast.String (pos, str), env, TString)
+  | Int (_, _) :: [] | Float (_, _) :: [] ->
+      (env, TNum)
+  (*
+  | Var name ->
+      begin
+        try
+          instantiate level (Env.lookup env name)
+        with Not_found -> error ("variable " ^ name ^ " not found")
+      end
+  | Fun(param_list, body_expr) ->
+      let param_ty_list = List.map (fun _ -> new_var level) param_list in
+      let fn_env = List.fold_left2
+        (fun env param_name param_ty -> Env.extend env param_name param_ty)
+        env param_list param_ty_list
+      in
+      let return_ty = infer fn_env level body_expr in
+      TArrow(param_ty_list, return_ty)
+  *)
+  (*| Let(var_name, value_expr, body_expr) ->*)
+  (*| Lvar(var_name, value_expr) :: tail ->*)
+  | Binop (Eq None, (_, Lvar (_, var_name)), (_, (value_expr))) :: tail ->
+      let (env, value_ty) = infer_exprs env (level + 1) [value_expr] in
+      if value_ty = TUnit then failwith "Right-hand can't evaluate to void";
+      let generalized_ty = generalize level value_ty in
+      let already_exists = try ignore (Env.lookup env var_name); true with
+        | Not_found -> false
+      in
+      if already_exists then unify (Env.lookup env var_name) generalized_ty;
+
+      infer_exprs (Env.extend env var_name generalized_ty) level tail
+
+  (* Numerical op *)
+  | Binop (bop, (_, expr1), (_, expr2)) :: [] when is_numerical_op bop ->
+      (infer_numberical_op env level bop expr1 expr2, TNum)
+
+  | Lvar (pos, var_name) :: [] ->  (* TODO: What if tail? *)
+      let var_type = try Some (Env.lookup env var_name) with | Not_found -> None in
+      let var_type = (match var_type with
+      | None -> failwith "Can't use variable before it's defined"
+      | Some var_type -> var_type)
+      in
+      env, var_type
+
+  | Call ((_, Id (_, fn_name)), arg_list, dontknow) :: _ ->
+      print_endline fn_name;
+      let arg_list  = List.map (fun expr -> expr_of_expr_ expr) arg_list in
+      let fn_ty = try Some (Env.lookup env fn_name) with | Not_found -> None in
+      let return_ty = (match fn_ty with
+      | Some ty ->
+          (match ty with
+          | TArrow (args, return_ty) ->
+              List.iter2
+                (fun param_ty arg_expr ->
+                  let (env, ty) = infer_exprs env level [arg_expr] in
+                  unify param_ty ty
+                )
+                args arg_list
+              ;
+              return_ty
+          | _ ->
+              failwith "Not a function?"
+          )
+      | None ->
+          (* Infer function type here
+           * How much can we infer from a function usage in PHP? Lack of syntax for optional argument
+           * screw things up
+           *)
+          failwith "not implemented: infer function type before definition"
+      )
+      in
+      (*
+      let param_ty_list, return_ty =
+        match_fun_ty (List.length arg_list) (infer_exprs env level [dontknow])
+      in
+      *)
+      (*
+      List.iter2
+        (fun param_ty arg_expr ->
           let (env, ty) = infer_exprs env level [arg_expr] in
           unify param_ty ty
         )

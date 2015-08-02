@@ -1,9 +1,12 @@
-all: subsetphp test llvm_test llvm_test_compile
+all: clear subsetphp test llvm_test llvm_test_compile
+
+clear:
+	clear
 
 subsetphp: realpath.o hh_shared.o parser_hack.cmx infer.cmx main.ml
-	ocamlfind ocamlopt -package ppx_deriving.show -linkall ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.cmx main.ml -o subsetphp
+	ocamlfind ocamlopt -package ppx_deriving.show -linkall ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx typedast.cmx infer.cmx main.ml -o subsetphp
 
-parser_hack.cmx: lint.cmx lexer_hack.cmx parser_heap.cmx ast.cmx namespaces.cmx parser_hack.cmi parser_hack.ml
+parser_hack.cmx: lint.cmx lexer_hack.cmx parser_heap.cmx typedast.cmx ast.cmx namespaces.cmx parser_hack.cmi parser_hack.ml
 	ocamlopt -c ast.cmx namespaces.cmx ide.cmx parser_hack.ml
 
 parser_hack.cmi: parser_hack.mli
@@ -39,8 +42,8 @@ prefix.cmx: prefix.cmi prefix.ml
 ast.cmx: fileInfo.cmx pos.cmx namespace_env.cmx ast.ml
 	ocamlfind ocamlopt -package ppx_deriving.show -c fileInfo.cmx namespace_env.cmx ast.ml
 
-typedast.cmx: typedast.ml
-	ocamlfind ocamlopt -package ppx_deriving.show -c fileInfo.cmx namespace_env.cmx typedast.ml
+typedast.cmx: pos.cmx ast.cmx typedast.ml
+	ocamlfind ocamlopt -package ppx_deriving.show -c fileInfo.cmx namespace_env.cmx pos.cmx ast.cmx typedast.ml
 
 namespace_env.cmx: utils.cmx namespace_env.ml
 	ocamlfind ocamlopt -package ppx_deriving.show -c namespace_env.ml 
@@ -135,20 +138,20 @@ realpath.o: realpath.c
 type_test: utils.cmx path.cmx relative_path.cmx pos.cmx namespace_env.cmx fileInfo.cmx ast.cmx type.ml
 	ocamlfind ocamlopt -package ppx_deriving.show ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx type.ml -o type_test
 
-infer.cmx: infer.ml
-	ocamlfind ocamlopt -g -package ppx_deriving.show ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.ml -o type_test2
+infer.cmx: typedast.cmx infer.ml
+	ocamlfind ocamlopt -g -package ppx_deriving.show ident.cmx utils.cmx unix.cmxa str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx typedast.cmx infer.ml -o type_test2
 
-test: subsetphp test.ml
-	ocamlfind ocamlopt -g -linkpkg -package ppx_deriving.show,oUnit ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx infer.cmx test.ml -o test
+test: typedast.cmx subsetphp test.ml
+	ocamlfind ocamlopt -g -linkpkg -package ppx_deriving.show,oUnit ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx typedast.cmx infer.cmx test.ml -o test
 
 llvm_test: subsetphp typedast.cmx llvm_test.ml
-	ocamlfind ocamlopt -cc g++ -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -cc g++ -package llvm,llvm.bitreader,llvm.bitwriter,llvm.target,llvm.analysis -linkpkg typedast.cmx llvm_test.ml -o llvm_test
+	ocamlfind ocamlopt -cc g++ -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -cc g++ -package llvm,llvm.bitreader,llvm.bitwriter,llvm.target,llvm.analysis -linkpkg realpath.o hh_shared.o str.cmxa ident.cmx utils.cmx sys_utils.cmx path.cmx relative_path.cmx pos.cmx typedast.cmx llvm_test.ml -o llvm_test
 
 llvm_test_compile: llvm_test
-	./llvm_test
-	llc-3.6 llvm_test.bc
-	clang-3.6 -c llvm_test.s
-	clang-3.6 -o test llvm_test.o
+	#./llvm_test
+	#llc-3.6 llvm_test.bc
+	#clang-3.6 -c llvm_test.s
+	#clang-3.6 -o test llvm_test.o
 
 clean:
 	rm *.o *.cmi *.cmx

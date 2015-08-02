@@ -23,27 +23,36 @@
 open Llvm
 open Typedast
 
+exception Llvm_error of string
+exception Llvm_not_implemented of string
+
+(** Setting up LLVM globals needed *)
+let llctx = global_context ()
+let llm = create_module llctx "mymodule"
+let double_type = double_type llctx
+
 (**
  * Generate LLVM IR for program
  *)
 let codegen_program program =
   ()
 
-let codegen_def def = 
+let codegen_def def =
   ()
 
 let codegen_stmt stmt =
   ()
 
 let codegen_expr expr_ = match expr_ with
+(*
   | Id (id, ty) -> ()
   | Lvar (id, ty) -> ()
-  | Number nr -> ()
+*)
+  | Number nr ->
+    const_float double_type nr
+  | _ -> raise (Llvm_not_implemented "codegen_expr")
 
 let _ =
-  let llctx = global_context () in
-  let llm = create_module llctx "mymodule" in
-
   (*
   let triple = "i686" in
   let lltarget  = Llvm_target.Target.by_triple triple in
@@ -83,7 +92,9 @@ let _ =
 
   let _ = build_call printf [|s|] "" llbuilder in
   let _ = build_ret (const_int i32_t 0) llbuilder in
-  
+
+  let named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10 in
+
   dump_module llm;
 
   Llvm_analysis.assert_valid_module llm;
