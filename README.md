@@ -156,7 +156,7 @@ Motivated? HHVM will add some LLVM-support - why should I?
 
 How to represent the IR, without breaking parser/lexer from Hack?
 
-What PHP-features _cannot_ be used from LLVM? Reflection?
+What PHP-features _cannot_ be used from LLVM? Reflection? Add own meta-data (how is it done in Java/C++?).
 
 Hack vs strict Hack vs LLVM. No benchmark for strict Hack?
 
@@ -169,3 +169,17 @@ Call PHP-functions from LLVM? Like `var_dump` etc.
 > 17:08:31 - ggole: You might want to do your own transformations
 >
 > 17:08:46 - Drup: because you can't write custom optimisations on the typed ast and writing optimisation on the llvm one is quite painful
+
+Reference counting or garbage collecting? Must use refcount because of destructors.
+
+> 14:22:30 - ely-se: you need refcounting if you want PHP programs to behave consistently with the official implementation
+>
+> 14:23:40 - ely-se: in "function function() { $x = new A(); }; function();" it is guaranteed that the destructor of $x is called before function returns
+>
+> 14:24:01 - companion_cube: ely-se: does it handle ref loops?
+>
+> 14:24:09 - ely-se: I think it doesn't.
+>
+> 14:24:20 - flux: it's php, of course it doesn't :-P *badamtish*
+>
+> 14:24:46 - flux: it does have weak references, though
