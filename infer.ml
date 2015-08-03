@@ -8,6 +8,7 @@ open Printf
 type name = string
 [@@deriving show]
 
+(*
 type expr =
   | Var of name                           (* variable *)
   | Call of expr * expr list              (* application *)
@@ -16,6 +17,7 @@ type expr =
   | Let of name * expr                    (* PHP variables don't have scope *)
   | Num of int                            (* PHP can't infer int or float, use num *)
   | String of string
+*)
 
 (** PHP programs are lists of expressions/statements *)
 type progrem = expr list
@@ -371,14 +373,14 @@ and infer_stmts (env : Env.env) level (stmts : stmt list) (typed_stmts : Typedas
 and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
   Env.dump env;
   match stmt with
-  | Expr (pos, expr) ->
+  | Expr expr ->
 
       let (typed_expr, env, ty) = infer_expr env 0 expr in
 
       (* All expressions in statements must return unit *)
       unify TUnit ty;
 
-      Typedast.Expr (Typedast.TUnit, (pos, typed_expr)), env
+      Typedast.Expr (Typedast.TUnit, typed_expr), env
 
       (*infer_stmts env level tail typed_stmts*)
       (*
@@ -393,13 +395,12 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
 
       let (typed_stmts_block1, env) = infer_block env level block1 in
       let (typed_stmts_block2, env) = infer_block env level block2 in
-      let (pos, expr_) = e in
-      let (typed_expr, env, e_ty) = infer_expr env level expr_ in
+      let (typed_expr, env, e_ty) = infer_expr env level e in
 
       (* If-clause most be bool *)
       unify TBoolean e_ty;
 
-      Typedast.If ((pos, typed_expr), typed_stmts_block1, typed_stmts_block2), env
+      Typedast.If (typed_expr, typed_stmts_block1, typed_stmts_block2), env
 
   | Return (pos, expr_opt) ->
       let open Env in
@@ -413,8 +414,8 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
           );
           let env = {env with return_ty = Some TUnit} in
           Typedast.Return (Typedast.TUnit, pos, None), env
-      | Some (pos, expr_) ->
-          let (typed_expr_, env, return_ty) = infer_expr env level expr_ in
+      | Some expr ->
+          let (typed_expr, env, return_ty) = infer_expr env level expr in
           (match env.return_ty with
           | Some ty ->
               unify return_ty ty
@@ -422,7 +423,7 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
               ()
           );
           let env = Env.new_return_type env (Some return_ty) in
-          Typedast.Return (ty_of_ty return_ty, pos, Some (pos, typed_expr_)), env
+          Typedast.Return (ty_of_ty return_ty, pos, Some typed_expr), env
       )
   | stmt -> failwith (sprintf "Not implemented: infer_stmt: %s" (show_stmt stmt))
 
@@ -580,34 +581,16 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) : Typedast.expr_ * En
   *)
   | expr :: _ -> failwith (sprintf "Not implemented: infer_exprs: %s" (show_expr_ expr))
 *)
-and infer_expr (env : Env.env) level (expr_ : expr_) : Typedast.expr_ * Env.env * ty =
+and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   Env.dump env;
-  match expr_ with
-  | String (pos, str) ->
-      Typedast.String (pos, str), env, TString
-  | Int (pos, pstring) ->
-      Typedast.Int (pos, pstring), env, TNum
-  | Float (pos, pstring) ->
-      Typedast.Float (pos, pstring), env, TNum
-  (*
-  | Var name ->
-      begin
-        try
-          instantiate level (Env.lookup env name)
-        with Not_found -> error ("variable " ^ name ^ " not found")
-      end
-  | Fun(param_list, body_expr) ->
-      let param_ty_list = List.map (fun _ -> new_var level) param_list in
-      let fn_env = List.fold_left2
-        (fun env param_name param_ty -> Env.extend env param_name param_ty)
-        env param_list param_ty_list
-      in
-      let return_ty = infer fn_env level body_expr in
-      TArrow(param_ty_list, return_ty)
-  *)
-  (*| Let(var_name, value_expr, body_expr) ->*)
-  (*| Lvar(var_name, value_expr) :: tail ->*)
-  | Binop (Eq None, (pos_lvar, Lvar (pos_var_name, var_name)), (pos_value_expr, (value_expr))) ->
+  match expr with
+  | p, String (pos, str) ->
+      (p, Typedast.String (pos, str)), env, TString
+  | p, Int (pos, pstring) ->
+      (p, Typedast.Int (pos, pstring)), env, TNum
+  | p, Float (pos, pstring) ->
+      (p, Typedast.Float (pos, pstring)), env, TNum
+  | p, Binop (Eq None, (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->
       let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
 
       (* Abort if right-hand is unit *)
@@ -620,24 +603,23 @@ and infer_expr (env : Env.env) level (expr_ : expr_) : Typedast.expr_ * Env.env 
       if already_exists then unify (Env.lookup env var_name) generalized_ty;
 
       let typed_lvar = Typedast.Lvar ((pos_var_name, var_name), ty_of_ty value_ty) in
-      Typedast.Binop (Typedast.Eq None, (pos_lvar, typed_lvar), (pos_value_expr, typed_value_expr), Typedast.TUnit), env, TUnit
+      (p, Typedast.Binop (Typedast.Eq None, (pos_lvar, typed_lvar), typed_value_expr, Typedast.TUnit)), env, TUnit
 
   (* Numerical op *)
-  | Binop (bop, (pos_expr1, expr1), (pos_expr2, expr2)) when is_numerical_op bop ->
+  | p, Binop (bop, expr1, expr2) when is_numerical_op bop ->
       let (typed_bop, typed_expr1, typed_expr2, env) = infer_numberical_op env level bop expr1 expr2 in
-      Typedast.Binop (typed_bop, (pos_expr1, typed_expr1), (pos_expr1, typed_expr2), Typedast.TNum), env, TNum
+      (p, Typedast.Binop (typed_bop, typed_expr1, typed_expr2, Typedast.TNum)), env, TNum
 
-  | Lvar (pos, var_name) ->
+  | p, Lvar (pos, var_name) ->
       let var_type = try Some (Env.lookup env var_name) with | Not_found -> None in
       let var_type = (match var_type with
       | None -> failwith "Can't use variable before it's defined"
       | Some var_type -> var_type)
       in
-      env, var_type
+      (p, Typedast.Lvar ((pos, var_name), ty_of_ty var_type)), env, var_type
 
-  | Call ((_, Id (_, fn_name)), arg_list, dontknow) ->
+  | p, Call ((pos1, Id (pos_fn, fn_name)), arg_list, dontknow) ->
       print_endline fn_name;
-      let arg_list  = List.map (fun expr -> expr_of_expr_ expr) arg_list in
       let fn_ty = try Some (Env.lookup env fn_name) with | Not_found -> None in
       let return_ty = (match fn_ty with
       | Some ty ->
@@ -645,7 +627,7 @@ and infer_expr (env : Env.env) level (expr_ : expr_) : Typedast.expr_ * Env.env 
           | TArrow (args, return_ty) ->
               List.iter2
                 (fun param_ty arg_expr ->
-                  let (env, ty) = infer_exprs env level [arg_expr] in
+                  let (typed_arg_expr, env, ty) = infer_expr env level arg_expr in
                   unify param_ty ty
                 )
                 args arg_list
@@ -660,24 +642,15 @@ and infer_expr (env : Env.env) level (expr_ : expr_) : Typedast.expr_ * Env.env 
            * screw things up
            *)
           failwith "not implemented: infer function type before definition"
-      )
-      in
-      (*
-      let param_ty_list, return_ty =
-        match_fun_ty (List.length arg_list) (infer_exprs env level [dontknow])
-      in
-      *)
-      (*
-      List.iter2
-        (fun param_ty arg_expr ->
-          let (env, ty) = infer_exprs env level [arg_expr] in
-          unify param_ty ty
-        )
-        param_ty_list arg_list
-      ;
-      return_ty
-      *)
-      env, return_ty
+      ) in
+      let fn = (fun expr ->
+          let (typed_expr, env, ty) = infer_expr env level expr in
+          typed_expr
+      ) in
+      let typed_arg_list = List.map fn arg_list in
+      let typed_dontknow = List.map fn dontknow in
+      let typed_call = Typedast.Call ((pos1, Typedast.Id ((pos_fn, fn_name), ty_of_ty return_ty)), typed_arg_list, typed_dontknow) in
+      (p, typed_call), env, return_ty
 
   (*
   | Call(fn_expr, arg_list) ->
@@ -690,7 +663,7 @@ and infer_expr (env : Env.env) level (expr_ : expr_) : Typedast.expr_ * Env.env 
       ;
       return_ty
   *)
-  | expr -> failwith (sprintf "Not implemented: infer_exprs: %s" (show_expr_ expr))
+  | expr -> failwith (sprintf "Not implemented: infer_exprs: %s" (show_expr expr))
 
 (**
  * Infer numerical binary operations, like +, -

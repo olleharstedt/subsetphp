@@ -40,6 +40,7 @@ and expr_ =
   | Int of pstring
   | Float of pstring
   | Binop of bop * expr * expr * ty
+  | Call of expr * expr list * expr list
 
 and bop =
 | Plus
