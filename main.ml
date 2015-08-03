@@ -5,6 +5,7 @@
 
 open Parser_hack
 open Infer
+open Printf
 
 (**
  * Read file, return string, no escape
@@ -43,4 +44,5 @@ let _ =
 
   let program = infer_program Env.empty 0 parser_return.ast in
   print_endline "Typedast.show_program";
-  Typedast.show_program program;
+  printf "%d\n" (List.length program);
+  printf "%s\n" (Typedast.show_program program)
