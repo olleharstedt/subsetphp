@@ -728,3 +728,15 @@ and is_numerical_op = function
       f_user_attributes = []; f_mtime = 0.; f_fun_kind = Ast.FSync;
       f_namespace = { Namespace_env.ns_uses = <opaque>; ns_name = None } })]
 *)
+
+(*
+
+$a = 10;
+
+[(Typedast.Stmt
+    Typedast.Expr (Typedast.TUnit,
+      (<opaque>,
+       Typedast.Binop ((Typedast.Eq None),
+         (<opaque>, Typedast.Lvar ((<opaque>, "$a"), Typedast.TNumber)),
+         (<opaque>, (Typedast.Int (<opaque>, "10"))), Typedast.TUnit))))]
+*)
