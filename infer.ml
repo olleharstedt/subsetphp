@@ -57,6 +57,8 @@ let new_gen_var () = TVar (ref (Generic(next_id ())))
 
 
 exception Error of string
+exception Not_implemented of string
+
 let error msg = raise (Error msg)
 
 
@@ -106,6 +108,22 @@ let rec ty_of_ty typ =
   | TUnit -> Typedast.TUnit
   | TArrow (args, ret) ->
       Typedast.TArrow ([], ty_of_ty ret)
+
+(**
+ * Binary operation to Typedast op
+ *
+ * @param bop
+ * @return Typedast.bop
+ *)
+let bop_to_typed bop =
+  match bop with
+  | Plus -> Typedast.Plus
+  | Minus -> Typedast.Minus
+  | Star -> Typedast.Star
+  | Slash -> Typedast.Slash
+  | Starstar -> Typedast.Starstar
+  | Percent -> Typedast.Percent
+  | _ -> raise (Not_implemented "bop_to_typed")
 
 (**
  * Turn type expr into expr_
@@ -394,9 +412,9 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
               ()
           );
           let env = {env with return_ty = Some TUnit} in
-          infer_stmts env level tail typed_stmts
+          Typedast.Return (Typedast.TUnit, pos, None), env
       | Some (pos, expr_) ->
-          let (env, return_ty) = infer_exprs env level [expr_] in
+          let (typed_expr_, env, return_ty) = infer_expr env level expr_ in
           (match env.return_ty with
           | Some ty ->
               unify return_ty ty
@@ -404,7 +422,7 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
               ()
           );
           let env = Env.new_return_type env (Some return_ty) in
-          infer_stmts env level tail typed_stmts
+          Typedast.Return (ty_of_ty return_ty, pos, Some (pos, typed_expr_)), env
       )
   | stmt -> failwith (sprintf "Not implemented: infer_stmt: %s" (show_stmt stmt))
 
@@ -430,7 +448,7 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
   let body_expr = fun_.f_body in
 
   (* Get the return type from the body of the function *)
-  let (_, fn_env) = infer_stmts fn_env level body_expr [] in
+  let (_, fn_env) = infer_block fn_env level body_expr in
   let return_type = match fn_env.return_ty with
   | Some ty -> ty
   | None -> TUnit
@@ -564,11 +582,13 @@ and infer_exprs (env : Env.env) level (exprs : expr_ list) : Typedast.expr_ * En
 *)
 and infer_expr (env : Env.env) level (expr_ : expr_) : Typedast.expr_ * Env.env * ty =
   Env.dump env;
-  match expr with
-  | String (pos, str) :: [] ->
-      (Typedast.String (pos, str), env, TString)
-  | Int (_, _) :: [] | Float (_, _) :: [] ->
-      (env, TNum)
+  match expr_ with
+  | String (pos, str) ->
+      Typedast.String (pos, str), env, TString
+  | Int (pos, pstring) ->
+      Typedast.Int (pos, pstring), env, TNum
+  | Float (pos, pstring) ->
+      Typedast.Float (pos, pstring), env, TNum
   (*
   | Var name ->
       begin
@@ -587,22 +607,27 @@ and infer_expr (env : Env.env) level (expr_ : expr_) : Typedast.expr_ * Env.env 
   *)
   (*| Let(var_name, value_expr, body_expr) ->*)
   (*| Lvar(var_name, value_expr) :: tail ->*)
-  | Binop (Eq None, (_, Lvar (_, var_name)), (_, (value_expr))) :: tail ->
-      let (env, value_ty) = infer_exprs env (level + 1) [value_expr] in
+  | Binop (Eq None, (pos_lvar, Lvar (pos_var_name, var_name)), (pos_value_expr, (value_expr))) ->
+      let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
+
+      (* Abort if right-hand is unit *)
       if value_ty = TUnit then failwith "Right-hand can't evaluate to void";
+
       let generalized_ty = generalize level value_ty in
       let already_exists = try ignore (Env.lookup env var_name); true with
         | Not_found -> false
       in
       if already_exists then unify (Env.lookup env var_name) generalized_ty;
 
-      infer_exprs (Env.extend env var_name generalized_ty) level tail
+      let typed_lvar = Typedast.Lvar ((pos_var_name, var_name), ty_of_ty value_ty) in
+      Typedast.Binop (Typedast.Eq None, (pos_lvar, typed_lvar), (pos_value_expr, typed_value_expr), Typedast.TUnit), env, TUnit
 
   (* Numerical op *)
-  | Binop (bop, (_, expr1), (_, expr2)) :: [] when is_numerical_op bop ->
-      (infer_numberical_op env level bop expr1 expr2, TNum)
+  | Binop (bop, (pos_expr1, expr1), (pos_expr2, expr2)) when is_numerical_op bop ->
+      let (typed_bop, typed_expr1, typed_expr2, env) = infer_numberical_op env level bop expr1 expr2 in
+      Typedast.Binop (typed_bop, (pos_expr1, typed_expr1), (pos_expr1, typed_expr2), Typedast.TNum), env, TNum
 
-  | Lvar (pos, var_name) :: [] ->  (* TODO: What if tail? *)
+  | Lvar (pos, var_name) ->
       let var_type = try Some (Env.lookup env var_name) with | Not_found -> None in
       let var_type = (match var_type with
       | None -> failwith "Can't use variable before it's defined"
@@ -610,7 +635,7 @@ and infer_expr (env : Env.env) level (expr_ : expr_) : Typedast.expr_ * Env.env 
       in
       env, var_type
 
-  | Call ((_, Id (_, fn_name)), arg_list, dontknow) :: _ ->
+  | Call ((_, Id (_, fn_name)), arg_list, dontknow) ->
       print_endline fn_name;
       let arg_list  = List.map (fun expr -> expr_of_expr_ expr) arg_list in
       let fn_ty = try Some (Env.lookup env fn_name) with | Not_found -> None in
@@ -665,21 +690,22 @@ and infer_expr (env : Env.env) level (expr_ : expr_) : Typedast.expr_ * Env.env 
       ;
       return_ty
   *)
-  | expr :: _ -> failwith (sprintf "Not implemented: infer_exprs: %s" (show_expr_ expr))
+  | expr -> failwith (sprintf "Not implemented: infer_exprs: %s" (show_expr_ expr))
 
 (**
  * Infer numerical binary operations, like +, -
  *
- * @return env
+ * @return Typedast.bop * env
  *)
 and infer_numberical_op env level bop expr1 expr2 =
   match bop with
-  | Plus | Minus | Star | Slash | Starstar | Percent ->
-      let (env, expr1_ty) = infer_exprs env level [expr1] in
-      let (env, expr2_ty) = infer_exprs env level [expr2] in
+  | Plus | Minus | Star | Slash | Starstar | Percent as bop ->
+      let (typed_expr1, env, expr1_ty) = infer_expr env level expr1 in
+      let (typed_expr2, env, expr2_ty) = infer_expr env level expr2 in
       unify expr1_ty TNum;
       unify expr2_ty TNum;
-      env
+      let typed_bop = bop_to_typed bop in
+      typed_bop, typed_expr1, typed_expr2, env
   | _ ->
       failwith "Not implemented: infer_bop"
 

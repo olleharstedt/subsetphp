@@ -11,6 +11,7 @@ type ty =
   | TString
   | TBoolean
   | TUnit
+  | TNum
   | TArrow of ty list * ty            (* function type: e.g. `(int, int) -> int` *)
 
 and id = Pos.t * string
@@ -26,14 +27,27 @@ and stmt =
   | Expr of ty * expr
   | Block of block
   | If of expr * block * block
+  | Return of ty * Pos.t * expr option
 
 and block = stmt list
 
 and expr = Pos.t * expr_
 and expr_ =
-  | Id of id * ty  (* Added type here *)
+  | Id of id * ty
   | Lvar of id * ty
   | Number of float
+  | String of pstring
+  | Int of pstring
+  | Float of pstring
+  | Binop of bop * expr * expr * ty
+
+and bop =
+| Plus
+| Minus | Star | Slash | Eqeq | EQeqeq | Starstar
+| Diff | Diff2 | AMpamp | BArbar | Lt
+| Lte | Gt | Gte | Dot | Amp | Bar | Ltlt
+| Gtgt | Percent | Xor
+| Eq of bop option
 
 and fun_param = {
   param_id : id;
