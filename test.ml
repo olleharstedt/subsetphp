@@ -21,7 +21,7 @@ let test_simple_variable_inference test_ctxt =
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
     (Infer.Error "cannot unify types Infer.TNum and Infer.TString")
-    (fun _ -> infer_program Env.empty 0 parser_return.ast)
+    (fun _ -> infer_program 0 parser_return.ast)
 
 let test_variable_assignment text_ctxt =
   let code = "
@@ -31,7 +31,7 @@ let test_variable_assignment text_ctxt =
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
     (Failure "Can't use variable before it's defined")
-    (fun _ -> infer_program Env.empty 0 parser_return.ast)
+    (fun _ -> infer_program 0 parser_return.ast)
 
 (** TODO: Test type tree *)
 let test_variable_assignment2 test_ctxt =
@@ -40,7 +40,7 @@ let test_variable_assignment2 test_ctxt =
     $a = 10;
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
-  let ty = infer_program Env.empty 0 parser_return.ast in
+  let ty = infer_program 0 parser_return.ast in
   assert_equal ~msg:""  [] ty
 
 let test_variable_assignment3 test_ctxt =
@@ -53,7 +53,7 @@ let test_variable_assignment3 test_ctxt =
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
     (Infer.Error "cannot unify types Infer.TNum and Infer.TString")
-    (fun _ -> infer_program Env.empty 0 parser_return.ast)
+    (fun _ -> infer_program 0 parser_return.ast)
 
 let test_function_return_type test_ctxt =
   let code = "
@@ -66,7 +66,7 @@ let test_function_return_type test_ctxt =
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
     (Infer.Error "cannot unify types Infer.TUnit and Infer.TNum")
-    (fun _ -> infer_program Env.empty 0 parser_return.ast)
+    (fun _ -> infer_program 0 parser_return.ast)
 
 let test_function_return_type2 test_ctxt =
   let code = "
@@ -79,7 +79,7 @@ let test_function_return_type2 test_ctxt =
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
     (Failure "Right-hand can't evaluate to void")
-    (fun _ -> infer_program Env.empty 0 parser_return.ast)
+    (fun _ -> infer_program 0 parser_return.ast)
 
 let test_function_return_type3 test_ctxt =
   let code = "
@@ -91,7 +91,7 @@ let test_function_return_type3 test_ctxt =
     $a = $a + foo();
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
-  let inferred_type = infer_program Env.empty 0 parser_return.ast in
+  let inferred_type = infer_program 0 parser_return.ast in
   assert_equal [] inferred_type
 
 let test_function_return_type4 test_ctxt =
@@ -106,7 +106,7 @@ let test_function_return_type4 test_ctxt =
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
     (Infer.Error "cannot unify types Infer.TString and Infer.TNum")
-    (fun _ -> infer_program Env.empty 0 parser_return.ast)
+    (fun _ -> infer_program 0 parser_return.ast)
 
 let test_function_return_type5 test_ctxt =
   let code = "
@@ -122,7 +122,7 @@ let test_function_return_type5 test_ctxt =
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
     (Infer.Error "cannot unify types Infer.TString and Infer.TNum")
-    (fun _ -> infer_program Env.empty 0 parser_return.ast)
+    (fun _ -> infer_program 0 parser_return.ast)
 
 let test_list = [
   "simple_variable_inference", test_simple_variable_inference;

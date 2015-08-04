@@ -22,6 +22,7 @@
 
 open Llvm
 open Typedast
+open Printf
 
 exception Llvm_error of string
 exception Llvm_not_implemented of string
@@ -30,27 +31,92 @@ exception Llvm_not_implemented of string
 let llctx = global_context ()
 let llm = create_module llctx "mymodule"
 let double_type = double_type llctx
+let i32_t = i32_type llctx
+let named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
+
+(** 
+ * Create an alloca instruction in the entry block of the function. This
+ * is used for mutable variables etc. 
+ *
+ * From Kaleidoscope tutorial
+ *)
+let create_entry_block_alloca the_function var_name =
+  let builder = builder_at llctx (instr_begin (entry_block the_function)) in
+  build_alloca double_type var_name builder
 
 (**
  * Generate LLVM IR for program
+ *
+ * All "global" PHP variables are wrapped in the main function.
+ *
+ * @param Typedast.program program
+ * @return ?
  *)
-let codegen_program program =
-  ()
+let rec codegen_program program =
 
-let codegen_def def =
-  ()
+  (* New function type *)
+  let fty = function_type i32_t [||] in
+  (* New function definition, main *)
+  let fn = define_function "main" fty llm in
+  (* Create a builder at end of block for function main *)
+  let llbuilder = builder_at_end llctx (entry_block fn) in
 
-let codegen_stmt stmt =
-  ()
+  (** Generate list of defs *)
+  let rec aux program = match program with
+    | [] ->
+        ()
+    | Stmt stmt :: tail ->
+        codegen_stmt stmt llbuilder;
+        aux tail
+    | Fun fun_ :: tail ->
+        ()
+  in
+  aux program;
+  build_ret (const_int i32_t 0) llbuilder
 
-let codegen_expr expr_ = match expr_ with
-(*
-  | Id (id, ty) -> ()
-  | Lvar (id, ty) -> ()
-*)
-  | Number nr ->
-    const_float double_type nr
-  | _ -> raise (Llvm_not_implemented "codegen_expr")
+(**
+ * Generate LLVM IR for stmt
+ *)
+and codegen_stmt stmt llbuilder = 
+  match stmt with
+  | Expr (ty, expr) ->
+      codegen_expr expr llbuilder
+  | _ -> raise (Llvm_not_implemented "codegen_stmt")
+
+(**
+ * Generate LLVM IR for expr
+ *)
+and codegen_expr expr llbuilder = 
+  match expr with
+  (*
+  | p, Id (id, ty) -> 
+      ()
+  | p, Lvar (id, ty) -> 
+      (*let the_function = block_parent (insertion_block llbuilder) in*)
+      ()
+  *)
+  | p, Number nr ->
+      const_float double_type nr;
+  | p, Int (pos, i) ->
+      print_endline "";
+      let f = float_of_string i in
+      const_float double_type f;
+  (* Assign value to variable *)
+  | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), lvar_ty)), value_expr, binop_ty) ->
+      let value_expr_code = codegen_expr value_expr llbuilder in
+      let the_function = block_parent (insertion_block llbuilder) in
+      let variable = try Hashtbl.find named_values lvar_name with
+        | Not_found ->
+            (* If variable is not found in this scope, create a new one *)
+            let alloca = create_entry_block_alloca the_function lvar_name in
+            let init_val = const_float double_type 0.0 in
+            ignore (build_store init_val alloca llbuilder);
+            Hashtbl.add named_values lvar_name alloca;
+            alloca
+      in
+      ignore (build_store value_expr_code variable llbuilder);
+      value_expr_code
+  | expr -> raise (Llvm_not_implemented (sprintf "codegen_expr: %s" (show_expr expr)))
 
 let _ =
   (*
@@ -62,17 +128,10 @@ let _ =
   set_data_layout (Llvm_target.DataLayout.as_string lldly) llm;
   *)
 
-  (* New type int32 *)
-  let i32_t = i32_type llctx in
-  (* New function type *)
-  let fty = function_type i32_t [||] in
-  (* New function definition, main *)
-  let fn = define_function "main" fty llm in
-  (* Create a builder at end of block for function main *)
-  let llbuilder = builder_at_end llctx (entry_block fn) in
   (* Build a return of value 0 *)
   (*let _ = build_ret (const_int i32_t 0) llbuilder in*)
 
+  (*
   (* New type int8 *)
   let i8_t = i8_type llctx in
   (* New function type with variadic arguments *)
@@ -92,8 +151,19 @@ let _ =
 
   let _ = build_call printf [|s|] "" llbuilder in
   let _ = build_ret (const_int i32_t 0) llbuilder in
+  *)
 
-  let named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10 in
+
+  let open Parser_hack in
+  SharedMem.(init default_config);
+  let file_content = Utils.read_file "test.php" in
+  let parser_return = Parser_hack.program (Relative_path.Root, "") file_content in
+  print_endline (Ast.show_program parser_return.ast);
+
+  let program = Infer.infer_program 0 parser_return.ast in
+  printf "%s\n" (Typedast.show_program program);
+
+  ignore (codegen_program program);
 
   dump_module llm;
 

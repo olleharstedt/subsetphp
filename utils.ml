@@ -367,3 +367,21 @@ let with_context ~enter ~exit ~do_ =
     raise e in
   exit ();
   result
+
+(**
+ * Read file, return string, no escape
+ *
+ * @param filename string
+ * @return string
+ *)
+let read_file filename =
+  let in_channel = open_in filename in
+  let file_content = ref "" in
+  (try while true do begin
+    let line = input_line in_channel in
+    file_content := !file_content ^ line
+  end done
+  with End_of_file -> close_in in_channel);
+  (*eprintf "file_content = %s" !file_content;*)
+  !file_content
+
