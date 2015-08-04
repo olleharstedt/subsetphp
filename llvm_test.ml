@@ -33,6 +33,8 @@ let llctx = global_context ()
 let llm = create_module llctx "mymodule"
 let double_type = double_type llctx
 let i32_t = i32_type llctx
+let i8_t = i8_type llctx
+let ptr_t = pointer_type i8_t
 let named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
 
 (** 
@@ -41,9 +43,9 @@ let named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
  *
  * From Kaleidoscope tutorial
  *)
-let create_entry_block_alloca the_function var_name =
+let create_entry_block_alloca the_function var_name ty =
   let builder = builder_at llctx (instr_begin (entry_block the_function)) in
-  build_alloca double_type var_name builder
+  build_alloca ty var_name builder
 
 (**
  * Generate LLVM IR for program
@@ -123,24 +125,45 @@ and codegen_expr expr llbuilder =
       build_load variable lvar_name llbuilder
   | p, Number nr ->
       const_float double_type nr;
+  | p, String (pos, str) ->
+      (*let str_val = const_string llctx str in*)
+      (*define_global str str_val llm *)
+      build_global_stringptr str str llbuilder
   | p, Int (pos, i) ->
       print_endline "";
       let f = float_of_string i in
       const_float double_type f;
   (* Assign value to variable *)
-  | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), lvar_ty)), value_expr, binop_ty) ->
+  | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TNumber)), value_expr, binop_ty) ->
       let the_function = block_parent (insertion_block llbuilder) in
       let variable = try Hashtbl.find named_values lvar_name with
         | Not_found ->
             (* If variable is not found in this scope, create a new one *)
-            let alloca = create_entry_block_alloca the_function lvar_name in
-            let init_val = const_float double_type 0.0 in
+            let alloca = create_entry_block_alloca the_function lvar_name double_type in
+            let init_val =  const_float double_type 0.0 in
             ignore (build_store init_val alloca llbuilder);
             Hashtbl.add named_values lvar_name alloca;
             alloca
       in
       let value_expr_code = codegen_expr value_expr llbuilder in
       ignore (build_store value_expr_code variable llbuilder);
+      value_expr_code
+  | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TString)), value_expr, binop_ty) ->
+      let the_function = block_parent (insertion_block llbuilder) in
+      let variable = try Hashtbl.find named_values lvar_name with
+        | Not_found ->
+            (* If variable is not found in this scope, create a new one *)
+            let alloca = create_entry_block_alloca the_function lvar_name i8_t in
+            let init_val =  const_int i8_t 0 in
+            ignore (build_store init_val alloca llbuilder);
+            Hashtbl.add named_values lvar_name alloca;
+            alloca
+      in
+      let value_expr_code = codegen_expr value_expr llbuilder in
+      let zero = const_int i32_t 0 in
+      (* GEP = get element pointer *)
+      let ptr = build_in_bounds_gep value_expr_code [|zero|] "" llbuilder in
+      ignore (build_store ptr variable llbuilder);
       value_expr_code
   | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->
       let lhs = codegen_expr expr1 llbuilder in
@@ -213,3 +236,21 @@ let _ =
 
   let _ = Llvm_bitwriter.write_bitcode_file llm "llvm_test.bc" in
   ()
+
+(*
+
+Example IR from hello program.
+
+@.str = private unnamed_addr constant [14 x i8] c"Hello, world!\00", align 1
+
+; Function Attrs: nounwind uwtable
+define i32 @main() #0 {
+  %1 = alloca i32, align 4
+  %str = alloca i8*, align 8
+  store i32 0, i32* %1
+  store i8* getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0), i8** %str, align 8
+  %2 = load i8** %str, align 8
+  %3 = call i32 @puts(i8* %2)
+  ret i32 0
+}
+*)

@@ -1,7 +1,6 @@
 <?php
 
-$a = 1 + 1;
-$a = $a + $a;
+$a = 'foo';
 
 /*
 function foo($a) { 
