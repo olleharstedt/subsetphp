@@ -1,6 +1,7 @@
 <?php
 
-$a = 15;
+$a = 1 + 1;
+$a = $a + $a;
 
 /*
 function foo($a) { 

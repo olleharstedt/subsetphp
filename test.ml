@@ -3,6 +3,13 @@
  *
  * @author Olle Harstedt
  * @since 2015-07-28
+
+14:52:19 - ollehar: can I make ounit NOT test in parallell?
+14:53:29 - companion_cube: use OUnit instead of OUnit2 
+14:53:55 - ely-se: run your tests on a single-core machine
+14:54:28 - ely-se: or a global mutex!
+14:54:52 - zozozo: ollehar: do something like ./test -runner sequential
+
  *)
 
 open OUnit2
@@ -30,7 +37,7 @@ let test_variable_assignment text_ctxt =
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
-    (Failure "Can't use variable before it's defined")
+    (Failure "Can't use variable before it's defined: $b")
     (fun _ -> infer_program 0 parser_return.ast)
 
 (** TODO: Test type tree *)

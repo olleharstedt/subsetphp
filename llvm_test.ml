@@ -21,6 +21,7 @@
  *)
 
 open Llvm
+open Llvm_scalar_opts
 open Typedast
 open Printf
 
@@ -54,6 +55,25 @@ let create_entry_block_alloca the_function var_name =
  *)
 let rec codegen_program program =
 
+  let the_fpm = PassManager.create_function llm in
+
+  (* Promote allocas to registers. *)
+  add_memory_to_register_promotion the_fpm;
+
+  (* Do simple "peephole" optimizations and bit-twiddling optzn. *)
+  add_instruction_combination the_fpm;
+
+  (* reassociate expressions. *)
+  add_reassociation the_fpm;
+
+  (* Eliminate Common SubExpressions. *)
+  add_gvn the_fpm;
+
+  (* Simplify the control flow graph (deleting unreachable blocks, etc). *)
+  add_cfg_simplification the_fpm;
+
+  ignore (PassManager.initialize the_fpm);
+
   (* New function type *)
   let fty = function_type i32_t [||] in
   (* New function definition, main *)
@@ -66,13 +86,14 @@ let rec codegen_program program =
     | [] ->
         ()
     | Stmt stmt :: tail ->
-        codegen_stmt stmt llbuilder;
+        let _ = codegen_stmt stmt llbuilder in
         aux tail
     | Fun fun_ :: tail ->
         ()
   in
   aux program;
-  build_ret (const_int i32_t 0) llbuilder
+  let _ = build_ret (const_int i32_t 0) llbuilder in
+  ()
 
 (**
  * Generate LLVM IR for stmt
@@ -91,10 +112,15 @@ and codegen_expr expr llbuilder =
   (*
   | p, Id (id, ty) -> 
       ()
-  | p, Lvar (id, ty) -> 
-      (*let the_function = block_parent (insertion_block llbuilder) in*)
-      ()
   *)
+  | p, Lvar ((pos, lvar_name), ty) -> 
+      print_endline lvar_name;
+      (*let the_function = block_parent (insertion_block llbuilder) in*)
+      let variable = try Hashtbl.find named_values lvar_name with
+        | Not_found ->
+            raise (Llvm_error (sprintf "Lvar is used on rhs before ever used on the lhs: %s" lvar_name))
+      in
+      build_load variable lvar_name llbuilder
   | p, Number nr ->
       const_float double_type nr;
   | p, Int (pos, i) ->
@@ -103,7 +129,6 @@ and codegen_expr expr llbuilder =
       const_float double_type f;
   (* Assign value to variable *)
   | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), lvar_ty)), value_expr, binop_ty) ->
-      let value_expr_code = codegen_expr value_expr llbuilder in
       let the_function = block_parent (insertion_block llbuilder) in
       let variable = try Hashtbl.find named_values lvar_name with
         | Not_found ->
@@ -114,9 +139,26 @@ and codegen_expr expr llbuilder =
             Hashtbl.add named_values lvar_name alloca;
             alloca
       in
+      let value_expr_code = codegen_expr value_expr llbuilder in
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
+  | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->
+      let lhs = codegen_expr expr1 llbuilder in
+      let rhs = codegen_expr expr2 llbuilder in
+      begin match bop with 
+        | Plus ->
+            build_fadd lhs rhs "addtmp" llbuilder
+        | Minus ->
+            build_fsub lhs rhs "subtmp" llbuilder
+        | bop -> raise (Llvm_not_implemented (show_bop bop))
+      end;
   | expr -> raise (Llvm_not_implemented (sprintf "codegen_expr: %s" (show_expr expr)))
+
+and is_numerical_op = function
+  | Plus | Minus | Star | Slash | Starstar | Percent ->
+      true
+  | _ ->
+      false
 
 let _ =
   (*

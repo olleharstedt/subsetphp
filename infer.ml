@@ -269,20 +269,22 @@ let rec infer_program level (defs : def list) : Typedast.program =
         typed_program
     | Stmt stmt :: tail ->
         let (typed_stmt, env) = infer_stmt env level stmt in
-        aux env level tail (Typedast.Stmt typed_stmt :: typed_program)
+        aux env level tail (typed_program @ [Typedast.Stmt typed_stmt])
     | Fun fun_ :: tail ->
         let open Namespace_env in
         let (_, fn_name) = fun_.f_name in
         let namespace_name = fun_.f_namespace.ns_name in
         let fn_name = String.sub fn_name 1 (String.length fn_name - 1) in  (* Strip leading \ (namespace thing) *)
-        (match namespace_name with
-        | Some _ -> failwith "namespaces not implemented"
-        | None -> ()
-        );
+
+        begin match namespace_name with
+          | Some _ -> failwith "namespaces not implemented"
+          | None -> ()
+        end;
+
         let (typed_fn, env, fn_ty) = infer_fun env level fun_ in
         let env = Env.extend env fn_name fn_ty in
         (*infer_exprs (Env.extend env var_name generalized_ty) level tail;*)
-        aux env level tail (typed_fn :: typed_program)
+        aux env level tail (typed_program @ [typed_fn])
     | _ -> failwith "Not implemented: infer_program"
   in
   aux env level defs []
@@ -300,7 +302,7 @@ and infer_block env level (stmts : stmt list) : Typedast.block * Env.env =
     let stmt = List.nth stmts i in
     let (typed_stmt, env) = infer_stmt env level stmt in
     _env := env;
-    typed_stmts := typed_stmt :: !typed_stmts;
+    typed_stmts := !typed_stmts @ [typed_stmt];
   done;
   !typed_stmts, !_env
 
@@ -435,7 +437,13 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let already_exists = try ignore (Env.lookup env var_name); true with
         | Not_found -> false
       in
-      if already_exists then unify (Env.lookup env var_name) generalized_ty;
+
+      let env = if already_exists then begin
+        unify (Env.lookup env var_name) generalized_ty ;
+        env
+      end else
+        Env.extend env var_name value_ty
+      in
 
       let typed_lvar = Typedast.Lvar ((pos_var_name, var_name), ty_of_ty value_ty) in
       (p, Typedast.Binop (Typedast.Eq None, (pos_lvar, typed_lvar), typed_value_expr, Typedast.TUnit)), env, TUnit
@@ -448,7 +456,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   | p, Lvar (pos, var_name) ->
       let var_type = try Some (Env.lookup env var_name) with | Not_found -> None in
       let var_type = (match var_type with
-      | None -> failwith "Can't use variable before it's defined"
+      | None -> failwith (sprintf "Can't use variable before it's defined: %s" var_name)
       | Some var_type -> var_type)
       in
       (p, Typedast.Lvar ((pos, var_name), ty_of_ty var_type)), env, var_type
