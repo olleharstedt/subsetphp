@@ -34,8 +34,10 @@ let llm = create_module llctx "mymodule"
 let double_type = double_type llctx
 let i32_t = i32_type llctx
 let i8_t = i8_type llctx
+let i8_ptr_t = pointer_type i8_t
 let ptr_t = pointer_type i8_t
 let named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
+let zero = const_int i32_t 0
 
 (** 
  * Create an alloca instruction in the entry block of the function. This
@@ -153,17 +155,21 @@ and codegen_expr expr llbuilder =
       let variable = try Hashtbl.find named_values lvar_name with
         | Not_found ->
             (* If variable is not found in this scope, create a new one *)
-            let alloca = create_entry_block_alloca the_function lvar_name i8_t in
+            let builder = builder_at llctx (instr_begin (entry_block the_function)) in
+            let alloca = build_alloca i8_ptr_t lvar_name builder in
+            (*
             let init_val =  const_int i8_t 0 in
             ignore (build_store init_val alloca llbuilder);
+            *)
             Hashtbl.add named_values lvar_name alloca;
             alloca
       in
       let value_expr_code = codegen_expr value_expr llbuilder in
-      let zero = const_int i32_t 0 in
+      print_endline (string_of_lltype (type_of value_expr_code));
+      print_endline (string_of_lltype (type_of value_expr_code));
       (* GEP = get element pointer *)
       let ptr = build_in_bounds_gep value_expr_code [|zero|] "" llbuilder in
-      ignore (build_store ptr variable llbuilder);
+      ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
   | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->
       let lhs = codegen_expr expr1 llbuilder in
@@ -251,6 +257,18 @@ define i32 @main() #0 {
   store i8* getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0), i8** %str, align 8
   %2 = load i8** %str, align 8
   %3 = call i32 @puts(i8* %2)
+  ret i32 0
+}
+
+my PHP test: $a = 'foo'
+
+@foo = private unnamed_addr constant [4 x i8] c"foo\00"
+
+define i32 @main() {
+entry:
+  %"$a" = alloca i8
+  store i8 0, i8* %"$a"
+  store i8* getelementptr inbounds ([4 x i8]* @foo, i32 0, i32 0), i8* %"$a"
   ret i32 0
 }
 *)
