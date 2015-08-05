@@ -183,3 +183,5 @@ Reference counting or garbage collecting? Must use refcount because of destructo
 > 14:24:20 - flux: it's php, of course it doesn't :-P *badamtish*
 >
 > 14:24:46 - flux: it does have weak references, though
+
+In php.net, `zend_array` is hash table. But I want to be able to optimize one-dimensional arrays to proper arrays. Must I convert before using php.net functions? To `zend_value`. Either that or rewrite functions that deal with arrays.
