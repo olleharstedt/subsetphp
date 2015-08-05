@@ -185,3 +185,169 @@ Reference counting or garbage collecting? Must use refcount because of destructo
 > 14:24:46 - flux: it does have weak references, though
 
 In php.net, `zend_array` is hash table. But I want to be able to optimize one-dimensional arrays to proper arrays. Must I convert before using php.net functions? To `zend_value`. Either that or rewrite functions that deal with arrays.
+
+> DaveRandom: Ahh I see what you're getting at... yeh it's a tricky one this, you will spend a lot of time simply battling leaky abstractions in php-src. A lot of PHP functions (as in the routines defined using the PHP_FUNCTION macro) are just thin wrappers over a cleaner C API, but some are not.
+You'd probably want a way to introduce per-function handlers so that you have a way to shortcut to the back-end, but default to just invoking the zif_* routines defined by PHP_FUNCTION
+
+Related stackoverflow questions:
+
+http://stackoverflow.com/questions/4567195/is-it-possible-to-call-phps-c-functions-in-a-c-program
+
+https://stackoverflow.com/questions/13592037/php-extension-call-existing-php-function
+
+No parallellism. So can never really compete with faster languages. But Unix fork?
+
+The only big problem for communicatino between a runtime adapted for dynamic vs static language is the arrays. Because arrays in PHP are always HashTable, but in subsetphp I want them to be int[], char[][] etc. Howto solve this?
+
+Here's the definition of `zval` from PHP source:
+
+```c
+typedef union _zend_value {
+  zend_long         lval;       /* long value */
+  double            dval;       /* double value */
+  zend_refcounted  *counted;
+  zend_string      *str;
+  zend_array       *arr;
+  zend_object      *obj;
+  zend_resource    *res;
+  zend_reference   *ref;
+  zend_ast_ref     *ast;
+  zval             *zv;
+  void             *ptr;
+  zend_class_entry *ce;
+  zend_function    *func;
+  struct {
+    ZEND_ENDIAN_LOHI(
+      uint32_t w1,
+      uint32_t w2)
+  } ww;
+} zend_value;
+```
+
+And the array:
+
+```c
+struct _zend_array {
+  zend_refcounted   gc;
+  union {
+    struct {
+      ZEND_ENDIAN_LOHI_4(
+        zend_uchar    flags,
+        zend_uchar    nApplyCount,
+        zend_uchar    nIteratorsCount,
+        zend_uchar    reserve)
+    } v;
+    uint32_t flags;
+  } u;
+  uint32_t          nTableMask;
+  Bucket           *arData;
+  uint32_t          nNumUsed;
+  uint32_t          nNumOfElements;
+  uint32_t          nTableSize;
+  uint32_t          nInternalPointer;
+  zend_long         nNextFreeElement;
+  dtor_func_t       pDestructor;
+};
+```
+
+Where Bucket is:
+
+```c
+typedef struct _Bucket {
+  zval              val;
+  zend_ulong        h;                /* hash value (or numeric index)   */
+  zend_string      *key;              /* string key or NULL for numerics */
+} Bucket;
+```
+
+and
+
+```c
+typedef struct _zend_array zend_array;
+typedef struct _zend_array HashTable;
+```
+
+Benchmark
+---------
+
+The goal is to compare subsetphp with PHP in benchmark "binary trees" from benchmarkgames.
+
+Requirements:
+* Classes
+* Recursive classes
+* Static methods
+* Output strings
+* For-loops
+* Tertier operator?
+
+Here's the Java code for said algorithm:
+
+```java
+    /**
+     * The Computer Language Benchmarks Game
+     * http://benchmarksgame.alioth.debian.org/
+     *
+     * Loosely based on Jarkko Miettinen's implementation. Requires Java 8.
+     *
+     * contributed by Heikki Salokanto.
+     * modified by Chandra Sekar
+     * modified by Mike Krüger
+     */
+
+    public class binarytrees {
+        public static void main(String[] args) throws Exception {
+            int n = args.length > 0 ? Integer.parseInt(args[0]) : 0;
+            int minDepth = 4;
+            int maxDepth = Math.max(minDepth + 2, n);
+            int stretchDepth = maxDepth + 1;
+            int check = (TreeNode.create(0, stretchDepth)).check();
+            
+            System.out.println("stretch tree of depth " + (maxDepth + 1) + "\t check: " + check);
+
+            TreeNode longLivedTree = TreeNode.create(0, maxDepth);
+            for (int depth = minDepth; depth <= maxDepth; depth += 2)
+            {
+               int iterations = 1 << (maxDepth - depth + minDepth);
+               check = 0;
+
+               for (int i = 1; i <= iterations; i++)
+               {
+                    check += (TreeNode.create(i, depth)).check();
+                    check += (TreeNode.create(-i, depth)).check();
+               }
+               System.out.println((iterations << 1) + "\t trees of depth " + depth + "\t check: " + check);
+            }
+
+            System.out.println("long lived tree of depth " + maxDepth + "\t check: " + longLivedTree.check());
+        }
+
+        static class TreeNode {
+            int item;
+            TreeNode left, right;
+
+            static TreeNode create(int item, int depth)
+            {
+                return ChildTreeNodes(item, depth - 1);
+            }
+             
+            static TreeNode ChildTreeNodes(int item, int depth)
+            {
+                TreeNode node = new TreeNode(item);
+                if (depth > 0)
+                {
+                    node.left = ChildTreeNodes(2 * item - 1, depth - 1);
+                    node.right = ChildTreeNodes(2 * item, depth - 1);
+                }
+                return node;
+            }
+
+            TreeNode(int item) {
+                this.item = item;
+            }
+
+            int check() {
+                return left == null ? item : left.check() - right.check() + item;
+            }
+        }
+    }
+```
