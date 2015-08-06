@@ -197,7 +197,9 @@ https://stackoverflow.com/questions/13592037/php-extension-call-existing-php-fun
 
 No parallellism. So can never really compete with faster languages. But Unix fork?
 
-The only big problem for communicatino between a runtime adapted for dynamic vs static language is the arrays. Because arrays in PHP are always HashTable, but in subsetphp I want them to be int[], char[][] etc. Howto solve this?
+The only big problem for communication between a runtime adapted for dynamic vs static language is the arrays. Because arrays in PHP are always HashTable, but in subsetphp I want them to be int[], char[][] etc. Howto solve this? If I want to add new data-structures, I can't use existing functions for e.g. sorting arrays without translating the data-structure to something else.
+
+Be able to turn on/off usage of custom runtime data-structures during compilation?
 
 Here's the definition of `zval` from PHP source:
 
