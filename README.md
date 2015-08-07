@@ -269,6 +269,13 @@ typedef struct _zend_array zend_array;
 typedef struct _zend_array HashTable;
 ```
 
+Garbage collection/reference counting
+-------------------------------------
+
+Which one is fastest? Which one is more appropriate for PHP? Need to change semantics of `__destruct` if only GC is used. Only worth it if much faster. Must try both and benchmark?
+
+> It looks into possibilities such as having some types ref counted and not others (IRefCounted!), or having specific instances ref counted, and why none of these solutions were deemed acceptable.
+
 Benchmark
 ---------
 
