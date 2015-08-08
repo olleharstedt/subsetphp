@@ -276,6 +276,8 @@ Which one is fastest? Which one is more appropriate for PHP? Need to change sema
 
 > It looks into possibilities such as having some types ref counted and not others (IRefCounted!), or having specific instances ref counted, and why none of these solutions were deemed acceptable.
 
+Escape analysis - decide what can be stack allocated and what must be heap allocated during compile time.
+
 Benchmark
 ---------
 
