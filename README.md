@@ -201,6 +201,8 @@ The only big problem for communication between a runtime adapted for dynamic vs 
 
 Be able to turn on/off usage of custom runtime data-structures during compilation?
 
+Are immutable strings faster than mutable?
+
 Here's the definition of `zval` from PHP source:
 
 ```c
@@ -277,6 +279,16 @@ Which one is fastest? Which one is more appropriate for PHP? Need to change sema
 > It looks into possibilities such as having some types ref counted and not others (IRefCounted!), or having specific instances ref counted, and why none of these solutions were deemed acceptable.
 
 Escape analysis - decide what can be stack allocated and what must be heap allocated during compile time.
+
+Some resources on why GC can be preferred over refcount (C#, D):
+
+http://blogs.msdn.com/b/brada/archive/2005/02/11/371015.aspx
+
+http://dlang.org/garbage.html
+
+Tune GC to waste memory for higher throughput.
+
+PHP never has to be real-time, so pauses don't matter.
 
 Benchmark
 ---------
