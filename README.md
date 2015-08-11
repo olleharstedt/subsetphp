@@ -292,6 +292,80 @@ Reference counting or garbage collecting? Must use refcount because of destructo
 
 Also array copy-on-write: http://hhvm.com/blog/431/on-garbage-collection
 
+Discussion about CoW:
+
+> 15:20:06 - ollehar: use-case is PHP arrays, which have copy on write semantics
+>
+> 15:20:56 - gasche: you mean they have a value semantics, implemented with CoW?
+>
+> 15:21:01 - Enjolras: is it ? does it copy the whole array or is it a map under it ?
+>
+> 15:22:54 - Enjolras: because, if it is a persistant array implemented as a map, the slowdown is for every access. If it copies the whole array, it is linear in the number of write
+>
+> 15:23:31 - gasche: I think you could amortize the copy cost of persistent array
+>
+> 15:24:02 - gasche: use a "array plus diff" representation, reading is O(diff size)
+>
+> 15:24:41 - gasche: sum the diff size over all accesses, and whenever you are larger than the array size, renormalize the array by doing a copy
+>
+> 15:24:43 - Enjolras: right. That's how virtual memeory is implemented in kernel 
+>
+> 15:25:31 - gasche: I think your point was that the interaction of "copy on write" and "ref counting" is to know that you can skip the copy when there is a unique owner, but that is only an optimization
+>
+> 15:25:43 - gasche: (not central to CoW, or in fact value semantics in general)
+>
+> 15:26:28 - ggole: In the case of arrays, it seems like a pretty necessary optimisation
+>
+> 15:26:57 - gasche: well my amortization suggestion would suggest that it is only a constant-factor optimisation
+>
+> 15:27:08 - gasche: and it probably depends a lot on the read/write workflow
+>
+> 15:27:37 - Enjolras: i have troubles seing the difference between value semantic and cow. It's just two names of the same thing in different contexts, isn't it ?
+>
+> 15:28:06 - ggole: Wouldn't an update to every element in an array would result in unacceptable (O(n) instead of O(1)) access times to elements?
+>
+> 15:28:32 - gasche: I understand "value semantics" as a specification (referential transparency, if you want) and CoW as a specific implementation technique to implement unique ownership (share aliased mutable values, unshare on mutation)
+>
+> 15:28:43 - Enjolras: ggole: not if you use diffs as gaschee explained
+>
+> 15:29:22 - gasche: there is another trick you can play with persistent arrays, which is to have the last writer to the array always see a plain array, and grow the diff "backward" for other owners
+>
+> 15:29:30 - gasche: (this is how Filliatre semi-persistent arrays work, for example)
+>
+> 15:29:47 - ggole: That's what I was assuming, but perhaps it can be done more efficiently than I had in mind
+>
+> 15:29:49 - gasche: I guess if you do this you can get pretty close to the constant factors of CoW
+>
+> 15:30:36 - gasche: ggole: my suggestion is to count how much you paid on diff-traversal on the past array accesses, and renormalize the array whenever you reach the array size
+>
+> 15:30:48 - gasche: hm
+>
+> 15:31:06 - gasche: actually that means you pay O(n) copy cost every O(sqrt n) operations, so not great
+>
+> 15:31:28 - govg has left the room (Quit: Ping timeout: 255 seconds).
+>
+> 15:33:20 - Enjolras: how do you store diffs ? especially sparse ones. If you have a list of arrays, with option, the memory cost is high for sparse diffs. If you have a tree of sequential diffs, your need some code to compact the diffs
+>
+> 15:33:34 - Enjolras: the complexity of this is not 100% clear to me
+>
+> 15:35:42 - gasche: https://www.lri.fr/~filliatr/ftp/ocaml/ds/parray.ml.html
+>
+> 15:36:02 - NingaLeaf [~NingaLeaf@50-193-152-69-static.hfc.comcastbusiness.net] entered the room.
+>
+> 15:36:25 - gasche: in particular, this implementation has optimal properties for many typical CoW workflows
+>
+> 15:36:43 - gasche: many owners can share a reference to an array value
+>
+> 15:37:40 - gasche: the last person to read or write pay an O(1) cost by reading or writing again
+>
+> 15:38:14 - gasche: if someone that is not the last accessor tries to read or write, a copy happens
+>
+> 15:39:07 - gasche: if you assume a typical "transfer of ownership" pattern with agents passing the value around, each doing a bunch of read/writes then never touching it again, you have O(1) all the way
+>
+> 15:39:43 - gasche: (but note that, with this implementation, the copy is O(diff size), not O(array size), which may be costly if a very very old owner resumes activity)
+>
+> 15:41:57 - gasche: and this is not reference counting; in particular, an old owner can keep a reference of the value as long as it wants, without incurring any cost at all if the reference is not used (which may be very hard to prove statically, and in particular wrong in some exceptional cases)
+
 Benchmark
 ---------
 
