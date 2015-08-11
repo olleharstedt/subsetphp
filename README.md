@@ -170,20 +170,6 @@ Call PHP-functions from LLVM? Like `var_dump` etc.
 >
 > 17:08:46 - Drup: because you can't write custom optimisations on the typed ast and writing optimisation on the llvm one is quite painful
 
-Reference counting or garbage collecting? Must use refcount because of destructors.
-
-> 14:22:30 - ely-se: you need refcounting if you want PHP programs to behave consistently with the official implementation
->
-> 14:23:40 - ely-se: in "function function() { $x = new A(); }; function();" it is guaranteed that the destructor of $x is called before function returns
->
-> 14:24:01 - companion_cube: ely-se: does it handle ref loops?
->
-> 14:24:09 - ely-se: I think it doesn't.
->
-> 14:24:20 - flux: it's php, of course it doesn't :-P *badamtish*
->
-> 14:24:46 - flux: it does have weak references, though
-
 In php.net, `zend_array` is hash table. But I want to be able to optimize one-dimensional arrays to proper arrays. Must I convert before using php.net functions? To `zend_value`. Either that or rewrite functions that deal with arrays.
 
 > DaveRandom: Ahh I see what you're getting at... yeh it's a tricky one this, you will spend a lot of time simply battling leaky abstractions in php-src. A lot of PHP functions (as in the routines defined using the PHP_FUNCTION macro) are just thin wrappers over a cleaner C API, but some are not.
@@ -290,6 +276,22 @@ Tune GC to waste memory for higher throughput.
 
 PHP never has to be real-time, so pauses don't matter.
 
+Reference counting or garbage collecting? Must use refcount because of destructors.
+
+> 14:22:30 - ely-se: you need refcounting if you want PHP programs to behave consistently with the official implementation
+>
+> 14:23:40 - ely-se: in "function function() { $x = new A(); }; function();" it is guaranteed that the destructor of $x is called before function returns
+>
+> 14:24:01 - companion_cube: ely-se: does it handle ref loops?
+>
+> 14:24:09 - ely-se: I think it doesn't.
+>
+> 14:24:20 - flux: it's php, of course it doesn't :-P *badamtish*
+>
+> 14:24:46 - flux: it does have weak references, though
+
+Also array copy-on-write: http://hhvm.com/blog/431/on-garbage-collection
+
 Benchmark
 ---------
 
@@ -374,3 +376,10 @@ Here's the Java code for said algorithm:
         }
     }
 ```
+
+Misc
+----
+
+Possible critque:
+
+- "subsetphp would be a poor-mans-java that just happens to be backward compatible with PHP."
