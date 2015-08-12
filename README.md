@@ -1,8 +1,8 @@
 Type-inferred strict subset of PHP with LLVM-bindings possibly.
 
-Because Hacklang is not strict enough.
+Because Hacklang is not strict or fast enough.
 
-Because maybe you can't/don't want to commit to another architecture.
+Because maybe you can't (or don't want to) commit to another architecture.
 
 _Disclaimer: Nothing is implemented yet._
 
@@ -22,7 +22,7 @@ TODO: Make up a working solution for optional arguments.
 
 TODO: Better error messages using Pos.
 
-TODO: Polymorphism.
+TODO: Parametric polymorphism.
 
 Notes
 -----
@@ -44,6 +44,8 @@ $foo[bar];  // Error: Don't allow keys without quotes.
 10 . "asd";  // Error: Can't concat number with string
 $query = "SELECT * FROM table WHERE a = " . $a;  // Dirty string because of concatenation with variable, can't be used in database queries.
 ```
+
+Tainted variables: https://wiki.php.net/rfc/taint
 
 From IRC:
 
