@@ -452,10 +452,3 @@ Here's the Java code for said algorithm:
         }
     }
 ```
-
-Misc
-----
-
-Possible critque:
-
-- "subsetphp would be a poor-mans-java that just happens to be backward compatible with PHP."
