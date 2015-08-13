@@ -145,11 +145,13 @@ list($b, $c) = f(10);  // Error: list expected tuple 'a * 'a, but got 'a * 'a * 
 
 Enforce case-sensitivity? Forbid `Array()` but allow `array()` etc. More info: `https://wiki.theory.org/YourLanguageSucks#PHP_sucks_because`.
 
-Forbid any non-prepared statements to database. But you can concat strings? Like `"SELECT " . $a . " FROM " . $b`. Mark as "dirty" string that cannot be used in query?
+Forbid any non-prepared statements to database. But you can concat strings? Like `"SELECT " . $a . " FROM " . $b`. Mark as "dirty" string that cannot be used in query? Tainted, see above.
 
 In OCaml you sometimes want to add type-hints to improve the error messages from the type-checker. No way to do this in subsetphp? Can statically check phpdoc annotations? But not enforce them.
 
 LLVM-compiled and FastCGI? How? API to let user decide what to run only once, when the process starts, like config setup? As in OCaml.
+
+Arrays that are modified should be "promoted" to dynamic arrays internally. Otherwise, static arrays.
 
 LLVM
 ----
