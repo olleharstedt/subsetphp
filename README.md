@@ -377,11 +377,11 @@ The goal is to compare subsetphp with PHP in benchmark "binary trees" from bench
 
 Requirements:
 * Classes
-* Recursive classes
-* Static methods
-* Output strings
+* Recursive classes, methods
+* Output strings, printf
 * For-loops
 * Tertier operator?
+* bit wise operations, <<
 
 Here's the Java code for said algorithm:
 
