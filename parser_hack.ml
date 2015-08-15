@@ -2419,7 +2419,9 @@ and expr_remain env e1 =
   | Tdot ->
       expr_binop env Tdot Dot e1
   | Teqeq ->
-      expr_binop env Teqeq Eqeq e1
+      (*expr_binop env Teqeq Eqeq e1*)
+      error env "== is not supported in subsetphp because it's dynamic and insecure nature";
+      L.back env.lb; e1
   | Tampamp ->
       expr_binop env Tampamp AMpamp e1
   | Tbarbar ->
