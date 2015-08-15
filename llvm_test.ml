@@ -325,18 +325,35 @@ let _ =
   SharedMem.(init default_config);
   let file_content = Utils.read_file "test.php" in
   let parser_return = Parser_hack.program (Relative_path.Root, "") file_content in
-  print_endline (Ast.show_program parser_return.ast);
 
-  let program = Infer.infer_program 0 parser_return.ast in
-  printf "%s\n" (Typedast.show_program program);
+  (* If no error, dump a lot of info *)
+  if parser_return.error = None then begin
 
-  ignore (codegen_program program);
+    print_endline (Ast.show_program parser_return.ast);
 
-  dump_module llm;
+    let program = Infer.infer_program 0 parser_return.ast in
+    printf "%s\n" (Typedast.show_program program);
 
-  Llvm_analysis.assert_valid_module llm;
+    ignore (codegen_program program);
 
-  let _ = Llvm_bitwriter.write_bitcode_file llm "llvm_test.bc" in
+    dump_module llm;
+
+    Llvm_analysis.assert_valid_module llm;
+
+    let _ = Llvm_bitwriter.write_bitcode_file llm "llvm_test.bc" in
+    ()
+  (* If error, print line and message etc *)
+  end else begin
+    let pos, msg = match parser_return.error with
+      | None ->
+          assert false
+      | Some (pos, msg) ->
+          pos, msg
+    in
+    let line, start, end_ = Pos.info_pos pos in
+    printf "File %S, line %d, characters %d-%d: %s\n"
+      (snd Pos.(pos.pos_file)) line start end_ msg
+  end;
   ()
 
 (*

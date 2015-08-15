@@ -38,6 +38,7 @@ type parser_return = {
   file_mode  : FileInfo.mode option; (* None if PHP *)
   comments   : (Pos.t * string) list;
   ast        : Ast.program;
+  error      : (Pos.t * string) option;
 }
 
 (*****************************************************************************)
@@ -429,12 +430,17 @@ let rec program ?(elaborate_namespaces = true) file content =
   L.comment_list := [];
   L.fixmes := Utils.IMap.empty;
   Parser_heap.HH_FIXMES.add env.file fixmes;
-  if !(env.errors) <> []
-  then Errors.parsing_error (List.hd (List.rev !(env.errors)));
+  let error = if !(env.errors) <> []
+    then
+      let error = List.hd (List.rev !(env.errors)) in
+      Errors.parsing_error error;
+      Some error
+    else None
+  in
   let ast = if elaborate_namespaces
     then Namespaces.elaborate_defs ast
     else ast in
-  {file_mode; comments; ast}
+  {file_mode; comments; ast; error}
 
 (*****************************************************************************)
 (* Hack headers (strict, decl, partial) *)
@@ -2048,7 +2054,20 @@ and case_body env =
 (*****************************************************************************)
 
 and statement_if env =
+
   let e = paren_expr env in
+  (*
+  expect env Tlcb;
+  L.back env.lb;
+  *)
+
+  begin match L.token env.file env.lb with
+    | Tlcb ->
+        L.back env.lb;
+    | token ->
+        error_expect env "{ (if-statements without brackets are not supported by subsetphp)";
+  end;
+
   let st1 = statement env in
   let st2 = statement_else env in
   If (e, [st1], [st2])

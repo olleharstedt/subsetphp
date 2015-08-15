@@ -1,15 +1,7 @@
 <?php
 
-if (true) {
-  $a = 10;
-}
-else {
-  $a = 5;
-}
-
-if (false) {
-  $b = 10;
-}
+if (true)
+  $a = 'asd';
 
 /*
 function foo($a) { 
