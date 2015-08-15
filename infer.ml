@@ -425,6 +425,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   match expr with
   | p, True ->
       (p, Typedast.True), env, TBoolean
+  | p, False ->
+      (p, Typedast.False), env, TBoolean
   | p, String (pos, str) ->
       (p, Typedast.String (pos, str)), env, TString
   | p, Int (pos, pstring) ->

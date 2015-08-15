@@ -3,6 +3,13 @@
 if (true) {
   $a = 10;
 }
+else {
+  $a = 5;
+}
+
+if (false) {
+  $b = 10;
+}
 
 /*
 function foo($a) { 
