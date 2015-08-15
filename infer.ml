@@ -302,7 +302,7 @@ and infer_block env level (stmts : stmt list) : Typedast.block * Env.env =
   let typed_stmts = ref [] in
   for i = 0 to List.length stmts - 1 do
     let stmt = List.nth stmts i in
-    let (typed_stmt, env) = infer_stmt env level stmt in
+    let (typed_stmt, env) = infer_stmt !(_env) level stmt in
     _env := env;
     typed_stmts := !typed_stmts @ [typed_stmt];
   done;
