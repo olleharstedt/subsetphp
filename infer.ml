@@ -439,12 +439,34 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   | p, Float (pos, pstring) ->
       (p, Typedast.Float (pos, pstring)), env, TNum
 
+  (* > *)
+  | p, Binop (Gt, lexpr, rexpr) ->
+      let (typed_lexpr, _, lexpr_ty) = infer_expr env (level + 1) lexpr in
+      let (typed_rexpr, _, rexpr_ty) = infer_expr env (level + 1) rexpr in
+
+      (* Check so that left hand and right hand are numeric *)
+      unify lexpr_ty TNum;
+      unify rexpr_ty TNum;
+
+      (p, Typedast.Binop (Typedast.Gt, typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
+
+  (* < *)
+  | p, Binop (Lt, lexpr, rexpr) ->
+      let (typed_lexpr, _, lexpr_ty) = infer_expr env (level + 1) lexpr in
+      let (typed_rexpr, _, rexpr_ty) = infer_expr env (level + 1) rexpr in
+
+      (* Check so that left hand and right hand are numeric *)
+      unify lexpr_ty TNum;
+      unify rexpr_ty TNum;
+
+      (p, Typedast.Binop (Typedast.Lt, typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
+
   (* === *)
   | p, Binop (EQeqeq, (lpos, lexpr), (rpos, rexpr)) ->
       let (typed_lexpr, _, lexpr_ty) = infer_expr env (level + 1) (lpos, lexpr) in
       let (typed_rexpr, _, rexpr_ty) = infer_expr env (level + 1) (rpos, rexpr) in
 
-      (* Check so that left hand and right hand is the same type *)
+      (* Check so that left hand and right hand are the same type *)
       unify lexpr_ty rexpr_ty;
 
       (p, Typedast.Binop (Typedast.EQeqeq, typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
