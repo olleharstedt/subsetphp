@@ -349,6 +349,11 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
 
       Typedast.If (typed_expr, typed_stmts_block1, typed_stmts_block2), env
 
+  (*
+  | For (start, end_, step, body) ->
+      ()
+  *)
+
   | Return (pos, expr_opt) ->
       let open Env in
       (match expr_opt with
@@ -433,6 +438,18 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (p, Typedast.Int (pos, pstring)), env, TNum
   | p, Float (pos, pstring) ->
       (p, Typedast.Float (pos, pstring)), env, TNum
+
+  (* === *)
+  | p, Binop (EQeqeq, (lpos, lexpr), (rpos, rexpr)) ->
+      let (typed_lexpr, _, lexpr_ty) = infer_expr env (level + 1) (lpos, lexpr) in
+      let (typed_rexpr, _, rexpr_ty) = infer_expr env (level + 1) (rpos, rexpr) in
+
+      (* Check so that left hand and right hand is the same type *)
+      unify lexpr_ty rexpr_ty;
+
+      (p, Typedast.Binop (Typedast.EQeqeq, typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
+
+  (* Assignment *)
   | p, Binop (Eq None, (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->
       let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
 
