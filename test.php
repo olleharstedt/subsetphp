@@ -1,7 +1,9 @@
 <?php
 
-if (true)
+if (true) {
+  $a = 10;
   $a = 'asd';
+}
 
 /*
 function foo($a) { 

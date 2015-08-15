@@ -13,7 +13,7 @@ let _ =
   let open Parser_hack in
   SharedMem.(init default_config);
   let file_content = Utils.read_file "test.php" in
-  let parser_return = Parser_hack.program (Relative_path.Root, "") file_content in
+  let parser_return = Parser_hack.program (Relative_path.Root, "test.php") file_content in
 
   (* If no error, dump a lot of info *)
   if parser_return.error = None then begin
