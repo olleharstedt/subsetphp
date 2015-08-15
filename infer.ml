@@ -5,6 +5,8 @@
 open Ast
 open Printf
 
+exception Not_implemented of string
+
 type name = string
 [@@deriving show]
 
@@ -285,7 +287,7 @@ let rec infer_program level (defs : def list) : Typedast.program =
         let env = Env.extend env fn_name fn_ty in
         (*infer_exprs (Env.extend env var_name generalized_ty) level tail;*)
         aux env level tail (typed_program @ [typed_fn])
-    | _ -> failwith "Not implemented: infer_program"
+    | _ -> raise (Not_implemented "infer_program")
   in
   aux env level defs []
 
@@ -329,9 +331,9 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
 
       (*infer_stmts env level tail typed_stmts*)
       (*
+      *)
   | Noop ->
-      (typed_stmts, env)
-*)
+      (Typedast.Noop, env)
   | Block stmts ->
       let (block, env) = infer_block env level stmts in
       Typedast.Block block, env
@@ -370,7 +372,7 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
           let env = Env.new_return_type env (Some return_ty) in
           Typedast.Return (ty_of_ty return_ty, pos, Some typed_expr), env
       )
-  | stmt -> failwith (sprintf "Not implemented: infer_stmt: %s" (show_stmt stmt))
+  | stmt -> raise (Not_implemented (sprintf "infer_stmt: %s" (show_stmt stmt)))
 
 (**
  * @return Typedast.def * env * ty
@@ -421,6 +423,8 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
 and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   Env.dump env;
   match expr with
+  | p, True ->
+      (p, Typedast.True), env, TBoolean
   | p, String (pos, str) ->
       (p, Typedast.String (pos, str)), env, TString
   | p, Int (pos, pstring) ->
@@ -494,7 +498,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let typed_dontknow = List.map fn dontknow in
       let typed_call = Typedast.Call ((pos1, Typedast.Id ((pos_fn, fn_name), ty_of_ty return_ty)), typed_arg_list, typed_dontknow) in
       (p, typed_call), env, return_ty
-  | expr -> failwith (sprintf "Not implemented: infer_exprs: %s" (show_expr expr))
+  | expr -> raise (Not_implemented (sprintf "infer_exprs: %s" (show_expr expr)))
 
 (**
  * Infer numerical binary operations, like +, -
@@ -511,7 +515,7 @@ and infer_numberical_op env level bop expr1 expr2 =
       let typed_bop = bop_to_typed bop in
       typed_bop, typed_expr1, typed_expr2, env
   | _ ->
-      failwith "Not implemented: infer_bop"
+      raise (Not_implemented "infer_bop")
 
 and is_numerical_op = function
   | Plus | Minus | Star | Slash | Starstar | Percent ->

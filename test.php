@@ -1,6 +1,8 @@
 <?php
 
-$a = 'foo';
+if (true) {
+  $a = 10;
+}
 
 /*
 function foo($a) { 

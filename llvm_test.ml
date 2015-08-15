@@ -89,6 +89,9 @@ let rec codegen_program program =
   let rec aux program = match program with
     | [] ->
         ()
+    | Stmt Noop :: tail ->
+        (* Don't generate anything for Noop *)
+        aux tail
     | Stmt stmt :: tail ->
         let _ = codegen_stmt stmt llbuilder in
         aux tail
@@ -100,23 +103,116 @@ let rec codegen_program program =
   ()
 
 (**
- * Generate LLVM IR for stmt
+ * Generate LLVM IR for block (stmt list)
+ *
+ * @param block stmt list
+ * @param llbuilder
+ * @return llvalue
  *)
-and codegen_stmt stmt llbuilder = 
+and codegen_block block llbuilder : llvalue =
+
+  let the_block = block_parent (insertion_block llbuilder) in
+
+  begin match block with
+    | Noop :: [] ->
+        ()
+    | block ->
+
+      let stmt_values = ref [] in
+      for i = 0 to List.length block - 1 do
+        let stmt = List.nth block i in
+        let stmt_value = codegen_stmt stmt llbuilder in
+        stmt_values := !stmt_values @ [stmt_value];
+      done;
+  end;
+
+  (*stmt_values*)
+  the_block
+
+(**
+ * Generate LLVM IR for stmt
+ *
+ * @param stmt Typedast.stmt
+ * @param llbuilder
+ * @return llvalue
+ *)
+and codegen_stmt stmt llbuilder : llvalue = 
   match stmt with
+  | Block block ->
+      codegen_block block llbuilder
   | Expr (ty, expr) ->
       codegen_expr expr llbuilder
-  | _ -> raise (Llvm_not_implemented "codegen_stmt")
+  | If (expr, then_, else_) ->
+      let expr = codegen_expr expr llbuilder in
+
+      (* Convert condition to a bool by comparing equal to 0.0 *)
+      let zero = const_float double_type 0.0 in
+      let cond_val = build_fcmp Fcmp.One expr zero "ifcond" llbuilder in
+
+      (* Grab the first block so that we might later add the conditional branch
+       * to it at the end of the function. *)
+      let start_bb = insertion_block llbuilder in
+      let the_function = block_parent start_bb in
+
+      let then_bb = append_block llctx "then" the_function in
+
+      (* Emit 'then' value. *)
+      position_at_end then_bb llbuilder;
+      let then_val = codegen_block then_ llbuilder in
+
+      (* Codegen of 'then' can change the current block, update then_bb for the
+       * phi. We create a new name because one is used for the phi node, and the
+       * other is used for the conditional branch. *)
+      let new_then_bb = insertion_block llbuilder in
+
+      (* Emit 'else' value. *)
+      let else_bb = append_block llctx "else" the_function in
+      position_at_end else_bb llbuilder;
+      let else_val = codegen_block else_ llbuilder in
+
+      (* Codegen of 'else' can change the current block, update else_bb for the
+       * phi. *)
+      let new_else_bb = insertion_block llbuilder in
+
+      (* Emit merge block. *)
+      let merge_bb = append_block llctx "ifcont" the_function in
+      position_at_end merge_bb llbuilder;
+      let incoming = [(then_val, new_then_bb); (else_val, new_else_bb)] in
+      let phi = build_phi incoming "iftmp" llbuilder in
+
+      (* Return to the start block to add the conditional branch. *)
+      position_at_end start_bb llbuilder;
+      ignore (build_cond_br cond_val then_bb else_bb llbuilder);
+
+      (* Set a unconditional branch at the end of the 'then' block and the
+       * 'else' block to the 'merge' block. *)
+      position_at_end new_then_bb llbuilder; ignore (build_br merge_bb llbuilder);
+      position_at_end new_else_bb llbuilder; ignore (build_br merge_bb llbuilder);
+
+      (* Finally, set the llbuilder to the end of the merge block. *)
+      position_at_end merge_bb llbuilder;
+
+      phi
+
+  | _ -> raise (Llvm_not_implemented (sprintf "codegen_stmt: %s" (show_stmt stmt)))
 
 (**
  * Generate LLVM IR for expr
+ *
+ * @param expr Typedast.expr
+ * @param llbuilder
+ * @return llvalue
  *)
-and codegen_expr expr llbuilder = 
+and codegen_expr expr llbuilder : llvalue = 
   match expr with
   (*
   | p, Id (id, ty) -> 
       ()
   *)
+  | p, True ->
+      const_float double_type 1.0
+  | p, False ->
+      const_float double_type 0.0
   | p, Lvar ((pos, lvar_name), ty) -> 
       print_endline lvar_name;
       (*let the_function = block_parent (insertion_block llbuilder) in*)
@@ -168,7 +264,7 @@ and codegen_expr expr llbuilder =
       print_endline (string_of_lltype (type_of value_expr_code));
       print_endline (string_of_lltype (type_of value_expr_code));
       (* GEP = get element pointer *)
-      let ptr = build_in_bounds_gep value_expr_code [|zero|] "" llbuilder in
+      (*let ptr = build_in_bounds_gep value_expr_code [|zero|] "" llbuilder in*)
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
   | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->

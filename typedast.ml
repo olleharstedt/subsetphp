@@ -28,11 +28,14 @@ and stmt =
   | Block of block
   | If of expr * block * block
   | Return of ty * Pos.t * expr option
+  | Noop
 
 and block = stmt list
 
 and expr = Pos.t * expr_
 and expr_ =
+  | True
+  | False
   | Id of id * ty
   | Lvar of id * ty
   | Number of float

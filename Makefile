@@ -1,4 +1,4 @@
-all: clear subsetphp test llvm_test llvm_test_compile
+all: clear subsetphp test llvm_test
 
 clear:
 	clear
@@ -148,10 +148,10 @@ llvm_test: subsetphp typedast.cmx llvm_test.ml
 	ocamlfind ocamlopt -cc g++ -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -cc g++ -package llvm,llvm.bitreader,llvm.bitwriter,llvm.target,llvm.analysis,llvm.scalar_opts -linkpkg ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx typedast.cmx infer.cmx llvm_test.ml -o llvm_test
 
 llvm_test_compile: llvm_test
-	#./llvm_test
-	#llc-3.6 llvm_test.bc
-	#clang-3.6 -c llvm_test.s
-	#clang-3.6 -o test llvm_test.o
+	./llvm_test
+	llc-3.6 llvm_test.bc
+	clang-3.6 -c llvm_test.s
+	clang-3.6 -o test llvm_test.o
 
 clean:
 	rm *.o *.cmi *.cmx
