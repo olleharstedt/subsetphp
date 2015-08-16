@@ -469,7 +469,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (* Check so that left hand and right hand are the same type *)
       unify lexpr_ty rexpr_ty;
 
-      (p, Typedast.Binop (Typedast.EQeqeq, typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
+      (p, Typedast.Binop (Typedast.EQeqeq (ty_of_ty lexpr_ty), typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
 
   (* Assignment *)
   | p, Binop (Eq None, (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->

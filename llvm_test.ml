@@ -235,9 +235,8 @@ and codegen_expr expr llbuilder : llvalue =
       const_float double_type f;
 
   (* === on numbers *)
-  | p, Binop (EQeqeq, lexpr, rexpr, TBoolean) ->
-      (* TODO: Why this block? *)
-      (*let the_function = block_parent (insertion_block llbuilder) in*)
+  | p, Binop (EQeqeq TNumber, lexpr, rexpr, TBoolean) ->
+
       let lexpr_code = codegen_expr lexpr llbuilder in
       let rexpr_code = codegen_expr rexpr llbuilder in
 

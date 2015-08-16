@@ -47,7 +47,9 @@ and expr_ =
 
 and bop =
 | Plus
-| Minus | Star | Slash | Eqeq | EQeqeq | Starstar
+| Minus | Star | Slash | Eqeq 
+| EQeqeq of ty  (* We want to carry what type are being compared *)
+| Starstar
 | Diff | Diff2 | AMpamp | BArbar | Lt
 | Lte | Gt | Gte | Dot | Amp | Bar | Ltlt
 | Gtgt | Percent | Xor
