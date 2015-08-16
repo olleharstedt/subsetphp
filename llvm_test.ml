@@ -234,6 +234,24 @@ and codegen_expr expr llbuilder : llvalue =
       let f = float_of_string i in
       const_float double_type f;
 
+  (* < *)
+  | p, Binop (Lt, lexpr, rexpr, TBoolean) ->
+
+      let lexpr_code = codegen_expr lexpr llbuilder in
+      let rexpr_code = codegen_expr rexpr llbuilder in
+
+      let i = build_fcmp Fcmp.Olt lexpr_code rexpr_code "EQeqeq" llbuilder in
+      build_uitofp i double_type "booltmp" llbuilder
+
+  (* > *)
+  | p, Binop (Gt, lexpr, rexpr, TBoolean) ->
+
+      let lexpr_code = codegen_expr lexpr llbuilder in
+      let rexpr_code = codegen_expr rexpr llbuilder in
+
+      let i = build_fcmp Fcmp.Ogt lexpr_code rexpr_code "EQeqeq" llbuilder in
+      build_uitofp i double_type "booltmp" llbuilder
+
   (* === on numbers *)
   | p, Binop (EQeqeq TNumber, lexpr, rexpr, TBoolean) ->
 
@@ -275,8 +293,10 @@ and codegen_expr expr llbuilder : llvalue =
             alloca
       in
       let value_expr_code = codegen_expr value_expr llbuilder in
+      (*
       print_endline (string_of_lltype (type_of value_expr_code));
       print_endline (string_of_lltype (type_of value_expr_code));
+      *)
       (* GEP = get element pointer *)
       (*let ptr = build_in_bounds_gep value_expr_code [|zero|] "" llbuilder in*)
       ignore (build_store value_expr_code variable llbuilder);
