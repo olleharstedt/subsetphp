@@ -18,6 +18,8 @@
  * Compile bitcode files with `llc hello.bc`.
  * Then you need to link the .s file with `clang -c hello.s`, and
  * `clang -o hello hello.o`
+ *
+ * Disassemble bitcode with llvm-dis.
  *)
 
 open Llvm
@@ -231,7 +233,18 @@ and codegen_expr expr llbuilder : llvalue =
       print_endline "";
       let f = float_of_string i in
       const_float double_type f;
-  (* Assign value to variable *)
+
+  (* === on numbers *)
+  | p, Binop (EQeqeq, lexpr, rexpr, TBoolean) ->
+      (* TODO: Why this block? *)
+      (*let the_function = block_parent (insertion_block llbuilder) in*)
+      let lexpr_code = codegen_expr lexpr llbuilder in
+      let rexpr_code = codegen_expr rexpr llbuilder in
+
+      let i = build_fcmp Fcmp.Oeq lexpr_code rexpr_code "EQeqeq" llbuilder in
+      build_uitofp i double_type "booltmp" llbuilder
+
+  (* Assign number to variable *)
   | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TNumber)), value_expr, binop_ty) ->
       let the_function = block_parent (insertion_block llbuilder) in
       let variable = try Hashtbl.find named_values lvar_name with
@@ -246,6 +259,8 @@ and codegen_expr expr llbuilder : llvalue =
       let value_expr_code = codegen_expr value_expr llbuilder in
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
+
+  (* Assign string to variable *)
   | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TString)), value_expr, binop_ty) ->
       let the_function = block_parent (insertion_block llbuilder) in
       let variable = try Hashtbl.find named_values lvar_name with
