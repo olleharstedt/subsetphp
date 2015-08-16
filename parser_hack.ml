@@ -2446,6 +2446,7 @@ and expr_remain env e1 =
   | Txor ->
       expr_binop env Txor Xor e1
   | Tincr | Tdecr as uop  ->
+      error env "++ or -- is not allowed";
       expr_postfix_unary env uop e1
   | Tarrow | Tnsarrow as tok ->
       expr_arrow env e1 tok
@@ -2652,7 +2653,10 @@ and expr_atomic ~allow_class ~class_const env =
       L.back env.lb;
       let name = identifier env in
       fst name, Id name
-  | Tem | Tincr | Tdecr | Ttild | Tplus | Tminus as op ->
+  | Tincr | Tdecr as op ->
+      error env "++ or -- is not allowed";
+      expr_prefix_unary env pos op
+  | Tem | Ttild | Tplus | Tminus as op ->
       expr_prefix_unary env pos op
   | Tamp ->
       expr_ref env pos
