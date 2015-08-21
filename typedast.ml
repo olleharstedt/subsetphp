@@ -11,7 +11,6 @@ type ty =
   | TString
   | TBoolean
   | TUnit
-  | TNum
   | TArrow of ty list * ty            (* function type: e.g. `(int, int) -> int` *)
 
 and id = Pos.t * string
@@ -47,7 +46,7 @@ and expr_ =
 
 and bop =
 | Plus
-| Minus | Star | Slash | Eqeq 
+| Minus | Star | Slash | Eqeq
 | EQeqeq of ty  (* We want to carry what type are being compared *)
 | Starstar
 | Diff | Diff2 | AMpamp | BArbar | Lt
@@ -83,3 +82,9 @@ let create_typed_params env (f_params : Ast.fun_param list) =
   in
   aux f_params []
 
+let string_of_ty ty = match ty with
+  | TNumber -> "TNumber"
+  | TString -> "TString"
+  | TBoolean -> "TBoolean"
+  | TUnit -> "TUnit"
+  | TArrow (ty_list, ty) -> failwith "string_of_ty: Not implemented"

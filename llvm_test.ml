@@ -52,6 +52,50 @@ let create_entry_block_alloca the_function var_name ty =
   build_alloca ty var_name builder
 
 (**
+ * Generate code for a function prototype
+ * From LLVM tutorial
+ *
+ * @param def def
+ * @return llvalue
+ *)
+let codegen_proto def = 
+  match def with
+  | Fun {f_name = (f_name_pos, name); f_params; f_ret} -> begin
+      (* Make the function type: double(double,double) etc. *)
+      let args = List.map (fun param -> match param with {param_id; param_type} -> param_type) f_params in
+      let args = Array.of_list args in
+      let doubles = Array.make (Array.length args) double_type in
+      let ft = function_type double_type doubles in
+      let f = match lookup_function name llm with
+        | None -> declare_function name ft llm
+
+        (* If 'f' conflicted, there was already something named 'name'. If it
+         * has a body, don't allow redefinition or reextern. *)
+        | Some f ->
+            (* If 'f' already has a body, reject this. *)
+            if block_begin f <> At_end f then
+              raise (Llvm_error "redefinition of function");
+
+            (* If 'f' took a different number of arguments, reject. *)
+            if element_type (type_of f ) <> ft then
+              raise (Llvm_error "redefinition of function with different # args");
+            f
+      in
+
+      (* Set names for all arguments. *)
+      Array.iteri (fun i a ->
+        let ty = args.(i) in
+        let n = string_of_ty ty in 
+        set_value_name n a;
+        Hashtbl.add named_values n a;
+        ) (params f);
+      f
+    end
+  | _ ->
+    failwith "codegen_proto: Only Fun fun_ allowed"
+
+
+(**
  * Generate LLVM IR for program
  *
  * All "global" PHP variables are wrapped in the main function.
@@ -99,7 +143,7 @@ let rec codegen_program program =
         aux tail
     | Fun fun_ :: tail ->
         ()
-  in
+        in
   aux program;
   let _ = build_ret (const_int i32_t 0) llbuilder in
   ()
@@ -120,12 +164,12 @@ and codegen_block block llbuilder : llvalue =
         ()
     | block ->
 
-      let stmt_values = ref [] in
-      for i = 0 to List.length block - 1 do
-        let stmt = List.nth block i in
-        let stmt_value = codegen_stmt stmt llbuilder in
-        stmt_values := !stmt_values @ [stmt_value];
-      done;
+        let stmt_values = ref [] in
+        for i = 0 to List.length block - 1 do
+          let stmt = List.nth block i in
+          let stmt_value = codegen_stmt stmt llbuilder in
+          stmt_values := !stmt_values @ [stmt_value];
+        done;
   end;
 
   (*stmt_values*)
@@ -198,8 +242,8 @@ and codegen_stmt stmt llbuilder : llvalue =
 
   | _ -> raise (Llvm_not_implemented (sprintf "codegen_stmt: %s" (show_stmt stmt)))
 
-(**
- * Generate LLVM IR for expr
+  (**
+   * Generate LLVM IR for expr
  *
  * @param expr Typedast.expr
  * @param llbuilder
@@ -216,21 +260,21 @@ and codegen_expr expr llbuilder : llvalue =
   | p, False ->
       const_float double_type 0.0
   | p, Lvar ((pos, lvar_name), ty) -> 
-      print_endline lvar_name;
+      (*print_endline lvar_name;*)
       (*let the_function = block_parent (insertion_block llbuilder) in*)
       let variable = try Hashtbl.find named_values lvar_name with
         | Not_found ->
             raise (Llvm_error (sprintf "Lvar is used on rhs before ever used on the lhs: %s" lvar_name))
       in
       build_load variable lvar_name llbuilder
-  | p, Number nr ->
-      const_float double_type nr;
-  | p, String (pos, str) ->
-      (*let str_val = const_string llctx str in*)
-      (*define_global str str_val llm *)
-      build_global_stringptr str str llbuilder
-  | p, Int (pos, i) ->
-      print_endline "";
+        | p, Number nr ->
+            const_float double_type nr;
+        | p, String (pos, str) ->
+            (*let str_val = const_string llctx str in*)
+            (*define_global str str_val llm *)
+            build_global_stringptr str str llbuilder
+        | p, Int (pos, i) ->
+            print_endline "";
       let f = float_of_string i in
       const_float double_type f;
 
@@ -261,10 +305,25 @@ and codegen_expr expr llbuilder : llvalue =
       let i = build_fcmp Fcmp.Oeq lexpr_code rexpr_code "EQeqeq" llbuilder in
       build_uitofp i double_type "booltmp" llbuilder
 
-  (* Assign number to variable *)
-  | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TNumber)), value_expr, binop_ty) ->
-      let the_function = block_parent (insertion_block llbuilder) in
+  (* +=, only allowed on numbers *)
+  | p, Binop (Eq (Some Plus), (lha_pos, Lvar ((lvar_pos, lvar_name), TNumber)), rexpr, TNumber) ->
+      (*let the_function = block_parent (insertion_block llbuilder) in*)
       let variable = try Hashtbl.find named_values lvar_name with
+        | Not_found ->
+            (* Should not happen *)
+            failwith "Tried to use += on variable that is not defined"
+        in
+      let rexpr_code = codegen_expr rexpr llbuilder in
+      let load_code = build_load variable lvar_name llbuilder in
+      let add_code = build_fadd load_code rexpr_code "addtmp" llbuilder in
+
+      ignore (build_store add_code variable llbuilder);
+      add_code
+
+  (* Assign number to variable *)
+        | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TNumber)), value_expr, binop_ty) ->
+            let the_function = block_parent (insertion_block llbuilder) in
+            let variable = try Hashtbl.find named_values lvar_name with
         | Not_found ->
             (* If variable is not found in this scope, create a new one *)
             let alloca = create_entry_block_alloca the_function lvar_name double_type in
@@ -272,7 +331,7 @@ and codegen_expr expr llbuilder : llvalue =
             ignore (build_store init_val alloca llbuilder);
             Hashtbl.add named_values lvar_name alloca;
             alloca
-      in
+            in
       let value_expr_code = codegen_expr value_expr llbuilder in
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
@@ -368,6 +427,15 @@ let _ =
     let program = Infer.infer_program 0 parser_return.ast in
     printf "%s\n" (Typedast.show_program program);
 
+    (* Generate printd external function *)
+    let f_param = {param_id = (Pos.none, "x"); param_type = TNumber} in
+    let printd = Fun {
+      f_name = (Pos.none, "printd"); 
+      f_params = [f_param];
+      f_ret = TNumber
+    } in
+    ignore (codegen_proto printd);
+
     ignore (codegen_program program);
 
     dump_module llm;
@@ -376,7 +444,7 @@ let _ =
 
     let _ = Llvm_bitwriter.write_bitcode_file llm "llvm_test.bc" in
     ()
-  (* If error, print line and message etc *)
+    (* If error, print line and message etc *)
   end else begin
     let pos, msg = match parser_return.error with
       | None ->
@@ -392,13 +460,13 @@ let _ =
 
 (*
 
-Example IR from hello program.
+  Example IR from hello program.
 
-@.str = private unnamed_addr constant [14 x i8] c"Hello, world!\00", align 1
+  @.str = private unnamed_addr constant [14 x i8] c"Hello, world!\00", align 1
 
-; Function Attrs: nounwind uwtable
-define i32 @main() #0 {
-  %1 = alloca i32, align 4
+  ; Function Attrs: nounwind uwtable
+  define i32 @main() #0 {
+    %1 = alloca i32, align 4
   %str = alloca i8*, align 8
   store i32 0, i32* %1
   store i8* getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0), i8** %str, align 8
@@ -412,8 +480,8 @@ my PHP test: $a = 'foo'
 @foo = private unnamed_addr constant [4 x i8] c"foo\00"
 
 define i32 @main() {
-entry:
-  %"$a" = alloca i8
+  entry:
+    %"$a" = alloca i8
   store i8 0, i8* %"$a"
   store i8* getelementptr inbounds ([4 x i8]* @foo, i32 0, i32 0), i8* %"$a"
   ret i32 0

@@ -34,7 +34,7 @@ type ty =
   | TApp of ty * ty list              (* type application: `list[int]` *)
   | TArrow of ty list * ty            (* function type: e.g. `(int, int) -> int` *)
   | TVar of tvar ref                  (* type variable *)
-  | TNum
+  | TNumber
   | TString
   | TBoolean
   | TUnit
@@ -106,7 +106,7 @@ end
 let rec ty_of_ty typ =
   match typ with
   | TConst _ | TApp _ | TVar _ -> failwith "ty_of_ty: Has no correspondance in Typedast"
-  | TNum -> Typedast.TNumber
+  | TNumber -> Typedast.TNumber
   | TString -> Typedast.TString
   | TBoolean -> Typedast.TBoolean
   | TUnit -> Typedast.TUnit
@@ -155,7 +155,7 @@ let occurs_check_adjust_levels tvar_id tvar_level ty =
     | TArrow(param_ty_list, return_ty) ->
         List.iter f param_ty_list ;
         f return_ty
-    | TNum | TString | TBoolean | TUnit | TConst _ -> ()
+    | TNumber | TString | TBoolean | TUnit | TConst _ -> ()
   in
   f ty
 
@@ -197,7 +197,7 @@ let rec generalize level = function
   | TArrow(param_ty_list, return_ty) ->
       TArrow(List.map (generalize level) param_ty_list, generalize level return_ty)
   | TVar {contents = Link ty} -> generalize level ty
-  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TNum | TBoolean | TUnit | TConst _ as ty -> ty
+  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TNumber | TBoolean | TUnit | TConst _ as ty -> ty
 
   (*| ty -> failwith (sprintf "generalize error: %s" (show_ty ty))*)
 
@@ -205,7 +205,7 @@ let rec generalize level = function
 let instantiate level ty =
   let id_var_map = Hashtbl.create 10 in
   let rec f ty = match ty with
-    | TNum | TString | TBoolean | TUnit | TConst _ -> ty
+    | TNumber | TString | TBoolean | TUnit | TConst _ -> ty
     | TVar {contents = Link ty} -> f ty
     | TVar {contents = Generic id} ->
         begin
@@ -261,6 +261,11 @@ let rec match_fun_ty num_params = function
  *)
 let rec infer_program level (defs : def list) : Typedast.program =
   let env = Env.empty in
+
+  (* Add core functions *)
+  let printd_ty = TArrow ([TNumber], TUnit) in
+  let env = Env.extend env "printd" printd_ty in
+
   (**
    * @param typed_program Collect typed subexpressions and return
    *)
@@ -435,9 +440,9 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   | p, String (pos, str) ->
       (p, Typedast.String (pos, str)), env, TString
   | p, Int (pos, pstring) ->
-      (p, Typedast.Int (pos, pstring)), env, TNum
+      (p, Typedast.Int (pos, pstring)), env, TNumber
   | p, Float (pos, pstring) ->
-      (p, Typedast.Float (pos, pstring)), env, TNum
+      (p, Typedast.Float (pos, pstring)), env, TNumber
 
   (* > *)
   | p, Binop (Gt, lexpr, rexpr) ->
@@ -445,8 +450,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let (typed_rexpr, _, rexpr_ty) = infer_expr env (level + 1) rexpr in
 
       (* Check so that left hand and right hand are numeric *)
-      unify lexpr_ty TNum;
-      unify rexpr_ty TNum;
+      unify lexpr_ty TNumber;
+      unify rexpr_ty TNumber;
 
       (p, Typedast.Binop (Typedast.Gt, typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
 
@@ -456,8 +461,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let (typed_rexpr, _, rexpr_ty) = infer_expr env (level + 1) rexpr in
 
       (* Check so that left hand and right hand are numeric *)
-      unify lexpr_ty TNum;
-      unify rexpr_ty TNum;
+      unify lexpr_ty TNumber;
+      unify rexpr_ty TNumber;
 
       (p, Typedast.Binop (Typedast.Lt, typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
 
@@ -483,16 +488,16 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
         (* Check so left hand-side is a number *)
         let lvar_ty = Env.lookup env var_name in
-        unify (Env.lookup env var_name) TNum;
+        unify (Env.lookup env var_name) TNumber;
 
         let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
 
         (* Right hand-side should always unify to number *)
         let generalized_ty = generalize level value_ty in
-        unify TNum generalized_ty;
+        unify TNumber generalized_ty;
 
         let typed_lvar = (pos_lvar, Typedast.Lvar ((pos_var_name, var_name), ty_of_ty lvar_ty)) in
-        (p, Typedast.Binop (Typedast.Eq (Some Typedast.Plus), typed_lvar, typed_value_expr, Typedast.TNum)), env, TUnit
+        (p, Typedast.Binop (Typedast.Eq (Some Typedast.Plus), typed_lvar, typed_value_expr, Typedast.TNumber)), env, TUnit
 
       end else
         failwith "Left hand-side is not defined"
@@ -522,7 +527,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   (* Numerical op *)
   | p, Binop (bop, expr1, expr2) when is_numerical_op bop ->
       let (typed_bop, typed_expr1, typed_expr2, env) = infer_numberical_op env level bop expr1 expr2 in
-      (p, Typedast.Binop (typed_bop, typed_expr1, typed_expr2, Typedast.TNum)), env, TNum
+      (p, Typedast.Binop (typed_bop, typed_expr1, typed_expr2, Typedast.TNumber)), env, TNumber
 
   | p, Lvar (pos, var_name) ->
       let var_type = try Some (Env.lookup env var_name) with | Not_found -> None in
@@ -577,8 +582,8 @@ and infer_numberical_op env level bop expr1 expr2 =
   | Plus | Minus | Star | Slash | Starstar | Percent as bop ->
       let (typed_expr1, env, expr1_ty) = infer_expr env level expr1 in
       let (typed_expr2, env, expr2_ty) = infer_expr env level expr2 in
-      unify expr1_ty TNum;
-      unify expr2_ty TNum;
+      unify expr1_ty TNumber;
+      unify expr2_ty TNumber;
       let typed_bop = bop_to_typed bop in
       typed_bop, typed_expr1, typed_expr2, env
   | _ ->
