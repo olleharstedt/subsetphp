@@ -471,6 +471,32 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
       (p, Typedast.Binop (Typedast.EQeqeq (ty_of_ty lexpr_ty), typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
 
+  (* += *)
+  | p, Binop (Eq (Some Plus), (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->
+
+      let already_exists = try ignore (Env.lookup env var_name); true with
+        | Not_found -> false
+      in
+
+      (* Left hand-side must already be defined for this operator to work *)
+      if already_exists then begin
+
+        (* Check so left hand-side is a number *)
+        let lvar_ty = Env.lookup env var_name in
+        unify (Env.lookup env var_name) TNum;
+
+        let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
+
+        (* Right hand-side should always unify to number *)
+        let generalized_ty = generalize level value_ty in
+        unify TNum generalized_ty;
+
+        let typed_lvar = (pos_lvar, Typedast.Lvar ((pos_var_name, var_name), ty_of_ty lvar_ty)) in
+        (p, Typedast.Binop (Typedast.Eq (Some Typedast.Plus), typed_lvar, typed_value_expr, Typedast.TNum)), env, TUnit
+
+      end else
+        failwith "Left hand-side is not defined"
+
   (* Assignment *)
   | p, Binop (Eq None, (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->
       let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
