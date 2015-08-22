@@ -476,8 +476,9 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
       (p, Typedast.Binop (Typedast.EQeqeq (ty_of_ty lexpr_ty), typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
 
-  (* += *)
-  | p, Binop (Eq (Some Plus), (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->
+  (* += and -= *)
+  | p, Binop (Eq (Some Plus), (pos_lvar, Lvar (pos_var_name, var_name)), value_expr)
+  | p, Binop (Eq (Some Minus), (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->
 
       let already_exists = try ignore (Env.lookup env var_name); true with
         | Not_found -> false
