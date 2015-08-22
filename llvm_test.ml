@@ -321,9 +321,9 @@ and codegen_expr expr llbuilder : llvalue =
       add_code
 
   (* Assign number to variable *)
-        | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TNumber)), value_expr, binop_ty) ->
-            let the_function = block_parent (insertion_block llbuilder) in
-            let variable = try Hashtbl.find named_values lvar_name with
+  | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TNumber)), value_expr, binop_ty) ->
+      let the_function = block_parent (insertion_block llbuilder) in
+      let variable = try Hashtbl.find named_values lvar_name with
         | Not_found ->
             (* If variable is not found in this scope, create a new one *)
             let alloca = create_entry_block_alloca the_function lvar_name double_type in
@@ -370,6 +370,25 @@ and codegen_expr expr llbuilder : llvalue =
             build_fsub lhs rhs "subtmp" llbuilder
         | bop -> raise (Llvm_not_implemented (show_bop bop))
       end;
+  | p, Call ((pos, Id ((_, callee), call_ty)), args, unknown) ->
+  (* (p, Call ((pos, Id ((_, name),  .TUnit)),  [(<opaque>, Typedast.Lvar ((<opaque>, \"$i\"), Typedast.TNumber))], [\n   ]))") *)
+
+     (* Look up the name in the module table. *)
+      let callee =
+        match lookup_function callee llm with
+          | Some callee -> callee
+          | None -> raise (Llvm_error "unknown function referenced")
+      in
+      let params = params callee in
+
+      (* If argument mismatch error. *)
+      let args = Array.of_list args in
+      if Array.length params == Array.length args then () else
+        raise (Llvm_error "incorrect # arguments passed");
+
+      let args = Array.map (fun arg -> codegen_expr arg llbuilder) args in
+      build_call callee args "calltmp" llbuilder
+
   | expr -> raise (Llvm_not_implemented (sprintf "codegen_expr: %s" (show_expr expr)))
 
 and is_numerical_op = function
