@@ -18,6 +18,7 @@ open Parser_hack
 open Printf
 open Infer
 open ListLabels
+open Typedast
 
 let test_simple_variable_inference test_ctxt =
   let code = "
@@ -27,7 +28,7 @@ let test_simple_variable_inference test_ctxt =
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
-    (Infer.Error "cannot unify types Infer.TNum and Infer.TString")
+    (Infer.Error "cannot unify types Infer.TNumber and Infer.TString")
     (fun _ -> infer_program 0 parser_return.ast)
 
 let test_variable_assignment text_ctxt =
@@ -40,7 +41,14 @@ let test_variable_assignment text_ctxt =
     (Failure "Can't use variable before it's defined: $b")
     (fun _ -> infer_program 0 parser_return.ast)
 
-(** TODO: Test type tree *)
+(** TODO: Test type tree
+[(Typedast.Stmt
+    Typedast.Expr (Typedast.TUnit,
+      (<opaque>,
+       Typedast.Binop ((Typedast.Eq None),
+         (<opaque>, Typedast.Lvar ((<opaque>, "$a"), Typedast.TNumber)),
+         (<opaque>, (Typedast.Int (<opaque>, "10"))), Typedast.TUnit))))]
+*)
 let test_variable_assignment2 test_ctxt =
   let code = "
     <?php
@@ -48,7 +56,18 @@ let test_variable_assignment2 test_ctxt =
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   let ty = infer_program 0 parser_return.ast in
-  assert_equal ~msg:""  [] ty
+  let a_ty = match ty with
+    | [(Stmt
+        Expr (TUnit,
+          (_,
+           Binop ((Eq None),
+             (_, Lvar ((_, "$a"), ty)),
+             (_, (Int (_, "10"))), TUnit))))] ->
+       ty
+     | _ ->
+         TUnknown
+  in
+  assert_equal ~msg:"Variable has type number"  a_ty TNumber
 
 let test_variable_assignment3 test_ctxt =
   let code = "
@@ -59,7 +78,7 @@ let test_variable_assignment3 test_ctxt =
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
-    (Infer.Error "cannot unify types Infer.TNum and Infer.TString")
+    (Infer.Error "cannot unify types Infer.TNumber and Infer.TString")
     (fun _ -> infer_program 0 parser_return.ast)
 
 let test_function_return_type test_ctxt =
@@ -72,7 +91,7 @@ let test_function_return_type test_ctxt =
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
-    (Infer.Error "cannot unify types Infer.TUnit and Infer.TNum")
+    (Infer.Error "cannot unify types Infer.TUnit and Infer.TNumber")
     (fun _ -> infer_program 0 parser_return.ast)
 
 let test_function_return_type2 test_ctxt =
@@ -94,12 +113,16 @@ let test_function_return_type3 test_ctxt =
     function foo() {
       return 10;
     }
-    $a = 10;
-    $a = $a + foo();
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   let inferred_type = infer_program 0 parser_return.ast in
-  assert_equal [] inferred_type
+  let function_type = match inferred_type with
+    | [(Fun {f_name = (_, "\\foo"); f_params = []; f_ret})] ->
+        f_ret
+    | _ -> 
+        TUnknown
+  in
+  assert_equal ~msg:"Function returns number" function_type TNumber
 
 let test_function_return_type4 test_ctxt =
   let code = "
@@ -112,7 +135,7 @@ let test_function_return_type4 test_ctxt =
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
-    (Infer.Error "cannot unify types Infer.TString and Infer.TNum")
+    (Infer.Error "cannot unify types Infer.TString and Infer.TNumber")
     (fun _ -> infer_program 0 parser_return.ast)
 
 let test_function_return_type5 test_ctxt =
@@ -128,8 +151,30 @@ let test_function_return_type5 test_ctxt =
   " in
   let parser_return = Parser_hack.program (Relative_path.Root, "") code in
   assert_raises
-    (Infer.Error "cannot unify types Infer.TString and Infer.TNum")
+    (Infer.Error "cannot unify types Infer.TString and Infer.TNumber")
     (fun _ -> infer_program 0 parser_return.ast)
+
+(** Infer argument type *)
+let test_function_return_type6 test_ctxt =
+  let code = "
+    <?php
+    function foo($i) {
+      return $i + 10;
+    }
+  " in
+  let parser_return = Parser_hack.program (Relative_path.Root, "") code in
+  let inferred_type = infer_program 0 parser_return.ast in
+  let arg_ty = match inferred_type with
+    | [(Fun {
+        f_name = (_, "\\foo");
+        f_params = [{ param_id = (_, "$i");
+                      param_type}];
+        f_ret = TNumber })
+      ] ->
+        param_type
+    | _ -> TUnknown
+  in
+  assert_equal ~msg:"Function argument is number" arg_ty TNumber
 
 let test_list = [
   "simple_variable_inference", test_simple_variable_inference;
@@ -141,6 +186,7 @@ let test_list = [
   "function_return_type3", test_function_return_type3;
   "function_return_type4", test_function_return_type4;
   "function_return_type5", test_function_return_type5;
+  "function_return_type6", test_function_return_type6;
 ]
 
 let tear_down () test_ctxt =
