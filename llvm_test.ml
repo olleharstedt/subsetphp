@@ -142,8 +142,8 @@ let rec codegen_program program =
         let _ = codegen_stmt stmt llbuilder in
         aux tail
     | Fun fun_ :: tail ->
-        ()
-        in
+        failwith "codegen_program: fun_ not implemented"
+  in
   aux program;
   let _ = build_ret (const_int i32_t 0) llbuilder in
   ()

@@ -40,6 +40,7 @@ type ty =
   | TUnit
 [@@deriving show]
 
+(** TODO: Explain? *)
 and tvar =
   | Unbound of id * level
   | Link of ty
@@ -105,7 +106,14 @@ end
  *)
 let rec ty_of_ty typ =
   match typ with
-  | TConst _ | TApp _ | TVar _ -> failwith "ty_of_ty: Has no correspondance in Typedast"
+  | TVar tvar_ref ->
+      let tvar = !tvar_ref in
+      begin match tvar with 
+        | Link ty ->
+            ty_of_ty ty
+        | _ -> Typedast.TUnknown
+      end
+  | TConst _ | TApp _ -> failwith "ty_of_ty: Has no correspondance in Typedast"
   | TNumber -> Typedast.TNumber
   | TString -> Typedast.TString
   | TBoolean -> Typedast.TBoolean
@@ -259,7 +267,7 @@ let rec match_fun_ty num_params = function
  * @param defs program
  * @return Typedast.program
  *)
-let rec infer_program level (defs : def list) : Typedast.program =
+and infer_program level (defs : def list) : Typedast.program =
   let env = Env.empty in
 
   (* Add core functions *)
@@ -335,8 +343,6 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
       Typedast.Expr (Typedast.TUnit, typed_expr), env
 
       (*infer_stmts env level tail typed_stmts*)
-      (*
-      *)
   | Noop ->
       (Typedast.Noop, env)
   | Block stmts ->
@@ -355,14 +361,6 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
       Typedast.If (typed_expr, typed_stmts_block1, typed_stmts_block2), env
 
   | For ((p, Expr_list [start]), (p2, Expr_list [end_]), (p3, Expr_list [step]), body) ->  (* TODO: How to infer step? *)
-
-      (*
-       (Ast.Expr_list
-          [(<opaque>,
-            Ast.Binop ((Ast.Eq None),
-              (<opaque>, (Ast.Lvar (<opaque>, "$i"))),
-              (<opaque>, (Ast.Int (<opaque>, "0")))))])),
-              *)
 
       (* Check so start contains an assignement *)
       begin match start with
@@ -414,9 +412,48 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
   | stmt -> raise (Not_implemented (sprintf "infer_stmt: %s" (show_stmt stmt)))
 
 (**
+ * Create a typed fun from an untyped one
+ *
+ * @param env
+ * @param Ast.f_param list
+ * @return f_param list
+ *)
+and create_typed_params env (f_params : Ast.fun_param list) =
+  printf "create_typed_params";
+  Env.dump env;
+  let open Typedast in
+  let rec aux (params : Ast.fun_param list) typed_params =
+    match params with
+      | [] ->
+          typed_params
+      | {Ast.param_id = (pos, name)} :: params ->
+          printf "name = %s" name;
+          let already_exists = try ignore (Env.lookup env name); true with
+            | Not_found -> false
+          in
+          let typed_param  = if already_exists then begin
+            let ty = Env.lookup env name in
+            {
+              param_id = (pos, name);
+              param_type = ty_of_ty ty;
+            }
+            end else begin
+            {
+              param_id = (pos, name);
+              param_type = TUnknown;
+            }
+          end in
+          aux params (typed_param :: typed_params)
+  in
+  aux f_params []
+
+(**
+ * Infer type of function
+ *
  * @return Typedast.def * env * ty
  *)
 and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
+
   let open Env in
   (*let param_ty_list = List.map (fun _ -> new_var level) param_list in*)
   let param_list = List.map (fun param -> match param.param_id with
@@ -437,15 +474,16 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
   (* Get the return type from the body of the function *)
   let (_, fn_env) = infer_block fn_env level body_expr in
   let return_type = match fn_env.return_ty with
-  | Some ty -> ty
-  | None -> TUnit
+    | Some ty -> ty
+    | None -> TUnit
   in
 
   print_endline (sprintf "return type = %s" (show_ty return_type));
 
+
   let typed_fn = Typedast.(Fun {
     f_name = fun_.f_name;  (* TODO: Fix pos *)
-    f_params = Typedast.create_typed_params env fun_.f_params;
+    f_params = create_typed_params fn_env fun_.f_params;
     f_ret = ty_of_ty return_type;
   }) in
 
@@ -569,8 +607,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   | p, Lvar (pos, var_name) ->
       let var_type = try Some (Env.lookup env var_name) with | Not_found -> None in
       let var_type = (match var_type with
-      | None -> failwith (sprintf "Can't use variable before it's defined: %s" var_name)
-      | Some var_type -> var_type)
+        | None -> failwith (sprintf "Can't use variable before it's defined: %s" var_name)
+        | Some var_type -> var_type)
       in
       (p, Typedast.Lvar ((pos, var_name), ty_of_ty var_type)), env, var_type
 

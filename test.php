@@ -1,9 +1,12 @@
 <?php
 
-$j = 0;
-
-for ($i = 20; $i > 10; $i -= 1) {
-  $j = $i;
+function foo($i) {
+  return $i + 10;
+}
+/*
+function foo($i) {
+  return $i + 10;
 }
 
-printd($j);
+$j = 10 + foo(10);
+ */
