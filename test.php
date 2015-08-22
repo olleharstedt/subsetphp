@@ -1,7 +1,9 @@
 <?php
 
-for ($i = 0; $i < 10; $i += 1) {
-  $j = $i * 2;
+$j = 0;
+
+for ($i = 20; $i > 10; $i -= 1) {
+  $j = $i;
 }
 
-printd($i);
+printd($j);

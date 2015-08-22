@@ -240,7 +240,10 @@ and codegen_stmt stmt llbuilder : llvalue =
 
       phi
 
-  | For (start, end_, step, body) ->
+      (*
+         *)
+
+  | For ( (p1, Binop ((Eq None), (p2, Lvar ((p3, var_name), TNumber)), (p4, (Int (p5, var_value))), TUnit)) as start, end_, step, body) ->
       (* Output this as:
        *   var = alloca double
        *   ...
@@ -264,61 +267,56 @@ and codegen_stmt stmt llbuilder : llvalue =
       let the_function = block_parent (insertion_block llbuilder) in
 
       (* Create an alloca for the variable in the entry block. *)
-      let alloca = create_entry_block_alloca the_function var_name in
+      let alloca = create_entry_block_alloca the_function var_name double_type in
 
       (* Emit the start code first, without 'variable' in scope. *)
-      let start_val = codegen_expr start in
+      let start_val = codegen_expr start llbuilder in
 
       (* Store the value into the alloca. *)
-      ignore(build_store start_val alloca llbuilder);
+      ignore (build_store start_val alloca llbuilder);
 
       (* Make the new basic block for the loop header, inserting after current
-      *        * block. *)
-      let loop_bb = append_block context "loop" the_function in
+      *  block. *)
+      let loop_bb = append_block llctx "loop" the_function in
 
       (* Insert an explicit fall through from the current block to the
-      *        * loop_bb. *)
+       * loop_bb. *)
       ignore (build_br loop_bb llbuilder);
 
       (* Start insertion in loop_bb. *)
       position_at_end loop_bb llbuilder;
 
       (* Within the loop, the variable is defined equal to the PHI node. If it
-      *        * shadows an existing variable, we have to restore it, so save it
-      *               * now. *)
+       * shadows an existing variable, we have to restore it, so save it
+       * now. *)
       let old_val =
       try Some (Hashtbl.find named_values var_name) with Not_found -> None
       in
       Hashtbl.add named_values var_name alloca;
 
       (* Emit the body of the loop.  This, like any other expr, can change the
-      *        * current BB.  Note that we ignore the value computed by the body, but
-      *               * don't allow an error *)
-      ignore (codegen_expr body);
+       * current BB.  Note that we ignore the value computed by the body, but
+       * don't allow an error *)
+      ignore (codegen_block body llbuilder);
 
       (* Emit the step value. *)
-      let step_val =
-        match step with
-          | Some step -> codegen_expr step
-          (* If not specified, use 1.0. *)
-          | None -> const_float double_type 1.0
-      in
+      let step_val = codegen_expr step llbuilder in
 
       (* Compute the end condition. *)
-      let end_cond = codegen_expr end_ in
+      let end_cond = codegen_expr end_ llbuilder in
 
       (* Reload, increment, and restore the alloca. This handles the case where
-      *        * the body of the loop mutates the variable. *)
-      let cur_var = build_load alloca var_name llbuilder in
-      let next_var = build_add cur_var step_val "nextvar" llbuilder in
-      ignore(build_store next_var alloca llbuilder);
+       * the body of the loop mutates the variable. *)
+      (*let cur_var = build_load alloca var_name llbuilder in*)
+      (*let next_var = build_fadd cur_var step_val "nextvar" llbuilder in*)
+      ignore (build_store step_val alloca llbuilder);
 
       (* Convert condition to a bool by comparing equal to 0.0. *)
       let zero = const_float double_type 0.0 in
       let end_cond = build_fcmp Fcmp.One end_cond zero "loopcond" llbuilder in
 
       (* Create the "after loop" block and insert it. *)
-      let after_bb = append_block context "afterloop" the_function in
+      let after_bb = append_block llctx "afterloop" the_function in
 
       (* Insert the conditional branch into the end of loop_end_bb. *)
       ignore (build_cond_br end_cond loop_bb after_bb llbuilder);
