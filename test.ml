@@ -155,7 +155,7 @@ let test_function_return_type5 test_ctxt =
     (fun _ -> infer_program 0 parser_return.ast)
 
 (** Infer argument type *)
-let test_function_return_type6 test_ctxt =
+let test_function_argument_type1 test_ctxt =
   let code = "
     <?php
     function foo($i) {
@@ -176,6 +176,30 @@ let test_function_return_type6 test_ctxt =
   in
   assert_equal ~msg:"Function argument is number" arg_ty TNumber
 
+(** Infer argument type *)
+let test_function_argument_type2 test_ctxt =
+  let code = "
+    <?php
+    function foo($i, $j) {
+      $i = 10;
+      $j = 'asd';
+    }
+  " in
+  let parser_return = Parser_hack.program (Relative_path.Root, "") code in
+  let inferred_type = infer_program 0 parser_return.ast in
+  let arg_ty = match inferred_type with
+    | [(Fun {
+         f_name = (_, "\\foo");
+         f_params = [{param_id = (_, "$i"); param_type = param_type_i};
+                     {param_id = (_, "$j"); param_type = param_type_j}]; 
+         f_ret})
+      ] ->
+        (param_type_i, param_type_j, f_ret)
+    | _ ->
+        (TUnknown, TUnknown, TUnknown)
+  in
+  assert_equal ~msg:"Function argument is number" arg_ty (TNumber, TString, TUnit)
+
 let test_list = [
   "simple_variable_inference", test_simple_variable_inference;
   "variable_assignment", test_variable_assignment;
@@ -186,7 +210,8 @@ let test_list = [
   "function_return_type3", test_function_return_type3;
   "function_return_type4", test_function_return_type4;
   "function_return_type5", test_function_return_type5;
-  "function_return_type6", test_function_return_type6;
+  "function_argument_type1", test_function_argument_type1;
+  "function_argument_type2", test_function_argument_type2;
 ]
 
 let tear_down () test_ctxt =
