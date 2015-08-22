@@ -320,6 +320,21 @@ and codegen_expr expr llbuilder : llvalue =
       ignore (build_store add_code variable llbuilder);
       add_code
 
+  (* -=, only allowed on numbers *)
+  | p, Binop (Eq (Some Minus), (lha_pos, Lvar ((lvar_pos, lvar_name), TNumber)), rexpr, TNumber) ->
+      (*let the_function = block_parent (insertion_block llbuilder) in*)
+      let variable = try Hashtbl.find named_values lvar_name with
+        | Not_found ->
+            (* Should not happen *)
+            failwith "Tried to use -= on variable that is not defined"
+        in
+      let rexpr_code = codegen_expr rexpr llbuilder in
+      let load_code = build_load variable lvar_name llbuilder in
+      let add_code = build_fsub load_code rexpr_code "addtmp" llbuilder in
+
+      ignore (build_store add_code variable llbuilder);
+      add_code
+
   (* Assign number to variable *)
   | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TNumber)), value_expr, binop_ty) ->
       let the_function = block_parent (insertion_block llbuilder) in

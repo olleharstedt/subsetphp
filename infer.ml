@@ -477,8 +477,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (p, Typedast.Binop (Typedast.EQeqeq (ty_of_ty lexpr_ty), typed_lexpr, typed_rexpr, Typedast.TBoolean)), env, TBoolean
 
   (* += and -= *)
-  | p, Binop (Eq (Some Plus), (pos_lvar, Lvar (pos_var_name, var_name)), value_expr)
-  | p, Binop (Eq (Some Minus), (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->
+  | p, Binop (Eq (Some Plus as op), (pos_lvar, Lvar (pos_var_name, var_name)), value_expr)
+  | p, Binop (Eq (Some Minus as op), (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->
 
       let already_exists = try ignore (Env.lookup env var_name); true with
         | Not_found -> false
@@ -498,7 +498,14 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
         unify TNumber generalized_ty;
 
         let typed_lvar = (pos_lvar, Typedast.Lvar ((pos_var_name, var_name), ty_of_ty lvar_ty)) in
-        (p, Typedast.Binop (Typedast.Eq (Some Typedast.Plus), typed_lvar, typed_value_expr, Typedast.TNumber)), env, TUnit
+
+        let typed_op = match op with
+          | Some Plus -> Typedast.Plus
+          | Some Minus -> Typedast.Minus
+          | _ -> failwith "internal error 1508221315"
+        in
+
+        (p, Typedast.Binop (Typedast.Eq (Some typed_op), typed_lvar, typed_value_expr, Typedast.TNumber)), env, TUnit
 
       end else
         failwith "Left hand-side is not defined"
