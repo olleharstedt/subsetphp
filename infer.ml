@@ -443,7 +443,7 @@ and create_typed_params env (f_params : Ast.fun_param list) =
               param_type = TUnknown;
             }
           end in
-          aux params (typed_param :: typed_params)
+          aux params (typed_params @ [typed_param])
   in
   aux f_params []
 
