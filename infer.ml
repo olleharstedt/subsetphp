@@ -354,10 +354,39 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
 
       Typedast.If (typed_expr, typed_stmts_block1, typed_stmts_block2), env
 
-  (*
-  | For (start, end_, step, body) ->
-      ()
-  *)
+  | For ((p, Expr_list [start]), (p2, Expr_list [end_]), (p3, Expr_list [step]), body) ->  (* TODO: How to infer step? *)
+
+      (*
+       (Ast.Expr_list
+          [(<opaque>,
+            Ast.Binop ((Ast.Eq None),
+              (<opaque>, (Ast.Lvar (<opaque>, "$i"))),
+              (<opaque>, (Ast.Int (<opaque>, "0")))))])),
+              *)
+
+      (* Check so start contains an assignement *)
+      begin match start with
+        | p, Binop (Eq None, (p4, Lvar (p5, var_name)), _) ->
+            let already_exists = try ignore (Env.lookup env var_name); true with
+              | Not_found -> false
+            in
+            if already_exists then failwith "For-loop variable must not already exist in environment";
+        | _ ->
+            failwith "For start must have assignment, like $i = 0"
+      end;
+
+      let (typed_start, env, start_ty) = infer_expr env level start in
+      let (typed_end_, env, end_ty) = infer_expr env level end_ in
+
+      if end_ty != TBoolean then failwith "Condition in for loop must evaluate to true or false";
+
+      let (typed_step, env, step_ty) = infer_expr env level step in
+      let (typed_body, env) = infer_block env level body in
+
+      Typedast.For (typed_start, typed_end_, typed_step, typed_body), env
+
+  | For _ ->
+      failwith "Illegal form of for loop - only one expression in each block is allowed"
 
   | Return (pos, expr_opt) ->
       let open Env in
@@ -510,7 +539,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       end else
         failwith "Left hand-side is not defined"
 
-  (* Assignment *)
+  (* =, Assignment *)
   | p, Binop (Eq None, (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->
       let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
 

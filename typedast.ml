@@ -27,6 +27,7 @@ and stmt =
   | Block of block
   | If of expr * block * block
   | Return of ty * Pos.t * expr option
+  | For of expr * expr * expr * block
   | Noop
 
 and block = stmt list
