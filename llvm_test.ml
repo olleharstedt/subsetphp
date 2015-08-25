@@ -650,7 +650,7 @@ let _ =
     (* Generate printd external function *)
     let f_param = {param_id = (Pos.none, "x"); param_type = TNumber} in
     let printd = {
-      f_name = (Pos.none, "\printd"); 
+      f_name = (Pos.none, "\\printd"); 
       f_params = [f_param];
       f_ret = TNumber;
       f_body = [];

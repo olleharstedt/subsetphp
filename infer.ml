@@ -6,6 +6,7 @@ open Ast
 open Printf
 
 exception Not_implemented of string
+exception MapMergeException of string
 
 type name = string
 [@@deriving show]
@@ -83,6 +84,41 @@ module Env = struct
   let lookup env name = StringMap.find name env.map
   let new_return_type env ty : env =
     {env with return_ty = ty}
+
+  (** 
+   * Return all functions from an environment 
+   * Usefule when injecting namespaces into a function env
+   *
+   * @param env
+   * @return env
+   *)
+  let get_functions env : env =
+    let new_map = StringMap.filter (fun key value ->
+      match value with
+      | TArrow _ -> true
+      | _ -> false
+    ) env.map
+    in
+    {env with map = new_map}
+
+  (**
+   * Add env src to env dest
+   *
+   * @param src env
+   * @param dest env
+   * @return src + dest env
+   *)
+  let merge src dest : env =
+    let new_map = StringMap.merge (fun key src_val dest_val ->
+      match src_val, dest_val with
+      | None, None -> None
+      | Some a, None -> Some a
+      | None, Some a -> Some a
+      | Some a, Some b ->
+          raise (MapMergeException "Can't merge environments - one key exists in both environments")
+    ) src.map dest.map
+    in 
+    {dest with map = new_map}
 
   (**
    * Print environment
@@ -296,7 +332,8 @@ and infer_program level (defs : def list) : Typedast.program =
           | None -> ()
         end;
 
-        let (typed_fn, env, fn_ty) = infer_fun env level fun_ in
+        let env_with_fn = Env.get_functions env in
+        let (typed_fn, env, fn_ty) = infer_fun env_with_fn level fun_ in
         let env = Env.extend env fn_name fn_ty in
         (*infer_exprs (Env.extend env var_name generalized_ty) level tail;*)
         aux env level tail (typed_program @ [typed_fn])
@@ -450,6 +487,9 @@ and create_typed_params env (f_params : Ast.fun_param list) =
 (**
  * Infer type of function
  *
+ * @param env Env with functions in same scope as this function
+ * @param level ?
+ * @param fun_
  * @return Typedast.def * env * ty
  *)
 and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
@@ -462,12 +502,13 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
   let param_ty_list = List.map (fun _ -> new_var level) param_list in
 
   (* New scope for function *)
-  (* TODO: Global variables? *)
+  (* TODO: Global variables? Functions? *)
   let empty_env = Env.empty in
+  let new_env = Env.merge env empty_env in
 
   let fn_env = List.fold_left2
     (fun env param_name param_ty -> Env.extend env param_name param_ty)
-    empty_env param_list param_ty_list
+    new_env param_list param_ty_list
   in
   let body_expr = fun_.f_body in
 
