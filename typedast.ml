@@ -29,7 +29,7 @@ and stmt =
   | Expr of ty * expr
   | Block of block
   | If of expr * block * block
-  | Return of ty * Pos.t * expr option
+  | Return of Pos.t * expr option * ty
   | For of expr * expr * expr * block
   | Noop
 
@@ -67,6 +67,7 @@ and fun_ = {
   f_name : id;
   f_params : fun_param list;
   f_ret : ty;
+  f_body : block;
 }
 [@@deriving show]
 

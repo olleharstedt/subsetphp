@@ -397,7 +397,7 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
               ()
           );
           let env = {env with return_ty = Some TUnit} in
-          Typedast.Return (Typedast.TUnit, pos, None), env
+          Typedast.Return (pos, None, Typedast.TUnit), env
       | Some expr ->
           let (typed_expr, env, return_ty) = infer_expr env level expr in
           (match env.return_ty with
@@ -407,7 +407,7 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
               ()
           );
           let env = Env.new_return_type env (Some return_ty) in
-          Typedast.Return (ty_of_ty return_ty, pos, Some typed_expr), env
+          Typedast.Return (pos, Some typed_expr, ty_of_ty return_ty), env
       )
   | stmt -> raise (Not_implemented (sprintf "infer_stmt: %s" (show_stmt stmt)))
 
@@ -472,7 +472,7 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
   let body_expr = fun_.f_body in
 
   (* Get the return type from the body of the function *)
-  let (_, fn_env) = infer_block fn_env level body_expr in
+  let (typed_body_expr, fn_env) = infer_block fn_env level body_expr in
   let return_type = match fn_env.return_ty with
     | Some ty -> ty
     | None -> TUnit
@@ -480,11 +480,11 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
 
   print_endline (sprintf "return type = %s" (show_ty return_type));
 
-
   let typed_fn = Typedast.(Fun {
     f_name = fun_.f_name;  (* TODO: Fix pos *)
     f_params = create_typed_params fn_env fun_.f_params;
     f_ret = ty_of_ty return_type;
+    f_body = typed_body_expr;
   }) in
 
   (typed_fn, env, TArrow(param_ty_list, return_type))
@@ -613,36 +613,37 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (p, Typedast.Lvar ((pos, var_name), ty_of_ty var_type)), env, var_type
 
   | p, Call ((pos1, Id (pos_fn, fn_name)), arg_list, dontknow) ->
-      print_endline fn_name;
       let fn_ty = try Some (Env.lookup env fn_name) with | Not_found -> None in
       let return_ty = (match fn_ty with
-      | Some ty ->
-          (match ty with
-          | TArrow (args, return_ty) ->
-              List.iter2
-                (fun param_ty arg_expr ->
-                  let (typed_arg_expr, env, ty) = infer_expr env level arg_expr in
-                  unify param_ty ty
-                )
-                args arg_list
-              ;
-              return_ty
-          | _ ->
-              failwith "Not a function?"
-          )
-      | None ->
-          (* Infer function type here
-           * How much can we infer from a function usage in PHP? Lack of syntax for optional argument
-           * screw things up
-           *)
-          failwith "not implemented: infer function type before definition"
+        | Some ty ->
+            printf "fn_ty = %s\n" (show_ty ty);
+            (match ty with
+            | TArrow (args, return_ty) ->
+                List.iter2
+                  (fun param_ty arg_expr ->
+                    let (typed_arg_expr, env, ty) = infer_expr env level arg_expr in
+                    unify param_ty ty
+                  )
+                  args arg_list
+                ;
+                return_ty
+            | _ ->
+                failwith "Not a function?"
+            )
+        | None ->
+            (* Infer function type here
+             * How much can we infer from a function usage in PHP? Lack of syntax for optional argument
+             * screw things up
+             *)
+            failwith "not implemented: infer function type before definition"
       ) in
-      let fn = (fun expr ->
+      (* Function to get typed expression *)
+      let get_typed_expr = (fun expr ->
           let (typed_expr, env, ty) = infer_expr env level expr in
           typed_expr
       ) in
-      let typed_arg_list = List.map fn arg_list in
-      let typed_dontknow = List.map fn dontknow in
+      let typed_arg_list = List.map get_typed_expr arg_list in
+      let typed_dontknow = List.map get_typed_expr dontknow in
       let typed_call = Typedast.Call ((pos1, Typedast.Id ((pos_fn, fn_name), ty_of_ty return_ty)), typed_arg_list, typed_dontknow) in
       (p, typed_call), env, return_ty
   | expr -> raise (Not_implemented (sprintf "infer_exprs: %s" (show_expr expr)))

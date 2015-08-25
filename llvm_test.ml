@@ -55,23 +55,31 @@ let create_entry_block_alloca the_function var_name ty =
  * Generate code for a function prototype
  * From LLVM tutorial
  *
+ * There's no support for this in PHP, but still
+ * needed for external functions and libraries.
+ *
  * @param def def
  * @return llvalue
  *)
-let codegen_proto def = 
-  match def with
-  | Fun {f_name = (f_name_pos, name); f_params; f_ret} -> begin
+let codegen_proto (fun_ : fun_) = 
+  match fun_ with
+  | {f_name = (f_name_pos, name); f_params; f_ret} -> begin
       (* Make the function type: double(double,double) etc. *)
       let args = List.map (fun param -> match param with {param_id; param_type} -> param_type) f_params in
       let args = Array.of_list args in
       let doubles = Array.make (Array.length args) double_type in
       let ft = function_type double_type doubles in
       let f = match lookup_function name llm with
-        | None -> declare_function name ft llm
+        | None -> 
+            let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
+            declare_function name ft llm
 
         (* If 'f' conflicted, there was already something named 'name'. If it
          * has a body, don't allow redefinition or reextern. *)
         | Some f ->
+
+            (* TODO: Allow this? *)
+
             (* If 'f' already has a body, reject this. *)
             if block_begin f <> At_end f then
               raise (Llvm_error "redefinition of function");
@@ -91,9 +99,72 @@ let codegen_proto def =
         ) (params f);
       f
     end
-  | _ ->
-    failwith "codegen_proto: Only Fun fun_ allowed"
 
+
+(* Create an alloca for each argument and register the argument in the symbol
+ * table so that references to it will succeed. *)
+let create_argument_allocas the_function fun_ llbuilder =
+  let args = List.map (fun param -> match param with {param_id = (pos, var_name); param_type} -> var_name) fun_.f_params in
+  let args = Array.of_list args in
+  Array.iteri (fun i ai -> 
+    let var_name = args.(i) in
+    (* Create an alloca for this variable. *)
+    let alloca = create_entry_block_alloca the_function var_name double_type in
+
+    (* Store the initial value into the alloca. *)
+    ignore(build_store ai alloca llbuilder);
+
+    (* Add arguments to variable symbol table. *)
+    Hashtbl.add named_values var_name alloca;
+  ) (params the_function)
+
+
+(**
+ * Generate code for function
+ * From tutorial
+ *
+ * @param fun_ fun_
+ * @param llbuilder
+ * @return llvalue
+ *)
+let rec codegen_fun (fun_ : fun_) the_fpm =
+  
+  (* TODO: This means all function must come before "main" script code? *)
+  Hashtbl.clear named_values;
+
+  let the_function = codegen_proto fun_ in
+  let llbuilder = builder_at_end llctx (entry_block the_function) in
+
+  (* If this is an operator, install it. *)
+  (*
+  begin match proto with
+  | Ast.BinOpPrototype (name, args, prec) ->
+  let op = name.[String.length name - 1] in
+  Hashtbl.add Parser.binop_precedence op prec;
+  | _ -> ()
+  end;
+  *)
+
+  (* Create a new basic block to start insertion into. *)
+  let bb = append_block llctx "entry" the_function in
+  position_at_end bb llbuilder;
+
+  try
+    (* Add all arguments to the symbol table and create their allocas. *)
+    create_argument_allocas the_function fun_ llbuilder;
+
+    let _ = codegen_block fun_.f_body llbuilder in
+
+    (* Validate the generated code, checking for consistency. *)
+    Llvm_analysis.assert_valid_function the_function;
+
+    (* Optimize the function. *)
+    let _ = PassManager.run_function the_function the_fpm in
+
+    the_function
+  with e ->
+  delete_function the_function;
+  raise e
 
 (**
  * Generate LLVM IR for program
@@ -103,7 +174,7 @@ let codegen_proto def =
  * @param Typedast.program program
  * @return ?
  *)
-let rec codegen_program program =
+and codegen_program program =
 
   let the_fpm = PassManager.create_function llm in
 
@@ -124,6 +195,18 @@ let rec codegen_program program =
 
   ignore (PassManager.initialize the_fpm);
 
+  (** Generate functions *)
+  let rec aux_fun program = match program with
+    | [] ->
+        ()
+    | Fun fun_ :: tail ->
+        let _ = codegen_fun fun_ the_fpm in
+        aux_fun tail
+    | somethingelse :: tail ->
+        aux_fun tail
+  in
+  aux_fun program;
+
   (* New function type *)
   let fty = function_type i32_t [||] in
   (* New function definition, main *)
@@ -141,8 +224,8 @@ let rec codegen_program program =
     | Stmt stmt :: tail ->
         let _ = codegen_stmt stmt llbuilder in
         aux tail
-    | Fun fun_ :: tail ->
-        failwith "codegen_program: fun_ not implemented"
+    | possibly_fun :: tail ->
+        aux tail
   in
   aux program;
   let _ = build_ret (const_int i32_t 0) llbuilder in
@@ -182,12 +265,20 @@ and codegen_block block llbuilder : llvalue =
  * @param llbuilder
  * @return llvalue
  *)
-and codegen_stmt stmt llbuilder : llvalue = 
+and codegen_stmt (stmt : stmt ) llbuilder : llvalue = 
   match stmt with
   | Block block ->
       codegen_block block llbuilder
   | Expr (ty, expr) ->
       codegen_expr expr llbuilder
+  | Return (pos, expr_opt, ty) ->
+      begin match expr_opt with
+        | None ->
+            build_ret_void llbuilder
+        | Some expr ->
+            let expr = codegen_expr expr llbuilder in
+            build_ret expr llbuilder 
+      end
   | If (expr, then_, else_) ->
       let expr = codegen_expr expr llbuilder in
 
@@ -325,6 +416,7 @@ and codegen_stmt stmt llbuilder : llvalue =
       position_at_end after_bb llbuilder;
 
       (* Restore the unshadowed variable. *)
+      (* TODO: Not relevant for PHP, fix. *)
       begin match old_val with
         | Some old_val -> Hashtbl.add named_values var_name old_val
         | None -> ()
@@ -342,7 +434,7 @@ and codegen_stmt stmt llbuilder : llvalue =
  * @param llbuilder
  * @return llvalue
  *)
-and codegen_expr expr llbuilder : llvalue = 
+and codegen_expr (expr : expr) llbuilder : llvalue = 
   match expr with
   (*
   | p, Id (id, ty) -> 
@@ -485,7 +577,8 @@ and codegen_expr expr llbuilder : llvalue =
       let callee =
         match lookup_function callee llm with
           | Some callee -> callee
-          | None -> raise (Llvm_error "unknown function referenced")
+          | None -> 
+              raise (Llvm_error (sprintf "unknown function referenced: %s" callee))
       in
       let params = params callee in
 
@@ -556,10 +649,11 @@ let _ =
 
     (* Generate printd external function *)
     let f_param = {param_id = (Pos.none, "x"); param_type = TNumber} in
-    let printd = Fun {
-      f_name = (Pos.none, "printd"); 
+    let printd = {
+      f_name = (Pos.none, "\printd"); 
       f_params = [f_param];
-      f_ret = TNumber
+      f_ret = TNumber;
+      f_body = [];
     } in
     ignore (codegen_proto printd);
 
