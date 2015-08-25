@@ -2115,7 +2115,16 @@ and statement_for env =
   let start = last in
   let last, el = for_last_expr env in
   let e3 = Pos.btw start last, Expr_list el in
+
+  begin match L.token env.file env.lb with
+    | Tlcb ->
+        L.back env.lb;
+    | token ->
+        error_expect env "{ (for-loops without brackets are not supported by subsetphp)";
+  end;
+
   let st = statement env in
+
   For (e1, e2, e3, [st])
 
 and for_expr env =

@@ -8,5 +8,12 @@ function bar($i) {
   return foo($i) - 5;
 }
 
-$a = foo(10) + bar(20);
-printd($a);
+function baz() {
+  $a = 0;
+  for ($i = 0; $i < 1000000; $i += 1) {
+    $a += foo(10) + bar(20);
+  }
+  return $a;
+}
+
+print(baz());
