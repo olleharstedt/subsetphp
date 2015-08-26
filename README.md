@@ -24,8 +24,8 @@ TODO: Better error messages using Pos.
 
 TODO: Parametric polymorphism.
 
-Notes
------
+Notes about type-system
+-----------------------
 
 ```php
 $a = 1.0 + 1;  // OK, only one number type: number. Because lack of type-hints and + works on everything. TODO: int/float might be a performance bottle-neck?
@@ -370,10 +370,51 @@ Discussion about CoW:
 >
 > 15:41:57 - gasche: and this is not reference counting; in particular, an old owner can keep a reference of the value as long as it wants, without incurring any cost at all if the reference is not used (which may be very hard to prove statically, and in particular wrong in some exceptional cases)
 
+Strings
+-------
+
+String interning, have a pool of all unique strings. Then compare a string is simply a pointer comparison.
+
+The Zend string representation:
+
+```c
+struct _zend_string {
+	zend_refcounted   gc;
+	zend_ulong        h;                /* hash value */
+	size_t            len;
+	char              val[1];
+};
+```
+
+subsetphp shouldn't differ too much from PHP 5.6 representations, because they will have to interact.
+
+Have a global `zend_string` value, and then copy subsetphp pointers to it when using PHP library functions?
+
+Classes and objects
+-------------------
+
+vtable and stuff.
+
+Could this be represented as a pure struct? No methods or inheritance. How to enforce type? Allow individual type for each usage? Abort compilation if we can't guess type? Or just leave it since it's not used.
+
+```php
+final public class TestStruct {
+  public $x;
+  public $y;
+}
+
+$struct1 = new TestStruct();
+$struct1->x = 10;
+$struct1->y = 'foo';
+
+$arrOfStructs = array($struct1);
+```
+
 Benchmark
 ---------
 
 The goal is to compare subsetphp with PHP in benchmark "binary trees" from benchmarkgames.
+Actually, all benchmarks should be tested. And then also common programming problems, to see how a solution could look in subsetphp.
 
 Requirements:
 * Classes
@@ -454,3 +495,25 @@ Here's the Java code for said algorithm:
         }
     }
 ```
+
+IDE
+---
+
+How would a user know what type an array is? E.g., this
+
+```php
+$arr = array(1, 2, 3);
+```
+
+would be typed as `array<int>`, but if the variable is used later as a hashmap, the type would change?
+
+```php
+$arr = array(1, 2, 3);  // array<int>
+$arr['asd'] = 10;  // Error, $arr has type array<int>, here used as array<string, int>
+```
+
+```php
+$arr = array(10 => 20);  // array<int, int>
+```
+
+THe point is, use API from the compiler to get type-information. In Vim: At "hover", show type in bar? Look on how Merlin and Hack do it.
