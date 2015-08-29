@@ -382,13 +382,38 @@ struct _zend_string {
 	zend_refcounted   gc;
 	zend_ulong        h;                /* hash value */
 	size_t            len;
-	char              val[1];
+	char              val[1];           /* "struct hack", variable sized struct */
 };
 ```
 
 subsetphp shouldn't differ too much from PHP 5.6 representations, because they will have to interact.
 
-Have a global `zend_string` value, and then copy subsetphp pointers to it when using PHP library functions?
+Have a global `zend_string` value, and then copy subsetphp pointers to it when using PHP library functions? Or just use PHP structures and don't care about the memory overhead as long as the speed isn't affected?
+
+String interning at runtime? Use Zend string interning structure? Compared to what? OCaml?
+
+`interned_strings` is a `HashTable`.
+
+Arrays
+------
+
+```php
+$arr = array(1, 2, 3);  // array<int>
+```
+
+Can we infer dynamic arrays and static-size arrays? So we will really have `int[]` and `array<int>` as difference implementation representations. And `object[]` or `string[]`, etc. So the operator `[]=` would promote the type to dynamic array.
+
+```php
+$arr = new Array(10);  // new array of size 10
+```
+
+```php
+$arr = array();  // Type unknown or unresolved
+$arr[] = 10;  // Type-cast to array<int>
+$arr[] = 'foo';  // Type error
+```
+
+When looping an array, items should be fetched in order of insertion.
 
 Classes and objects
 -------------------
