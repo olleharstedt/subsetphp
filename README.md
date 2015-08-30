@@ -394,6 +394,8 @@ String interning at runtime? Use Zend string interning structure? Compared to wh
 
 `interned_strings` is a `HashTable`.
 
+Use PHP runtime? Like `interned_strings` combiler global. Memory waste, but easier interaction with runtime libraries. No speed penalty for using PHP runtime representations?
+
 Arrays
 ------
 
@@ -401,7 +403,7 @@ Arrays
 $arr = array(1, 2, 3);  // array<int>
 ```
 
-Can we infer dynamic arrays and static-size arrays? So we will really have `int[]` and `array<int>` as difference implementation representations. And `object[]` or `string[]`, etc. So the operator `[]=` would promote the type to dynamic array.
+Can we infer dynamic arrays and static-size arrays? So we will really have `int[]` and `array<int>` as difference implementation representations. And `object[]` or `string[]`, etc. So the operator `[]=` would promote the type to dynamic array. And using the array with keys promotes it to a hashtable.
 
 ```php
 $arr = new Array(10);  // new array of size 10
