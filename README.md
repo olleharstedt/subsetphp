@@ -411,8 +411,13 @@ $arr = new Array(10);  // new array of size 10
 
 ```php
 $arr = array();  // Type unknown or unresolved
-$arr[] = 10;  // Type-cast to array<int>
+$arr[] = 10;  // Promote to array<int>, dynamic array
 $arr[] = 'foo';  // Type error
+```
+
+```php
+$arr = array(1, 2, 3);  // Fix-size array, int[3]
+$arr[] = 10;  // Promote to dynamic array, array<int>
 ```
 
 When looping an array, items should be fetched in order of insertion.
