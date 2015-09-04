@@ -422,6 +422,24 @@ $arr[] = 10;  // Promote to dynamic array, array<int>
 
 When looping an array, items should be fetched in order of insertion.
 
+Unions
+------
+
+nullable is a specific case of this.
+
+Types that are more than one type must be checked with if-statements and typeof before usage.
+
+Examples:
+```php
+// Type is array<string, string|int[3]>, where | means union
+array(
+  'asd' => 'qwe',
+  'zxc' => array(1, 2, 3)
+);
+```
+
+Worse performance? Not allowed in Hack, see this link: http://docs.hhvm.com/manual/en/hack.otherrulesandfeatures.uniontypes.php
+
 Classes and objects
 -------------------
 
