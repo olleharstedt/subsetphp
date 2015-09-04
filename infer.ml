@@ -676,7 +676,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
              * How much can we infer from a function usage in PHP? Lack of syntax for optional argument
              * screw things up
              *)
-            failwith "not implemented: infer function type before definition"
+            failwith (sprintf "not implemented: infer function type before definition: %s" fn_name)
       ) in
       (* Function to get typed expression *)
       let get_typed_expr = (fun expr ->
