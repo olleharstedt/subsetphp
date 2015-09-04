@@ -11,6 +11,7 @@ open Printf
 type ty =
   | TNumber
   | TString
+  | TZend_string_ptr
   | TBoolean
   | TUnit
   | TUnknown  (* Unknown type, but need to be refined *)
@@ -74,6 +75,7 @@ and fun_ = {
 let string_of_ty ty = match ty with
   | TNumber -> "TNumber"
   | TString -> "TString"
+  | TZend_string_ptr -> "TZend_string_ptr"
   | TBoolean -> "TBoolean"
   | TUnit -> "TUnit"
   | TUnknown -> "TUnknown"

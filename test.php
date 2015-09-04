@@ -1,7 +1,7 @@
 <?php
 
 $a = 'asd';
-$b = $a . 1;
+$b = $a . 'qwe';
 
 /* Simple benchmark with some number crunching in a tight loop. Add mult and div?
 function foo($i) {

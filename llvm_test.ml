@@ -38,6 +38,7 @@ let i32_t = i32_type llctx
 let i8_t = i8_type llctx
 let i8_ptr_t = pointer_type i8_t
 let ptr_t = pointer_type i8_t
+let zend_string_ptr_type = struct_type llctx [||]
 let named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
 let zero = const_int i32_t 0
 
@@ -452,14 +453,17 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             raise (Llvm_error (sprintf "Lvar is used on rhs before ever used on the lhs: %s" lvar_name))
       in
       build_load variable lvar_name llbuilder
-        | p, Number nr ->
-            const_float double_type nr;
-        | p, String (pos, str) ->
-            (*let str_val = const_string llctx str in*)
-            (*define_global str str_val llm *)
-            build_global_stringptr str str llbuilder
-        | p, Int (pos, i) ->
-            print_endline "";
+  | p, Number nr ->
+      const_float double_type nr;
+  | p, String (pos, str) ->
+      (*let str_val = const_string llctx str in*)
+      (*define_global str str_val llm *)
+      build_global_stringptr str str llbuilder
+
+      (* Init string with zend_string_init *)
+      (* Make string interend *)
+      (* Return pointer to string *)
+  | p, Int (pos, i) ->
       let f = float_of_string i in
       const_float double_type f;
 
@@ -560,6 +564,8 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       (*let ptr = build_in_bounds_gep value_expr_code [|zero|] "" llbuilder in*)
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
+
+  (* Numerical operations *)
   | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->
       let lhs = codegen_expr expr1 llbuilder in
       let rhs = codegen_expr expr2 llbuilder in
@@ -570,6 +576,18 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             build_fsub lhs rhs "subtmp" llbuilder
         | bop -> raise (Llvm_not_implemented (show_bop bop))
       end;
+
+  (* . concatenation *)
+  | p, Typedast.Binop (Typedast.Dot, expr1, expr2, TString) ->
+  (*| p, Typedast.Binop (Typedast.Dot, (p, Typedast.Lvar ((p, "$a"), Typedast.TString)), (p, (Typedast.String (p, "qwe"))), Typedast.TString) ->*)
+      let lhs = codegen_expr expr1 llbuilder in
+      let rhs = codegen_expr expr2 llbuilder in
+      (* Create new string, zend_string_init *)
+      (* Contcat lhs and rhs using concat_function *)
+      (* Interned strings and dynamic strings should return same pointer type *)
+      ()
+
+  (* Function call *)
   | p, Call ((pos, Id ((_, callee), call_ty)), args, unknown) ->
   (* (p, Call ((pos, Id ((_, name),  .TUnit)),  [(<opaque>, Typedast.Lvar ((<opaque>, \"$i\"), Typedast.TNumber))], [\n   ]))") *)
 
@@ -656,6 +674,19 @@ let _ =
       f_body = [];
     } in
     ignore (codegen_proto printd);
+
+    (* Generate zend_string_init external function *)
+    let f_param1 = {param_id = (Pos.none, "str"); param_type = TString} in
+    let f_param2 = {param_id = (Pos.none, "len"); param_type = TNumber} in
+    let f_param3 = {param_id = (Pos.none, "persistent"); param_type = TNumber} in
+    let zend_string_init = {
+      f_name = (Pos.none, "\\zend_string_init"); 
+      f_params = [f_param1; f_param2; f_param3];
+      f_ret = TZend_string_ptr;
+      f_body = [];
+    } in
+    ignore (codegen_proto zend_string_init);
+
 
     ignore (codegen_program program);
 
