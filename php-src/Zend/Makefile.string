@@ -6,4 +6,4 @@ all: test
 
 # Compile from 
 test: test_string.c
-	gcc -I . -I ../ -I ../TSRM *.o test_string.c -o test -lm -ldl
+	gcc -g -I . -I ../ -I ../TSRM *.o test_string.c -o test -lm -ldl
