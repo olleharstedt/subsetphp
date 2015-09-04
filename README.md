@@ -10,19 +10,27 @@ Version goals
 -------------
 
 - 0.0.1: Make a web-page where you can try out the type-inference.
-         Prototype llvm-bindings.
+         Prototype LLVM-bindings.
          Prototype AST with types.
+         Prototype OCaml GC bindings
          Type-infer int and string and functions return value.
          Use binary math operations and concatenations.
-- 0.0.2: Type-infer arrays.
-- 0.1.0: Benchmark the first program on benchmarkgames, compare with Java, PHP, Hack (strict), Rust, C.
-- 1.0.0: Convert something (framework?) to subsetphp and run it, benchmark.
+- 0.0.2: Type-infer arrays and simple classes
+- 0.0.3: Add string interning
+- 0.0.4: Tune the GC for web (eat more memory for higher throughput)
+- 0.1.0: Benchmark the first program on benchmarkgames, compare with Java, PHP, Hack (strict), Rust, C
+         Post result on Reddit for feedback (r/php, r/programminglanguages, r/programming)
+- 0.2.0: Benchmark all benchmarkgames
+- 0.3.0: Do all (or some?) "99 problems" in subsetphp (details here: https://www.reddit.com/r/ProgrammingLanguages/comments/16gtqg/say_you_are_trying_to_design_a_programming/)
+- 1.0.0: Convert something (part of a framework?) to subsetphp and run it, benchmark.
 
 TODO: Make up a working solution for optional arguments.
 
 TODO: Better error messages using Pos.
 
 TODO: Parametric polymorphism.
+
+TODO: Compare benchmarks with phc PHP compiler
 
 Notes about type-system
 -----------------------
