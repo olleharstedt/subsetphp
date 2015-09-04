@@ -379,7 +379,7 @@ let read_file filename =
   let file_content = ref "" in
   (try while true do begin
     let line = input_line in_channel in
-    file_content := !file_content ^ line
+    file_content := !file_content ^ line ^ "\n\r"
   end done
   with End_of_file -> close_in in_channel);
   (*eprintf "file_content = %s" !file_content;*)

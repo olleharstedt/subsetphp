@@ -154,8 +154,8 @@ llvm_test_compile: llvm_test
 	./llvm_test
 	llvm-dis-3.6 llvm_test.bc
 	llc-3.6 llvm_test.bc
-	clang-3.6 -c llvm_test.s
-	clang-3.6 -o test runtime.o llvm_test.o
+	clang-3.6 -c llvm_test.s -O3
+	clang-3.6 -o test runtime.o llvm_test.o -O3
 
 clean:
 	rm *.o *.cmi *.cmx

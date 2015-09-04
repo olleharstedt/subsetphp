@@ -1,5 +1,9 @@
 <?php
 
+$a = 'asd';
+$b = $a . 1;
+
+/* Simple benchmark with some number crunching in a tight loop. Add mult and div?
 function foo($i) {
   return $i + 10;
 }
@@ -17,3 +21,4 @@ function baz() {
 }
 
 print(baz());
+ */

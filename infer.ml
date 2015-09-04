@@ -63,6 +63,7 @@ let new_gen_var () = TVar (ref (Generic(next_id ())))
 
 
 exception Error of string
+exception Unify_error of string * ty * ty
 exception Not_implemented of string
 
 let error msg = raise (Error msg)
@@ -229,10 +230,9 @@ let rec unify ty1 ty2 =
     | _, _ ->
         let bt = Printexc.get_backtrace () in
         print_endline bt;
-        error ("cannot unify types " ^ show_ty ty1 ^ " and " ^ show_ty ty2)
+        raise (Unify_error (("Cannot unify types " ^ show_ty ty1 ^ " and " ^ show_ty ty2), ty1, ty2))
 
-
-
+(** TODO: What does this do? What is level? *)
 let rec generalize level = function
   | TVar {contents = Unbound(id, other_level)} when other_level > level ->
       TVar (ref (Generic id))
@@ -644,6 +644,25 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   | p, Binop (bop, expr1, expr2) when is_numerical_op bop ->
       let (typed_bop, typed_expr1, typed_expr2, env) = infer_numberical_op env level bop expr1 expr2 in
       (p, Typedast.Binop (typed_bop, typed_expr1, typed_expr2, Typedast.TNumber)), env, TNumber
+
+  (* . concatenation *)
+  (*| p, Binop (Dot, (p, (Lvar (p, "$a"))), (p, (String (p, "qwe")))) ->*)
+  | p, Binop (Dot, expr1, expr2) ->
+      let (typed_expr1, env, expr1_ty) = infer_expr env (level + 1) expr1 in
+      let (typed_expr2, env, expr2_ty) = infer_expr env (level + 1) expr2 in
+
+      begin try begin
+        unify expr1_ty TString;
+        unify expr2_ty TString;
+      end with
+        | Unify_error (msg, ty1, ty2) ->
+            let line, start, end_ = Pos.info_pos p in
+            raise (Error (sprintf "File %S, line %d, characters %d-%d: %s\n"
+              (snd Pos.(p.pos_file)) line start end_ "Can only concatenate strings"))
+      end;
+
+      (* Binop of bop * expr * expr * ty *)
+      (p, (Typedast.Binop (Typedast.Dot, typed_expr1, typed_expr2, Typedast.TString))), env, TString
 
   | p, Lvar (pos, var_name) ->
       let var_type = try Some (Env.lookup env var_name) with | Not_found -> None in

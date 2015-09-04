@@ -57,6 +57,7 @@ int main(void) {
 
 	zend_startup_constants();
   zend_interned_strings_init();
+
   zend_string *str = zend_string_init("asd", 3, 1);
   int is_int = IS_INTERNED(str);
   printf("%d\n", is_int);
