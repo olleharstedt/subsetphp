@@ -68,6 +68,16 @@ exception Not_implemented of string
 
 let error msg = raise (Error msg)
 
+(**
+ * Return file and line information used in error messages
+ *
+ * @param pos Pos.pos
+ * @return string
+ *)
+let get_pos_msg pos =
+  let line, start, end_ = Pos.info_pos pos in
+  sprintf "File %S, line %d, characters %d-%d"
+    (snd Pos.(pos.pos_file)) line start end_
 
 module Env = struct
   module StringMap = Map.Make (String)
@@ -656,9 +666,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
         unify expr2_ty TString;
       end with
         | Unify_error (msg, ty1, ty2) ->
-            let line, start, end_ = Pos.info_pos p in
-            raise (Error (sprintf "File %S, line %d, characters %d-%d: %s\n"
-              (snd Pos.(p.pos_file)) line start end_ "Can only concatenate strings"))
+            let pos_msg = get_pos_msg p in
+            raise (Error (sprintf "%s: Can only concatenate strings" pos_msg))
       end;
 
       (* Binop of bop * expr * expr * ty *)
