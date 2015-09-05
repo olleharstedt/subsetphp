@@ -1,6 +1,8 @@
 <?php
 
 $a = 'asd';
+prints($a);
+
 //$b = $a . 'qwe';
 
 /* Simple benchmark with some number crunching in a tight loop. Add mult and div?

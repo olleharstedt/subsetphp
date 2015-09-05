@@ -66,6 +66,7 @@ int main(void) {
   printf("%d\n", is_int);
   printf("%s\n", str->val);
 
+  // Concat two string variables
   zend_string *str2 = zend_string_init("qwe", 3, 1);
   zend_string *result = zend_string_init("", 0, 1);
   subsetphp_concat_function(result, str, str2);

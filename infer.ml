@@ -319,6 +319,8 @@ and infer_program level (defs : def list) : Typedast.program =
   (* Add core functions *)
   let printd_ty = TArrow ([TNumber], TUnit) in
   let env = Env.extend env "printd" printd_ty in
+  let prints_ty = TArrow ([TString], TUnit) in
+  let env = Env.extend env "prints" prints_ty in
 
   (**
    * @param typed_program Collect typed subexpressions and return

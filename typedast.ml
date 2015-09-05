@@ -10,6 +10,7 @@ open Printf
 
 type ty =
   | TNumber
+  | TInt
   | TString
   | TZend_string_ptr
   | TBoolean
@@ -74,6 +75,7 @@ and fun_ = {
 
 let string_of_ty ty = match ty with
   | TNumber -> "TNumber"
+  | TInt -> "TInt"
   | TString -> "TString"
   | TZend_string_ptr -> "TZend_string_ptr"
   | TBoolean -> "TBoolean"

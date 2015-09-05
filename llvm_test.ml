@@ -51,6 +51,7 @@ let zero = const_int i32_t 0
  *)
 let llvm_ty_of_ty ty = match ty with
   | TNumber -> double_type
+  | TInt -> i32_t
   | TString -> i8_ptr_t  (* Pointer to const char* *)
   | TZend_string_ptr -> zend_string_ptr_type
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
@@ -473,10 +474,23 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   | p, String (pos, str) ->
       (*let str_val = const_string llctx str in*)
       (*define_global str str_val llm *)
-      build_global_stringptr str str llbuilder
+      let str_ptr = build_global_stringptr str str llbuilder in
+      let length = const_int i32_t (String.length str) in
+      let persistent = const_int i32_t 1 in
+      let args = [|str_ptr; length; persistent|] in
 
       (* Init string with zend_string_init *)
+      (*call_function "zend_string_init" [|str_ptr; length; persistent|] llbuilder*)
+      let callee =
+        match lookup_function "zend_string_init" llm with
+          | Some callee -> callee
+          | None -> 
+              raise (Llvm_error (sprintf "unknown function referenced: %s" "zend_string_init"))
+      in
+      build_call callee args "zend_string_init" llbuilder
+
       (* Make string interend *)
+
       (* Return pointer to string *)
   | p, Int (pos, i) ->
       let f = float_of_string i in
@@ -562,7 +576,8 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         | Not_found ->
             (* If variable is not found in this scope, create a new one *)
             let builder = builder_at llctx (instr_begin (entry_block the_function)) in
-            let alloca = build_alloca i8_ptr_t lvar_name builder in
+            (*let alloca = build_alloca i8_ptr_t lvar_name builder in*)
+            let alloca = build_alloca zend_string_ptr_type lvar_name builder in
             (*
             let init_val =  const_int i8_t 0 in
             ignore (build_store init_val alloca llbuilder);
@@ -623,7 +638,7 @@ and is_numerical_op = function
  * Call a function and return LLVM IR call op
  *
  * @param name string
- * @param args array
+ * @param args Typedast.expr array
  * @return llvalue call
  *)
 and call_function name args llbuilder = 
@@ -702,10 +717,20 @@ let _ =
     } in
     ignore (codegen_proto printd);
 
+    (* Generate prints external function *)
+    let f_param = {param_id = (Pos.none, "x"); param_type = TZend_string_ptr} in
+    let prints = {
+      f_name = (Pos.none, "\\prints"); 
+      f_params = [f_param];
+      f_ret = TNumber;
+      f_body = [];
+    } in
+    ignore (codegen_proto prints);
+
     (* Generate zend_string_init external function *)
     let f_param1 = {param_id = (Pos.none, "str"); param_type = TString} in
-    let f_param2 = {param_id = (Pos.none, "len"); param_type = TNumber} in
-    let f_param3 = {param_id = (Pos.none, "persistent"); param_type = TNumber} in
+    let f_param2 = {param_id = (Pos.none, "len"); param_type = TInt} in
+    let f_param3 = {param_id = (Pos.none, "persistent"); param_type = TInt} in
     let zend_string_init = {
       f_name = (Pos.none, "\\zend_string_init"); 
       f_params = [f_param1; f_param2; f_param3];
