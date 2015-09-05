@@ -51,6 +51,7 @@ let zero = const_int i32_t 0
  *)
 let llvm_ty_of_ty ty = match ty with
   | TNumber -> double_type
+  | TString -> i8_ptr_t  (* Pointer to const char* *)
   | TZend_string_ptr -> zend_string_ptr_type
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
 
@@ -80,8 +81,11 @@ let codegen_proto (fun_ : fun_) =
       (* Make the function type: double(double,double) etc. *)
       let args = List.map (fun param -> match param with {param_id; param_type} -> param_type) f_params in
       let args = Array.of_list args in
+      let llvm_args = Array.map (fun arg_type ->
+        llvm_ty_of_ty arg_type
+      ) args in
       let doubles = Array.make (Array.length args) double_type in
-      let ft = function_type (llvm_ty_of_ty f_ret) doubles in
+      let ft = function_type (llvm_ty_of_ty f_ret) llvm_args in
       let f = match lookup_function name llm with
         | None -> 
             let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
