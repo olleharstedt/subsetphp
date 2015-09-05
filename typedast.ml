@@ -12,6 +12,7 @@ type ty =
   | TNumber
   | TInt
   | TString
+  | TString_literal
   | TZend_string_ptr
   | TBoolean
   | TUnit
@@ -77,6 +78,7 @@ let string_of_ty ty = match ty with
   | TNumber -> "TNumber"
   | TInt -> "TInt"
   | TString -> "TString"
+  | TString_literal -> "TString_literal"
   | TZend_string_ptr -> "TZend_string_ptr"
   | TBoolean -> "TBoolean"
   | TUnit -> "TUnit"

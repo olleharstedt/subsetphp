@@ -137,12 +137,15 @@ module Env = struct
    * @return unit
    *)
   let dump (env : env) =
+    ()
+    (*
     print_endline "[ env = ";
     StringMap.iter (fun key value ->
       print_endline (sprintf "    %s : %s" key (show_ty value))
     ) env.map;
     print_endline (sprintf "    return type = %s" (match env.return_ty with Some ty -> show_ty ty | None -> "None"));
     print_endline "]"
+    *)
 end
 
 (**

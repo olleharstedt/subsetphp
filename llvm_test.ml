@@ -52,10 +52,22 @@ let zero = const_int i32_t 0
 let llvm_ty_of_ty ty = match ty with
   | TNumber -> double_type
   | TInt -> i32_t
-  | TString -> i8_ptr_t  (* Pointer to const char* *)
+  | TString -> i8_ptr_t
   | TZend_string_ptr -> zend_string_ptr_type
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
 
+(**
+ * As above, but TString returns zend_string_ptr_type, not i8_ptr_t for string literals
+ *
+ * TODO: How to solve this confusion? The inferrer must differ between literals and dynamic strings
+ *)
+let llvm_ty_of_ty_fun ty = match ty with
+  | TNumber -> double_type
+  | TInt -> i32_t
+  | TString -> zend_string_ptr_type
+  | TString_literal -> i8_ptr_t
+  | TZend_string_ptr -> zend_string_ptr_type
+  | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
 (** 
  * Create an alloca instruction in the entry block of the function. This
  * is used for mutable variables etc. 
@@ -83,9 +95,9 @@ let codegen_proto (fun_ : fun_) =
       let args = List.map (fun param -> match param with {param_id; param_type} -> param_type) f_params in
       let args = Array.of_list args in
       let llvm_args = Array.map (fun arg_type ->
-        llvm_ty_of_ty arg_type
+          llvm_ty_of_ty_fun arg_type
       ) args in
-      let ft = function_type (llvm_ty_of_ty f_ret) llvm_args in
+      let ft = function_type (llvm_ty_of_ty_fun f_ret) llvm_args in
       let f = match lookup_function name llm with
         | None -> 
             let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
@@ -122,11 +134,16 @@ let codegen_proto (fun_ : fun_) =
  * table so that references to it will succeed. *)
 let create_argument_allocas the_function fun_ llbuilder =
   let args = List.map (fun param -> match param with {param_id = (pos, var_name); param_type} -> var_name) fun_.f_params in
+  let llvm_args = List.map (fun param -> match param with
+    | {param_id; param_type} ->
+          llvm_ty_of_ty_fun param_type
+  ) fun_.f_params in
   let args = Array.of_list args in
   Array.iteri (fun i ai -> 
     let var_name = args.(i) in
+    let var_type = List.nth llvm_args i in
     (* Create an alloca for this variable. *)
-    let alloca = create_entry_block_alloca the_function var_name double_type in
+    let alloca = create_entry_block_alloca the_function var_name var_type in
 
     (* Store the initial value into the alloca. *)
     ignore(build_store ai alloca llbuilder);
@@ -172,6 +189,8 @@ let rec codegen_fun (fun_ : fun_) the_fpm =
 
     ignore (codegen_block fun_.f_body llbuilder);
 
+    dump_value the_function;
+
     (* Validate the generated code, checking for consistency. *)
     Llvm_analysis.assert_valid_function the_function;
 
@@ -180,7 +199,7 @@ let rec codegen_fun (fun_ : fun_) the_fpm =
 
     the_function
   with e ->
-  delete_function the_function;
+    delete_function the_function;
   raise e
 
 (**
@@ -472,15 +491,12 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   | p, Number nr ->
       const_float double_type nr;
   | p, String (pos, str) ->
-      (*let str_val = const_string llctx str in*)
-      (*define_global str str_val llm *)
       let str_ptr = build_global_stringptr str str llbuilder in
       let length = const_int i32_t (String.length str) in
       let persistent = const_int i32_t 1 in
       let args = [|str_ptr; length; persistent|] in
 
       (* Init string with zend_string_init *)
-      (*call_function "zend_string_init" [|str_ptr; length; persistent|] llbuilder*)
       let callee =
         match lookup_function "zend_string_init" llm with
           | Some callee -> callee
@@ -489,9 +505,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       in
       build_call callee args "zend_string_init" llbuilder
 
-      (* Make string interend *)
-
-      (* Return pointer to string *)
   | p, Int (pos, i) ->
       let f = float_of_string i in
       const_float double_type f;
@@ -615,22 +628,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let lhs = codegen_expr expr1 llbuilder in
       let rhs = codegen_expr expr2 llbuilder in
 
-      (* Create a new storage for the result *)
-      (*
-      let str_ptr = build_global_stringptr "" "empty_string" llbuilder in
-      let length = const_int i32_t 1 in
-      let persistent = const_int i32_t 1 in
-      let args = [|str_ptr; length; persistent|] in
-      let callee =
-        match lookup_function "zend_string_init" llm with
-          | Some callee -> callee
-          | None -> 
-              raise (Llvm_error (sprintf "unknown function referenced: %s" "zend_string_init"))
-      in
-      let init_call = (build_call callee args "zend_string_init" llbuilder) in
-      *)
-      (*let load_init = build_load variable lvar_name llbuilder in*)
-
       (* Call subsetphp_concat_function *)
       let callee =
         match lookup_function "subsetphp_concat_function" llm with
@@ -640,10 +637,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       in
       let args = [|lhs; rhs;|] in
       build_call callee args "subsetphp_concat_function" llbuilder
-
-      (* Create new string, zend_string_init *)
-      (* Contcat lhs and rhs using concat_function *)
-      (* Interned strings and dynamic strings should return same pointer type *)
 
   (* Function call *)
   | p, Call ((pos, Id ((_, callee_name), call_ty)), args, unknown) ->
@@ -754,7 +747,7 @@ let _ =
     ignore (codegen_proto prints);
 
     (* Generate zend_string_init external function *)
-    let f_param1 = {param_id = (Pos.none, "str"); param_type = TString} in
+    let f_param1 = {param_id = (Pos.none, "str"); param_type = TString_literal} in
     let f_param2 = {param_id = (Pos.none, "len"); param_type = TInt} in
     let f_param3 = {param_id = (Pos.none, "persistent"); param_type = TInt} in
     let zend_string_init = {
@@ -775,13 +768,14 @@ let _ =
       f_body = [];
     } in
     ignore (codegen_proto zend_string_init);
+
     ignore (codegen_program program);
 
     dump_module llm;
 
     Llvm_analysis.assert_valid_module llm;
 
-    ignore (Llvm_bitwriter.write_bitcode_file llm "llvm_test.bc")
+    ignore (Llvm_bitwriter.write_bitcode_file llm "llvm_test.bc");
 
   (* If error, print line and message etc *)
   end else begin
