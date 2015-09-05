@@ -84,7 +84,6 @@ let codegen_proto (fun_ : fun_) =
       let llvm_args = Array.map (fun arg_type ->
         llvm_ty_of_ty arg_type
       ) args in
-      let doubles = Array.make (Array.length args) double_type in
       let ft = function_type (llvm_ty_of_ty f_ret) llvm_args in
       let f = match lookup_function name llm with
         | None -> 
@@ -606,25 +605,11 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
 *)
 
   (* Function call *)
-  | p, Call ((pos, Id ((_, callee), call_ty)), args, unknown) ->
+  | p, Call ((pos, Id ((_, callee_name), call_ty)), args, unknown) ->
   (* (p, Call ((pos, Id ((_, name),  .TUnit)),  [(<opaque>, Typedast.Lvar ((<opaque>, \"$i\"), Typedast.TNumber))], [\n   ]))") *)
 
-     (* Look up the name in the module table. *)
-      let callee =
-        match lookup_function callee llm with
-          | Some callee -> callee
-          | None -> 
-              raise (Llvm_error (sprintf "unknown function referenced: %s" callee))
-      in
-      let params = params callee in
-
-      (* If argument mismatch error. *)
       let args = Array.of_list args in
-      if Array.length params == Array.length args then () else
-        raise (Llvm_error "incorrect # arguments passed");
-
-      let args = Array.map (fun arg -> codegen_expr arg llbuilder) args in
-      build_call callee args "calltmp" llbuilder
+      call_function callee_name args llbuilder
 
   | expr -> raise (Llvm_not_implemented (sprintf "codegen_expr: %s" (show_expr expr)))
 
@@ -633,6 +618,30 @@ and is_numerical_op = function
       true
   | _ ->
       false
+
+(**
+ * Call a function and return LLVM IR call op
+ *
+ * @param name string
+ * @param args array
+ * @return llvalue call
+ *)
+and call_function name args llbuilder = 
+  (* Look up the name in the module table. *)
+  let callee =
+    match lookup_function name llm with
+      | Some callee -> callee
+      | None -> 
+          raise (Llvm_error (sprintf "unknown function referenced: %s" name))
+  in
+  let params = params callee in
+
+  (* If argument mismatch error. *)
+  if Array.length params == Array.length args then () else
+    raise (Llvm_error "incorrect # arguments passed");
+
+  let args = Array.map (fun arg -> codegen_expr arg llbuilder) args in
+  build_call callee args name llbuilder
 
 let _ =
   (*
