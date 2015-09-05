@@ -145,7 +145,7 @@ test: typedast.cmx subsetphp test.ml
 	ocamlfind ocamlopt -g -w @5 -linkpkg -package ppx_deriving.show,oUnit ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx typedast.cmx infer.cmx test.ml -o test
 
 runtime.o: bindings.c
-	gcc -I php-src/Zend -I php-src -I php-src/TSRM -I php-src/main -c php-src/Zend/*.o -o runtime.o bindings.c -lm -ldl
+	gcc -g -I php-src/Zend -I php-src -I php-src/TSRM -I php-src/main -c php-src/Zend/*.o -o runtime.o bindings.c -lm -ldl
 
 llvm_test: runtime.o subsetphp typedast.cmx llvm_test.ml
 	ocamlfind ocamlopt -g -w @5 -cc g++ -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -cc g++ -package llvm,llvm.bitreader,llvm.bitwriter,llvm.target,llvm.analysis,llvm.scalar_opts -linkpkg ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx typedast.cmx infer.cmx php-src/Zend/*.o runtime.o llvm_test.ml -o llvm_test

@@ -608,16 +608,42 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       end;
 
   (* . concatenation *)
-      (*
   | p, Typedast.Binop (Typedast.Dot, expr1, expr2, TString) ->
   (*| p, Typedast.Binop (Typedast.Dot, (p, Typedast.Lvar ((p, "$a"), Typedast.TString)), (p, (Typedast.String (p, "qwe"))), Typedast.TString) ->*)
+
+      (* Both lhs and rhs should be zend string pointers *)
       let lhs = codegen_expr expr1 llbuilder in
       let rhs = codegen_expr expr2 llbuilder in
+
+      (* Create a new storage for the result *)
+      (*
+      let str_ptr = build_global_stringptr "" "empty_string" llbuilder in
+      let length = const_int i32_t 1 in
+      let persistent = const_int i32_t 1 in
+      let args = [|str_ptr; length; persistent|] in
+      let callee =
+        match lookup_function "zend_string_init" llm with
+          | Some callee -> callee
+          | None -> 
+              raise (Llvm_error (sprintf "unknown function referenced: %s" "zend_string_init"))
+      in
+      let init_call = (build_call callee args "zend_string_init" llbuilder) in
+      *)
+      (*let load_init = build_load variable lvar_name llbuilder in*)
+
+      (* Call subsetphp_concat_function *)
+      let callee =
+        match lookup_function "subsetphp_concat_function" llm with
+          | Some callee -> callee
+          | None -> 
+              raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_concat_function"))
+      in
+      let args = [|lhs; rhs;|] in
+      build_call callee args "subsetphp_concat_function" llbuilder
+
       (* Create new string, zend_string_init *)
       (* Contcat lhs and rhs using concat_function *)
       (* Interned strings and dynamic strings should return same pointer type *)
-      ()
-*)
 
   (* Function call *)
   | p, Call ((pos, Id ((_, callee_name), call_ty)), args, unknown) ->
@@ -739,6 +765,16 @@ let _ =
     } in
     ignore (codegen_proto zend_string_init);
 
+    (* Generate subsetphp_concat_function *)
+    let f_param1 = {param_id = (Pos.none, "str1"); param_type = TZend_string_ptr} in
+    let f_param2 = {param_id = (Pos.none, "str2"); param_type = TZend_string_ptr} in
+    let zend_string_init = {
+      f_name = (Pos.none, "\\subsetphp_concat_function"); 
+      f_params = [f_param1; f_param2];
+      f_ret = TZend_string_ptr;
+      f_body = [];
+    } in
+    ignore (codegen_proto zend_string_init);
     ignore (codegen_program program);
 
     dump_module llm;

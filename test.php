@@ -1,9 +1,11 @@
 <?php
 
-$a = 'asd';
-prints($a);
+$a = 'a';
+$b = 'b';
 
-//$b = $a . 'qwe';
+for ($i = 0; $i < 1000000; $i += 1) {
+  $b = $a . $b;
+}
 
 /* Simple benchmark with some number crunching in a tight loop. Add mult and div?
 function foo($i) {
