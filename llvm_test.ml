@@ -38,9 +38,21 @@ let i32_t = i32_type llctx
 let i8_t = i8_type llctx
 let i8_ptr_t = pointer_type i8_t
 let ptr_t = pointer_type i8_t
-let zend_string_ptr_type = struct_type llctx [||]
+let zend_string_type = named_struct_type llctx "zend_string"
+let zend_string_ptr_type = pointer_type zend_string_type
 let named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
 let zero = const_int i32_t 0
+
+(**
+ * Return LLVM type of typed AST type
+ *
+ * @param Typedast.ty ty
+ * @return lltype
+ *)
+let llvm_ty_of_ty ty = match ty with
+  | TNumber -> double_type
+  | TZend_string_ptr -> zend_string_ptr_type
+  | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
 
 (** 
  * Create an alloca instruction in the entry block of the function. This
@@ -69,7 +81,7 @@ let codegen_proto (fun_ : fun_) =
       let args = List.map (fun param -> match param with {param_id; param_type} -> param_type) f_params in
       let args = Array.of_list args in
       let doubles = Array.make (Array.length args) double_type in
-      let ft = function_type double_type doubles in
+      let ft = function_type (llvm_ty_of_ty f_ret) doubles in
       let f = match lookup_function name llm with
         | None -> 
             let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
@@ -154,7 +166,7 @@ let rec codegen_fun (fun_ : fun_) the_fpm =
     (* Add all arguments to the symbol table and create their allocas. *)
     create_argument_allocas the_function fun_ llbuilder;
 
-    let _ = codegen_block fun_.f_body llbuilder in
+    ignore (codegen_block fun_.f_body llbuilder);
 
     (* Validate the generated code, checking for consistency. *)
     Llvm_analysis.assert_valid_function the_function;
@@ -578,6 +590,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       end;
 
   (* . concatenation *)
+      (*
   | p, Typedast.Binop (Typedast.Dot, expr1, expr2, TString) ->
   (*| p, Typedast.Binop (Typedast.Dot, (p, Typedast.Lvar ((p, "$a"), Typedast.TString)), (p, (Typedast.String (p, "qwe"))), Typedast.TString) ->*)
       let lhs = codegen_expr expr1 llbuilder in
@@ -586,6 +599,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       (* Contcat lhs and rhs using concat_function *)
       (* Interned strings and dynamic strings should return same pointer type *)
       ()
+*)
 
   (* Function call *)
   | p, Call ((pos, Id ((_, callee), call_ty)), args, unknown) ->
@@ -687,16 +701,15 @@ let _ =
     } in
     ignore (codegen_proto zend_string_init);
 
-
     ignore (codegen_program program);
 
     dump_module llm;
 
     Llvm_analysis.assert_valid_module llm;
 
-    let _ = Llvm_bitwriter.write_bitcode_file llm "llvm_test.bc" in
-    ()
-    (* If error, print line and message etc *)
+    ignore (Llvm_bitwriter.write_bitcode_file llm "llvm_test.bc")
+
+  (* If error, print line and message etc *)
   end else begin
     let pos, msg = match parser_return.error with
       | None ->
