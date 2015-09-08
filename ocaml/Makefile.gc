@@ -1,4 +1,9 @@
 # GC from OCaml
 
-gc_ctrl.o: byterun/gc_ctrl.c
-	gcc -o subsetphp_gc.o -I byterun/caml -I byterun byterun/*.o subsetphp_gc.c -lm -ldl -lncurses
+all: subsetphp_gc.o
+
+subsetphp_gc.o: subsetphp_gc.c
+	gcc -c -o subsetphp_gc.o -I byterun/caml -I byterun byterun/*.o subsetphp_gc.c -lm -ldl -lncurses
+
+subsetphp_gc.a:
+	ar rcs subsetphp_gc.a byterun/*.o 
