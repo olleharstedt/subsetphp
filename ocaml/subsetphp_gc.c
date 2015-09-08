@@ -16,6 +16,8 @@
 #include "caml/minor_gc.h"
 #include "caml/misc.h"
 #include "caml/mlvalues.h"
+#include "caml/sys.h"
+#include "caml/startup_aux.h"
 #ifdef NATIVE_CODE
 #include "stack.h"
 #else
@@ -23,4 +25,7 @@
 #endif
 
 void subsetphp_gc_init() {
+  caml_init_gc (caml_init_minor_heap_wsz, caml_init_heap_wsz,
+                caml_init_heap_chunk_sz, caml_init_percent_free,
+                caml_init_max_percent_free);
 }
