@@ -1,0 +1,4 @@
+# GC from OCaml
+
+gc_ctrl.o: byterun/gc_ctrl.c
+	gcc -o gc_test.o -I byterun/caml -I byterun byterun/*.o byterun/gc_ctrl.c -lm -ldl -lncurses
