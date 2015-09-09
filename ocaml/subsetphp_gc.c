@@ -45,7 +45,7 @@ int main(void) {
 
   printf("Running subsetphp GC test\n");
 
-  value val;
+  CAMLlocal1(val);
 
   for (int i = 0; i < 1000000; i++) {
     val = caml_alloc(1024, 0);
