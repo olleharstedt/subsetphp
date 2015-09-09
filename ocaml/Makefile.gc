@@ -3,7 +3,7 @@
 all: subsetphp_gc.o
 
 subsetphp_gc.o: subsetphp_gc.c
-	gcc -c -o subsetphp_gc.o -I byterun/caml -I byterun byterun/*.o subsetphp_gc.c -lm -ldl -lncurses
+	gcc -o subsetphp_gc.o -I byterun/caml -I byterun byterun/*.o subsetphp_gc.c -lm -ldl -lncurses -std=c99 
 
 subsetphp_gc.a:
 	ar rcs subsetphp_gc.a byterun/*.o 

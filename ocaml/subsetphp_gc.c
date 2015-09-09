@@ -1,9 +1,17 @@
 /**
  * subsetphp GC from OCaml
  *
+ * Compile OCaml, then copy object files to subsetphp/ocaml/byterun
+ * Remove .pic files
+ *
+ * On Ubuntu, check memory usage etc with
+ * /usr/bin/time -v ./subsetphp_gc.o  
+ *
  * @since 2015-09-08
  * @author Olle Härstedt
  */
+
+#include <stdio.h>
 
 #include "caml/alloc.h"
 #include "caml/compact.h"
@@ -25,7 +33,23 @@
 #endif
 
 void subsetphp_gc_init() {
+  caml_parse_ocamlrunparam();
   caml_init_gc (caml_init_minor_heap_wsz, caml_init_heap_wsz,
                 caml_init_heap_chunk_sz, caml_init_percent_free,
                 caml_init_max_percent_free);
+  caml_init_stack (caml_init_max_stack_wsz);
+}
+
+int main(void) {
+  subsetphp_gc_init();
+
+  printf("Running subsetphp GC test\n");
+
+  value val;
+
+  for (int i = 0; i < 1000000; i++) {
+    val = caml_alloc(1024, 0);
+  }
+  
+  return 0;
 }
