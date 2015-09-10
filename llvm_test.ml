@@ -264,7 +264,7 @@ and codegen_program program =
       | None -> 
           raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_gc_init"))
   in
-  ignore (build_call callee [||] "subsetphp_gc_init" llbuilder);
+  ignore (build_call callee [||] "" llbuilder);
 
   (** Generate list of defs *)
   let rec aux program = match program with

@@ -1,17 +1,9 @@
 <?php
 
-function foo($str) {
-  $result = $str . 'asd';
-  return $result;
+for ($i = 0; $i < 5000000; $i += 1) {
+  $a = 'asd';
 }
 
-$b = foo('asd');
-
-for ($i = 0; $i < 10; $i += 1) {
-  $b = foo($b);
-}
-
-print($b);
 
 /* Simple benchmark with some number crunching in a tight loop. Add mult and div?
 function foo($i) {

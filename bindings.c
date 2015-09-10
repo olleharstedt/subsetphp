@@ -4,6 +4,7 @@
 #include <zend_string.h>
 
 #include "caml/alloc.h"
+#include "caml/memory.h"
 #include "caml/compact.h"
 #include "caml/custom.h"
 #include "caml/finalise.h"
@@ -58,26 +59,50 @@ static struct custom_operations subsetphp_zend_string = {
   custom_deserialize_default
 };
 
-
 /* Accessing the zend_string* part of an OCaml custom block */
-#define Window_val(v) (*((zend_string **) Data_custom_val(v)))
+#define Zend_string_val(v) (*((zend_string **) Data_custom_val(v)))
 
+/**
+ * Allocate memory for a string of length len
+ *
+ * @param size_t len
+ * @param int persistent Rest from Zend
+ * @return value
+ */
 extern value subsetphp_string_alloc(size_t len, int persistent)
 {
-	zend_string *ret = (zend_string *)pemalloc(ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1), persistent);
+  //#define pemalloc(size, persistent) ((persistent)?__zend_malloc(size):emalloc(size))
+  /*
+  zend_always_inline static void * __zend_malloc(size_t len)
+  {
+    void *tmp = malloc(len);
+    if (tmp) {
+      return tmp;
+    }
+    fprintf(stderr, "Out of memory\n");
+    exit(1);
+  }
+  */
+  // TODO: How to allocate this memory so that OCaml GC can collect it?
+	//zend_string *str = (zend_string *)pemalloc(ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1), persistent);
+	zend_string *str = (zend_string *)caml_alloc(ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1), 0);
 
-	GC_REFCOUNT(ret) = 1;
+	GC_REFCOUNT(str) = 1;
 #if 1
 	/* optimized single assignment */
-	GC_TYPE_INFO(ret) = IS_STRING | ((persistent ? IS_STR_PERSISTENT : 0) << 8);
+	GC_TYPE_INFO(str) = IS_STRING | ((persistent ? IS_STR_PERSISTENT : 0) << 8);
 #else
 	GC_TYPE(ret) = IS_STRING;
 	GC_FLAGS(ret) = (persistent ? IS_STR_PERSISTENT : 0);
 	GC_INFO(ret) = 0;
 #endif
-	ret->h = 0;
-	ret->len = len;
-	return ret;
+	str->h = 0;
+	str->len = len;
+
+  value v = caml_alloc_custom(&subsetphp_zend_string, sizeof(zend_string *), 0, 1);
+  Zend_string_val(v) = str;
+
+  return v;
 }
 
 /**
@@ -88,11 +113,13 @@ extern value subsetphp_string_alloc(size_t len, int persistent)
  */ 
 extern value subsetphp_string_init(const char *str, size_t len, int persistent)
 {
-	zend_string *ret = zend_string_alloc(len, persistent);
+	value *v = subsetphp_string_alloc(len, persistent);
+
+  zend_string *ret = Zend_string_val(v);
 
 	memcpy(ret->val, str, len);
 	ret->val[len] = '\0';
-	return ret;
+	return v;
 }
 
 /**
