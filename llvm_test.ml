@@ -38,8 +38,12 @@ let i32_t = i32_type llctx
 let i8_t = i8_type llctx
 let i8_ptr_t = pointer_type i8_t
 let ptr_t = pointer_type i8_t
+(* zend_string opaque type *)
 let zend_string_type = named_struct_type llctx "zend_string"
 let zend_string_ptr_type = pointer_type zend_string_type
+(* ocaml value opaque type *)
+let caml_value_type = named_struct_type llctx "caml_value"
+let caml_value_ptr_type = pointer_type caml_value_type
 let named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
 let zero = const_int i32_t 0
 
