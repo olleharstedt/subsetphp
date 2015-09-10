@@ -36,6 +36,7 @@ let llm = create_module llctx "mymodule"
 let double_type = double_type llctx
 let i32_t = i32_type llctx
 let i8_t = i8_type llctx
+let void_t = void_type llctx
 let i8_ptr_t = pointer_type i8_t
 let ptr_t = pointer_type i8_t
 (* zend_string opaque type *)
@@ -58,6 +59,7 @@ let llvm_ty_of_ty ty = match ty with
   | TInt -> i32_t
   | TString -> i8_ptr_t
   | TZend_string_ptr -> zend_string_ptr_type
+  | TUnit -> void_t
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
 
 (**
@@ -71,7 +73,8 @@ let llvm_ty_of_ty_fun ty = match ty with
   | TString -> zend_string_ptr_type
   | TString_literal -> i8_ptr_t
   | TZend_string_ptr -> zend_string_ptr_type
-  | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
+  | TUnit -> void_t
+  | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty_fun: %s" (show_ty ty)))
 (** 
  * Create an alloca instruction in the entry block of the function. This
  * is used for mutable variables etc. 
@@ -253,6 +256,15 @@ and codegen_program program =
   let fn = define_function "main" fty llm in
   (* Create a builder at end of block for function main *)
   let llbuilder = builder_at_end llctx (entry_block fn) in
+
+  (** Init the GC *)
+  let callee =
+    match lookup_function "subsetphp_gc_init" llm with
+      | Some callee -> callee
+      | None -> 
+          raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_gc_init"))
+  in
+  ignore (build_call callee [||] "subsetphp_gc_init" llbuilder);
 
   (** Generate list of defs *)
   let rec aux program = match program with
@@ -500,14 +512,14 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let persistent = const_int i32_t 1 in
       let args = [|str_ptr; length; persistent|] in
 
-      (* Init string with zend_string_init *)
+      (* Init string with subsetphp_string_init *)
       let callee =
-        match lookup_function "zend_string_init" llm with
+        match lookup_function "subsetphp_string_init" llm with
           | Some callee -> callee
           | None -> 
-              raise (Llvm_error (sprintf "unknown function referenced: %s" "zend_string_init"))
+              raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_string_init"))
       in
-      build_call callee args "zend_string_init" llbuilder
+      build_call callee args "subsetphp_string_init" llbuilder
 
   | p, Int (pos, i) ->
       let f = float_of_string i in
@@ -750,28 +762,36 @@ let _ =
     } in
     ignore (codegen_proto prints);
 
-    (* Generate zend_string_init external function *)
+    (* Generate subsetphp_string_init external function *)
     let f_param1 = {param_id = (Pos.none, "str"); param_type = TString_literal} in
     let f_param2 = {param_id = (Pos.none, "len"); param_type = TInt} in
     let f_param3 = {param_id = (Pos.none, "persistent"); param_type = TInt} in
-    let zend_string_init = {
-      f_name = (Pos.none, "\\zend_string_init"); 
+    let subsetphp_string_init = {
+      f_name = (Pos.none, "\\subsetphp_string_init"); 
       f_params = [f_param1; f_param2; f_param3];
       f_ret = TZend_string_ptr;
       f_body = [];
     } in
-    ignore (codegen_proto zend_string_init);
+    ignore (codegen_proto subsetphp_string_init);
 
     (* Generate subsetphp_concat_function *)
     let f_param1 = {param_id = (Pos.none, "str1"); param_type = TZend_string_ptr} in
     let f_param2 = {param_id = (Pos.none, "str2"); param_type = TZend_string_ptr} in
-    let zend_string_init = {
+    let subsetphp_concat_function = {
       f_name = (Pos.none, "\\subsetphp_concat_function"); 
       f_params = [f_param1; f_param2];
       f_ret = TZend_string_ptr;
       f_body = [];
     } in
-    ignore (codegen_proto zend_string_init);
+    ignore (codegen_proto subsetphp_concat_function);
+
+    let subsetphp_gc_init = {
+      f_name = (Pos.none, "\\subsetphp_gc_init"); 
+      f_params = [];
+      f_ret = TUnit;
+      f_body = [];
+    } in
+    ignore (codegen_proto subsetphp_gc_init);
 
     ignore (codegen_program program);
 
