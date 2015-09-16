@@ -268,3 +268,37 @@ int main(void) {
   CAMLreturn(0);
 }
 */
+
+/**
+ * Benchmark of OCaml str
+ *
+ * This is death, since caml_strconcat does strlen(s)
+ */
+/*
+int main(void) {
+
+  CAMLparam0();
+
+  subsetphp_gc_init();
+
+  CAMLlocal1(val1);
+  CAMLlocal1(val2);
+
+  val1 = caml_alloc_sprintf("asd");
+  val2 = caml_alloc_sprintf("qwe");
+
+  //val1 = caml_alloc_string(3);
+  //val2 = caml_alloc_string(3);
+
+  for (int i = 0; i < 100000; i++) {
+    char* result = caml_strconcat(2, String_val(val1), String_val(val2));
+    val1 = caml_alloc_sprintf(result);
+  }
+
+  printf("val1 = %s\n", String_val(val1));
+
+  CAMLreturn(0);
+}
+*/
+
+int main(void) { return 0; }
