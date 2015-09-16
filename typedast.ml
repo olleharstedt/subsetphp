@@ -14,6 +14,7 @@ type ty =
   | TString
   | TString_literal
   | TZend_string_ptr
+  | TCaml_value
   | TBoolean
   | TUnit
   | TUnknown  (* Unknown type, but need to be refined *)
@@ -80,6 +81,7 @@ let string_of_ty ty = match ty with
   | TString -> "TString"
   | TString_literal -> "TString_literal"
   | TZend_string_ptr -> "TZend_string_ptr"
+  | TCaml_value -> "TCaml_value"
   | TBoolean -> "TBoolean"
   | TUnit -> "TUnit"
   | TUnknown -> "TUnknown"

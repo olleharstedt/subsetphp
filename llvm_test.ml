@@ -70,9 +70,10 @@ let llvm_ty_of_ty ty = match ty with
 let llvm_ty_of_ty_fun ty = match ty with
   | TNumber -> double_type
   | TInt -> i32_t
-  | TString -> zend_string_ptr_type
+  | TString -> caml_value_ptr_type
   | TString_literal -> i8_ptr_t
   | TZend_string_ptr -> zend_string_ptr_type
+  | TCaml_value -> caml_value_ptr_type
   | TUnit -> void_t
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty_fun: %s" (show_ty ty)))
 (** 
@@ -519,7 +520,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
           | None -> 
               raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_string_init"))
       in
-      build_call callee args "subsetphp_string_init" llbuilder
+      build_call callee args "str" llbuilder
 
   | p, Int (pos, i) ->
       let f = float_of_string i in
@@ -606,7 +607,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             (* If variable is not found in this scope, create a new one *)
             let builder = builder_at llctx (instr_begin (entry_block the_function)) in
             (*let alloca = build_alloca i8_ptr_t lvar_name builder in*)
-            let alloca = build_alloca zend_string_ptr_type lvar_name builder in
+            let alloca = build_alloca caml_value_ptr_type lvar_name builder in
             (*
             let init_val =  const_int i8_t 0 in
             ignore (build_store init_val alloca llbuilder);
@@ -753,7 +754,7 @@ let _ =
     ignore (codegen_proto printd);
 
     (* Generate prints external function *)
-    let f_param = {param_id = (Pos.none, "x"); param_type = TZend_string_ptr} in
+    let f_param = {param_id = (Pos.none, "x"); param_type = TCaml_value} in
     let prints = {
       f_name = (Pos.none, "\\prints"); 
       f_params = [f_param];
@@ -769,22 +770,23 @@ let _ =
     let subsetphp_string_init = {
       f_name = (Pos.none, "\\subsetphp_string_init"); 
       f_params = [f_param1; f_param2; f_param3];
-      f_ret = TZend_string_ptr;
+      f_ret = TCaml_value;
       f_body = [];
     } in
     ignore (codegen_proto subsetphp_string_init);
 
     (* Generate subsetphp_concat_function *)
-    let f_param1 = {param_id = (Pos.none, "str1"); param_type = TZend_string_ptr} in
-    let f_param2 = {param_id = (Pos.none, "str2"); param_type = TZend_string_ptr} in
+    let f_param1 = {param_id = (Pos.none, "value1"); param_type = TCaml_value} in
+    let f_param2 = {param_id = (Pos.none, "value2"); param_type = TCaml_value} in
     let subsetphp_concat_function = {
       f_name = (Pos.none, "\\subsetphp_concat_function"); 
       f_params = [f_param1; f_param2];
-      f_ret = TZend_string_ptr;
+      f_ret = TCaml_value;
       f_body = [];
     } in
     ignore (codegen_proto subsetphp_concat_function);
 
+    (* Function for init gc *)
     let subsetphp_gc_init = {
       f_name = (Pos.none, "\\subsetphp_gc_init"); 
       f_params = [];

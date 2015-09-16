@@ -1,9 +1,19 @@
 <?php
 
-for ($i = 0; $i < 5000000; $i += 1) {
-  $a = 'asd';
+$b = 'asd';
+
+for ($i = 0; $i < 100000; $i += 1) {
+  $b = $b . 'qwe';
 }
 
+/*
+  val1 = subsetphp_string_init("asd", 3, 1);
+  val2 = subsetphp_string_init("qwe", 3, 1);
+
+  for (int i = 0; i < 500000; i++) {
+    val1 = subsetphp_concat_function(val1, val2);
+  }
+ */
 
 /* Simple benchmark with some number crunching in a tight loop. Add mult and div?
 function foo($i) {

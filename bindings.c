@@ -1,3 +1,5 @@
+#define DEBUG 1
+
 #include <stdio.h>
 #include <zend.h>
 #include <zend_types.h>
@@ -23,8 +25,36 @@
 #include "caml/stacks.h"
 #endif
 
+/* Accessing the zend_string* part of an OCaml custom block */
+#define Zend_string_val(v) (*((zend_string **) Data_custom_val(v)))
+
+
+static int nr_of_free = 0;
+
+static void subsetphp_finalize_string(value v) {
+
+  CAMLparam1(v);
+  
+  zend_string *str = Zend_string_val(v);
+
+  nr_of_free++;
+
+  free(str);
+
+  CAMLreturn0;
+}
+
+static struct custom_operations subsetphp_zend_string = {
+  "subsetphp.zend_string",
+  subsetphp_finalize_string,
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default
+};
+
 /* Declaration of variables used in the asm code */
-extern char * caml_top_of_stack;
+char * caml_top_of_stack;
 extern char * caml_bottom_of_stack;
 extern uintnat caml_last_return_address;
 extern value * caml_gc_regs;
@@ -38,7 +68,8 @@ extern double printd(double x) {
   return 0;
 }
 
-extern double prints(zend_string* str) {
+extern double prints(value v) {
+  zend_string *str = Zend_string_val(v);
   printf("%s\n", str->val);
   return 0;
 }
@@ -49,18 +80,6 @@ extern double prints(zend_string* str) {
 
 /* Encapsulation of zend_string
    as OCaml custom blocks. */
-
-static struct custom_operations subsetphp_zend_string = {
-  "subsetphp.zend_string",
-  custom_finalize_default,
-  custom_compare_default,
-  custom_hash_default,
-  custom_serialize_default,
-  custom_deserialize_default
-};
-
-/* Accessing the zend_string* part of an OCaml custom block */
-#define Zend_string_val(v) (*((zend_string **) Data_custom_val(v)))
 
 /**
  * Allocate memory for a string of length len
@@ -85,7 +104,14 @@ extern value subsetphp_string_alloc(size_t len, int persistent)
   */
   // TODO: How to allocate this memory so that OCaml GC can collect it?
 	//zend_string *str = (zend_string *)pemalloc(ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1), persistent);
-	zend_string *str = (zend_string *)caml_alloc(ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1), 0);
+
+  // Cast from value to zend_string* ?
+	//zend_string *str = (zend_string*) caml_alloc(ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1), 0);
+	zend_string *str = malloc(ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1));
+
+  //printf("sizeof(str1) = %d\n", sizeof(*str));
+  //printf("ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE etc) = %d\n", ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1));
+	//zend_string *str = (zend_string *)caml_alloc((len + 1), 0);
 
 	GC_REFCOUNT(str) = 1;
 #if 1
@@ -99,8 +125,33 @@ extern value subsetphp_string_alloc(size_t len, int persistent)
 	str->h = 0;
 	str->len = len;
 
-  value v = caml_alloc_custom(&subsetphp_zend_string, sizeof(zend_string *), 0, 1);
+  value v = caml_alloc_custom(&subsetphp_zend_string, sizeof(zend_string *), 1, 1000);
   Zend_string_val(v) = str;
+
+  return v;
+}
+
+extern value subsetphp_string_realloc(zend_string *str, size_t len) {
+	zend_string *new_str = realloc(str, ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1));
+
+  //printf("sizeof(str1) = %d\n", sizeof(*str));
+  //printf("ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE etc) = %d\n", ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1));
+	//zend_string *str = (zend_string *)caml_alloc((len + 1), 0);
+
+	GC_REFCOUNT(new_str) = 1;
+#if 1
+	/* optimized single assignment */
+	GC_TYPE_INFO(new_str) = IS_STRING | ((1 ? IS_STR_PERSISTENT : 0) << 8);
+#else
+	GC_TYPE(ret) = IS_STRING;
+	GC_FLAGS(ret) = (persistent ? IS_STR_PERSISTENT : 0);
+	GC_INFO(ret) = 0;
+#endif
+	new_str->h = 0;
+	new_str->len = len;
+
+  value v = caml_alloc_custom(&subsetphp_zend_string, sizeof(zend_string *), 1, 16);
+  Zend_string_val(v) = new_str;
 
   return v;
 }
@@ -113,7 +164,7 @@ extern value subsetphp_string_alloc(size_t len, int persistent)
  */ 
 extern value subsetphp_string_init(const char *str, size_t len, int persistent)
 {
-	value *v = subsetphp_string_alloc(len, persistent);
+	value v = subsetphp_string_alloc(len, persistent);
 
   zend_string *ret = Zend_string_val(v);
 
@@ -128,35 +179,92 @@ extern value subsetphp_string_init(const char *str, size_t len, int persistent)
  *
  * @return int
  */
-extern zend_string* subsetphp_concat_function(zend_string *str1, zend_string *str2) 
+extern value subsetphp_concat_function(value v1, value v2) 
 {
 
+  CAMLparam2(v1, v2);
+
+  zend_string *str1 = Zend_string_val(v1);
+  zend_string *str2 = Zend_string_val(v2);
   size_t str1_len = str1->len;
   size_t str2_len = str2->len;
   size_t result_len = str1_len + str2_len;
+  //printf("str1->len = %d, ", str1_len);
+  //printf("str2->len = %d\n", str2_len);
 
-  zend_string *result = zend_string_init("", result_len, 1);
+  CAMLlocal1(result);
+	result = subsetphp_string_alloc(result_len, 1);
+  //result = subsetphp_string_init("", result_len, 1);
+  zend_string *zend_result = Zend_string_val(result);
 
+  // TODO: What to do here?
   if (str1_len > SIZE_MAX - str2_len) {
     zend_error_noreturn(E_ERROR, "String size overflow");
   }
 
-  memcpy(result->val, str1->val, str1_len);
-  memcpy(result->val + str1_len, str2->val, str2_len);
-  result->len = result_len;
-  result->val[result_len] = '\0';
+  //printf("str1->len = %d, ", str1->len);
+  //printf("strlen(str1->val) = %d\n", strlen(str1->val));
 
-	return result;
+  memcpy(zend_result->val, str1->val, str1_len);
+  memcpy(zend_result->val + str1_len, str2->val, str2_len);
+  zend_result->len = result_len;
+  zend_result->val[result_len] = '\0';
+
+  //printf("result = %s\n", zend_result->val);
+
+  CAMLreturn(result);
 }
+
+uintnat caml_max_stack_size;            /* also used in gc_ctrl.c */
 
 /**
  * Init the OCaml GC
  */
 extern void subsetphp_gc_init() {
+  char tos;
+  caml_top_of_stack = &tos;
   caml_parse_ocamlrunparam();
+
+  //#define Minor_heap_def 262144
+  caml_init_minor_heap_wsz = 262144 / 16;
+
   caml_init_gc (caml_init_minor_heap_wsz, caml_init_heap_wsz,
                 caml_init_heap_chunk_sz, caml_init_percent_free,
                 caml_init_max_percent_free);
+
+
   //caml_init_stack (caml_init_max_stack_wsz);
 }
 
+/**
+ * Test OCaml GC
+ *
+ * Benchmark: Slow, 2.5 sec vs HHVM 1.5 sec
+ * 2015-09-16
+ */
+/*
+int main(void) {
+
+  CAMLparam0();
+
+  subsetphp_gc_init();
+
+  CAMLlocal1(val1);
+  CAMLlocal1(val2);
+
+  val1 = subsetphp_string_init("asd", 3, 1);
+  val2 = subsetphp_string_init("qwe", 3, 1);
+
+  for (int i = 0; i < 100000; i++) {
+    val1 = subsetphp_concat_function(val1, val2);
+  }
+
+  //zend_string *str = Zend_string_val(val1);
+  //printf("val1 = %s\n", str->val);
+
+  printf("nr_of_free = %d\n", nr_of_free);
+  printf("end\n");
+
+  CAMLreturn(0);
+}
+*/
