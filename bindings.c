@@ -131,29 +131,37 @@ extern value subsetphp_string_alloc(size_t len, int persistent)
   return v;
 }
 
-extern value subsetphp_string_realloc(zend_string *str, size_t len) {
+/**
+ * Returns Val_unit if realloc happened
+ * Otherwise the pointer to the new value
+ */
+extern value subsetphp_string_realloc(value v1, zend_string *str, size_t len) {
+
+  CAMLparam1(v1);
+
+  //printf("len = %d\n", len);
 	zend_string *new_str = realloc(str, ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1));
 
-  //printf("sizeof(str1) = %d\n", sizeof(*str));
-  //printf("ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE etc) = %d\n", ZEND_MM_ALIGNED_SIZE(_STR_HEADER_SIZE + len + 1));
-	//zend_string *str = (zend_string *)caml_alloc((len + 1), 0);
+  if (new_str == str) {
+    // realloc happened, pointer not moved, using same value
+    return Val_unit;
+  }
+  else {
+    // no realloc, pointer moved
+    // str need to be freed
+    //free(str);
+    //v = caml_alloc_custom(&subsetphp_zend_string, sizeof(zend_string *), 1, 16);
+    Zend_string_val(v1) = new_str;
 
-	GC_REFCOUNT(new_str) = 1;
-#if 1
-	/* optimized single assignment */
-	GC_TYPE_INFO(new_str) = IS_STRING | ((1 ? IS_STR_PERSISTENT : 0) << 8);
-#else
-	GC_TYPE(ret) = IS_STRING;
-	GC_FLAGS(ret) = (persistent ? IS_STR_PERSISTENT : 0);
-	GC_INFO(ret) = 0;
-#endif
-	new_str->h = 0;
-	new_str->len = len;
+    GC_REFCOUNT(new_str) = 1;
+    /* optimized single assignment */
+    GC_TYPE_INFO(new_str) = IS_STRING | ((1 ? IS_STR_PERSISTENT : 0) << 8);
+    new_str->h = 0;
+    new_str->len = len;
 
-  value v = caml_alloc_custom(&subsetphp_zend_string, sizeof(zend_string *), 1, 16);
-  Zend_string_val(v) = new_str;
+    return v1;
+  }
 
-  return v;
 }
 
 /**
@@ -215,6 +223,56 @@ extern value subsetphp_concat_function(value v1, value v2)
   CAMLreturn(result);
 }
 
+// As above but with realloc
+extern value subsetphp_concat_function2(value v1, value v2) 
+{
+
+  CAMLparam2(v1, v2);
+
+  zend_string *str1 = Zend_string_val(v1);
+  zend_string *str2 = Zend_string_val(v2);
+  size_t str1_len = str1->len;
+  size_t str2_len = str2->len;
+  size_t result_len = str1_len + str2_len;
+  //printf("str1->len = %d, ", str1_len);
+  //printf("str2->len = %d\n", str2_len);
+
+  // TODO: What to do here?
+  if (str1_len > SIZE_MAX - str2_len) {
+    zend_error_noreturn(E_ERROR, "String size overflow");
+  }
+
+  CAMLlocal1(result);
+	result = subsetphp_string_realloc(v1, str1, result_len);
+  zend_string *zend_result;
+
+  if (result == Val_unit) {
+    // realloc, use same value again
+    zend_result = Zend_string_val(v1);
+    memcpy(zend_result->val + str1_len, str2->val, str2_len);
+    zend_result->len = result_len;
+    zend_result->val[result_len] = '\0';
+
+    //printf("result = %s\n", zend_result->val);
+
+    CAMLreturn(v1);
+  }
+  else {
+    // no realloc
+    //printf("new pointer, no realloc\n");
+    zend_result = Zend_string_val(result);
+    memcpy(zend_result->val, str1->val, str1_len);
+
+    memcpy(zend_result->val + str1_len, str2->val, str2_len);
+    zend_result->len = result_len;
+    zend_result->val[result_len] = '\0';
+
+    //printf("result = %s\n", zend_result->val);
+
+    CAMLreturn(result);
+  }
+
+}
 uintnat caml_max_stack_size;            /* also used in gc_ctrl.c */
 
 /**
@@ -270,6 +328,42 @@ int main(void) {
 */
 
 /**
+ * Benchmark string concat with realloc
+ */
+int main(void) {
+
+  CAMLparam0();
+
+  subsetphp_gc_init();
+
+  CAMLlocal1(val1);
+  CAMLlocal1(val2);
+  CAMLlocal1(val_tmp);
+
+  val1 = subsetphp_string_init("asd", 3, 1);
+  val2 = subsetphp_string_init("qwe", 3, 1);
+
+  for (int i = 0; i < 100000; i++) {
+    val_tmp = subsetphp_concat_function2(val1, val2);
+    if (val_tmp == val1) {
+      //printf("same, ");
+    }
+    else {
+      //printf("not same, ");
+    }
+    val1 = val_tmp;
+  }
+
+  //zend_string *str = Zend_string_val(val1);
+  //printf("val1 = %s\n", str->val);
+
+  printf("nr_of_free = %d\n", nr_of_free);
+  printf("end\n");
+
+  CAMLreturn(0);
+}
+
+/**
  * Benchmark of OCaml str
  *
  * This is death, since caml_strconcat does strlen(s)
@@ -300,5 +394,3 @@ int main(void) {
   CAMLreturn(0);
 }
 */
-
-int main(void) { return 0; }
