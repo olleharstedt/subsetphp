@@ -412,7 +412,7 @@ OCaml has slower concat than PHP, but OCaml can use Buffer which is _much_ faste
 
 `$a[5]` , then `$a` promoted to buffer.
 
-Ropes uses tree-structure to increase speed of insertion and deletion.
+Ropes uses tree-structure to increase speed of insertion and deletion. O(log n) to get char at position. Possibly faster when iterating over the hole string.
 
 PHP > OCaml > Java for naiv benchmark concat string 100000 times.
 
@@ -421,6 +421,15 @@ Java with StringBuffer: 0.068s
 PHP: 1.5s
 OCaml: 2s
 Java: 5s
+
+About string interning and mutability at the same time in old OCaml:
+
+    00:14:06 - apache2: let my_name = "mike" in let your_name = "mike" in my_name.[0] <- 'b' ; Printf.printf "%s != %s" my_name your_name
+    00:14:15 - apache2: will print "bike != bike"
+    00:14:42 - apache2: because someone figured "ah well all strings that are equal might as well be shared"
+    00:14:54 - apache2: and then someone else figured "hey these strings should still be mutable"
+
+Immutable strings are good for concurrency, but that's irrelevant in this case.
 
 Arrays
 ------
