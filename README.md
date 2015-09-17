@@ -404,6 +404,11 @@ String interning at runtime? Use Zend string interning structure? Compared to wh
 
 Use PHP runtime? Like `interned_strings` combiler global. Memory waste, but easier interaction with runtime libraries. No speed penalty for using PHP runtime representations?
 
+OCaml has slower concat than PHP, but OCaml can use Buffer which is _much_ faster than PHP concat. So what to do? Infer string buffer?
+
+    19:10:43 - mrvn: ollehar: maybe strings could be concated lazyliy (just collect a list a strings) and only copied when the result is used.
+    19:11:04 - orbitz: THe thing is, I'm not sure using a Buffer helps at all.  Consider: while(true) { x += y; print(x); }
+
 Arrays
 ------
 
