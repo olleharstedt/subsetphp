@@ -1,4 +1,29 @@
-#include <bindings.h>
+#include <stdio.h>
+#include "zend.h"
+#include <zend_types.h>
+#include <zend_string.h>
+
+#include "caml/alloc.h"
+#include "caml/memory.h"
+#include "caml/compact.h"
+#include "caml/custom.h"
+#include "caml/finalise.h"
+#include "caml/freelist.h"
+#include "caml/gc.h"
+#include "caml/gc_ctrl.h"
+#include "caml/major_gc.h"
+#include "caml/minor_gc.h"
+#include "caml/misc.h"
+#include "caml/mlvalues.h"
+#include "caml/sys.h"
+#include "caml/startup_aux.h"
+#ifdef NATIVE_CODE
+#include "stack.h"
+#else
+#include "caml/stacks.h"
+#endif
+
+#include "bindings.h"
 
 /**
  * Test OCaml GC
@@ -21,12 +46,6 @@ int main(void) {
   for (int i = 0; i < 100000; i++) {
     val1 = subsetphp_concat_function(val1, val2);
   }
-
-  //zend_string *str = Zend_string_val(val1);
-  //printf("val1 = %s\n", str->val);
-
-  printf("nr_of_free = %d\n", nr_of_free);
-  printf("end\n");
 
   CAMLreturn(0);
 }
