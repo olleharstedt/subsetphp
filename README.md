@@ -406,8 +406,21 @@ Use PHP runtime? Like `interned_strings` combiler global. Memory waste, but easi
 
 OCaml has slower concat than PHP, but OCaml can use Buffer which is _much_ faster than PHP concat. So what to do? Infer string buffer?
 
+    18:53:33 - dmbaturin: ollehar: Well, maybe it's appropriate to treat it as a buffer if destructive operations are used on it, i.e. assign the buffer type to destructive string functions.
     19:10:43 - mrvn: ollehar: maybe strings could be concated lazyliy (just collect a list a strings) and only copied when the result is used.
     19:11:04 - orbitz: THe thing is, I'm not sure using a Buffer helps at all.  Consider: while(true) { x += y; print(x); }
+
+`$a[5]` , then `$a` promoted to buffer.
+
+Ropes uses tree-structure to increase speed of insertion and deletion.
+
+PHP > OCaml > Java for naiv benchmark concat string 100000 times.
+
+OCaml with Buffer: 0.002s
+Java with StringBuffer: 0.068s
+PHP: 1.5s
+OCaml: 2s
+Java: 5s
 
 Arrays
 ------
