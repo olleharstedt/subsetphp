@@ -1,5 +1,3 @@
-#define DEBUG 1
-
 #include <stdio.h>
 #include <zend.h>
 #include <zend_types.h>
@@ -25,9 +23,7 @@
 #include "caml/stacks.h"
 #endif
 
-/* Accessing the zend_string* part of an OCaml custom block */
-#define Zend_string_val(v) (*((zend_string **) Data_custom_val(v)))
-
+#include "bindings.h"
 
 static int nr_of_free = 0;
 
@@ -52,16 +48,6 @@ static struct custom_operations subsetphp_zend_string = {
   custom_serialize_default,
   custom_deserialize_default
 };
-
-/* Declaration of variables used in the asm code */
-char * caml_top_of_stack;
-extern char * caml_bottom_of_stack;
-extern uintnat caml_last_return_address;
-extern value * caml_gc_regs;
-extern char * caml_exception_pointer;
-extern value caml_globals[];
-extern intnat caml_globals_inited;
-extern intnat * caml_frametable[];
 
 extern double printd(double x) {
   printf("%f\n", x);
@@ -273,7 +259,6 @@ extern value subsetphp_concat_function2(value v1, value v2)
   }
 
 }
-uintnat caml_max_stack_size;            /* also used in gc_ctrl.c */
 
 /**
  * Init the OCaml GC
@@ -295,41 +280,9 @@ extern void subsetphp_gc_init() {
 }
 
 /**
- * Test OCaml GC
- *
- * Benchmark: Slow, 2.5 sec vs HHVM 1.5 sec
- * 2015-09-16
- */
-/*
-int main(void) {
-
-  CAMLparam0();
-
-  subsetphp_gc_init();
-
-  CAMLlocal1(val1);
-  CAMLlocal1(val2);
-
-  val1 = subsetphp_string_init("asd", 3, 1);
-  val2 = subsetphp_string_init("qwe", 3, 1);
-
-  for (int i = 0; i < 100000; i++) {
-    val1 = subsetphp_concat_function(val1, val2);
-  }
-
-  //zend_string *str = Zend_string_val(val1);
-  //printf("val1 = %s\n", str->val);
-
-  printf("nr_of_free = %d\n", nr_of_free);
-  printf("end\n");
-
-  CAMLreturn(0);
-}
-*/
-
-/**
  * Benchmark string concat with realloc
  */
+/*
 int main(void) {
 
   CAMLparam0();
@@ -362,6 +315,7 @@ int main(void) {
 
   CAMLreturn(0);
 }
+*/
 
 /**
  * Benchmark of OCaml str
