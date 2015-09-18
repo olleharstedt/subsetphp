@@ -429,7 +429,14 @@ About string interning and mutability at the same time in old OCaml:
     00:14:42 - apache2: because someone figured "ah well all strings that are equal might as well be shared"
     00:14:54 - apache2: and then someone else figured "hey these strings should still be mutable"
 
-Immutable strings are good for concurrency, but that's irrelevant in this case.
+Immutable strings are good for concurrency, but that's irrelevant in this case since subsetphp never will support this.
+
+Promote strings during runtime?
+
+    21:15:23 - ollehar: what do you think about this idea: a string will be promoted to a string buffer during runtime if it's big enough.
+    21:15:33 - ollehar: and maybe to a rope if it's even bigger.
+    21:18:27 - Guest28478 [~john@72.168.144.70] entered the room.
+    21:19:08 - ggole: So string accesses involve branches to decide how to access the right storage? :/
 
 Arrays
 ------
