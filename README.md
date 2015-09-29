@@ -269,8 +269,18 @@ typedef struct _zend_array zend_array;
 typedef struct _zend_array HashTable;
 ```
 
-Garbage collection/reference counting
--------------------------------------
+Garbage collection
+------------------
+
+* Assume real-time performance is not important
+* Assume it's OK to waste memory for better through-put
+* Do _not_ assume scripts will run shortly - they may run for days.
+
+Features we need or not:
+
+* Generational - yes
+* Incremental - no, since real-time speed doesn't matter
+* Copying/compacting - probably, to avoid fragmentation
 
 Which one is fastest? Which one is more appropriate for PHP? Need to change semantics of `__destruct` if only GC is used. Only worth it if much faster. Must try both and benchmark?
 
@@ -285,8 +295,6 @@ http://blogs.msdn.com/b/brada/archive/2005/02/11/371015.aspx
 http://dlang.org/garbage.html
 
 Tune GC to waste memory for higher throughput.
-
-PHP never has to be real-time, so pauses don't matter.
 
 Reference counting or garbage collecting? Must use refcount because of destructors.
 
@@ -378,6 +386,70 @@ Discussion about CoW:
 >
 > 15:41:57 - gasche: and this is not reference counting; in particular, an old owner can keep a reference of the value as long as it wants, without incurring any cost at all if the reference is not used (which may be very hard to prove statically, and in particular wrong in some exceptional cases)
 
+More discussion about gc and runtime interaction with the compiler:
+
+> 21:49:03 - bitbckt: ollehar: as a first cut, I think it would be just fine to write a simple freelist mark/sweep collector.
+>
+> 21:49:31 - bitbckt: that should be straightforward enough to give you something to work with, while you build out the remainder of your project.
+>
+> 21:49:53 - ollehar: bitbckt: this dude did that: http://journal.stuffwithstuff.com/2013/12/08/babys-first-garbage-collector/
+>
+> 21:50:02 - bitbckt: it won't be competitive by any means, but it's easy and quick to get up and running with.
+>
+> 21:50:43 - bitbckt: yeah, that's about the gist of it.
+>
+> 21:51:14 - ollehar: but the roots are explicit in his code
+>
+> 21:51:22 - ollehar: or the "stack"
+>
+> 21:51:38 - bitbckt: sure.
+>
+> 21:51:54 - ollehar: but when you compile to binary without a jit...?
+>
+> 21:52:16 - bitbckt: a shadow stack is fairly easy to maintain.
+>
+> 21:52:29 - ollehar: right, llvm has support for that.
+>
+> 21:52:30 - bitbckt: again, as a first cut.
+>
+> 21:52:48 - ollehar: sure, I'm happy to get anything up a running ^^
+>
+> 21:52:58 - ollehar: what's beyond shadow-stack?
+>
+> 21:54:06 - bitbckt: that usually falls out of the runtime's execution model.
+>
+> 21:54:43 - bitbckt: threads and their stacks, with stack maps, runtime roots, and foreign handles.
+>
+> 21:55:02 - ollehar: is this related to the program-counter in any way?
+>
+> 21:55:10 - ollehar: is that the level we talk about?
+>
+> 21:55:34 - bitbckt: not the PC necessarily, but there's usually a frame pointer around to traverse the stack.
+>
+> 21:55:58 - ollehar: does the compiler inserts frame pointers?
+>
+> 21:56:04 - bitbckt: if not, then there might be a map of PC -> frame descriptor -> stack map.
+>
+> 21:56:12 - bitbckt: yes.
+>
+> 21:56:34 - ollehar: so, all this is in the ocaml compiler too, right?
+>
+> 21:57:12 - bitbckt: presumably, but I'm not an ocaml internals expert.
+>
+> 21:57:29 - bitbckt: just a lowly language user, in this community :)
+>
+> 21:59:30 - ollehar: bitbckt: oh btw, just a quick one: what kind of gc do you think would be appropriate for a server environment?
+>
+> 21:59:44 - ollehar: I know java has a bunch to chose from ^^
+>
+> 22:00:06 - slash^ has left the room (Quit: Read error: Connection reset by peer).
+>
+> 22:00:47 - igitoor [igitur@2a00:d880:3:1::c1ca:a648] entered the room.
+>
+> 22:00:56 - bitbckt: depends upon the latency/throughput trade-offs you'd like to make - variants on mark/sweep generally offer lower latency, while mark/compact generally offers higher throughput.
+>
+> 22:01:05 - bitbckt: in broad strokes
+
 Strings
 -------
 
@@ -437,6 +509,8 @@ Promote strings during runtime?
     21:15:33 - ollehar: and maybe to a rope if it's even bigger.
     21:18:27 - Guest28478 [~john@72.168.144.70] entered the room.
     21:19:08 - ggole: So string accesses involve branches to decide how to access the right storage? :/
+
+Maybe use `/** @var StringBuffer */` for strings.
 
 Arrays
 ------
