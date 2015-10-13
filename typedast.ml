@@ -14,6 +14,8 @@ type ty =
   | TString
   | TString_literal
   | TZend_string_ptr
+  | TPtr_ptr  (* i8** *)
+  | TPtr  (* i8* *)
   | TCaml_value
   | TBoolean
   | TUnit
@@ -81,6 +83,8 @@ let string_of_ty ty = match ty with
   | TString -> "TString"
   | TString_literal -> "TString_literal"
   | TZend_string_ptr -> "TZend_string_ptr"
+  | TPtr_ptr -> "TPtr_ptr"
+  | TPtr -> "TPtr"
   | TCaml_value -> "TCaml_value"
   | TBoolean -> "TBoolean"
   | TUnit -> "TUnit"

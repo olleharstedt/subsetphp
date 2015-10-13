@@ -39,6 +39,7 @@ let i8_t = i8_type llctx
 let void_t = void_type llctx
 let i8_ptr_t = pointer_type i8_t
 let ptr_t = pointer_type i8_t
+let ptr_ptr_t = pointer_type ptr_t
 (* zend_string opaque type *)
 let zend_string_type = named_struct_type llctx "zend_string"
 let zend_string_ptr_type = pointer_type zend_string_type
@@ -72,6 +73,8 @@ let llvm_ty_of_ty_fun ty = match ty with
   | TInt -> i32_t
   | TString -> caml_value_ptr_type
   | TString_literal -> i8_ptr_t
+  | TPtr_ptr -> ptr_ptr_t
+  | TPtr -> i8_ptr_t
   | TZend_string_ptr -> zend_string_ptr_type
   | TCaml_value -> caml_value_ptr_type
   | TUnit -> void_t
@@ -610,10 +613,23 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             let builder = builder_at llctx (instr_begin (entry_block the_function)) in
             (*let alloca = build_alloca i8_ptr_t lvar_name builder in*)
             let alloca = build_alloca caml_value_ptr_type lvar_name builder in
+            let tmp = build_bitcast alloca ptr_ptr_t "tmp" builder in
+            let callee =
+              match lookup_function "llvm.gcroot" llm with
+                | Some callee -> callee
+                | None -> 
+                    raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+            in
+            let args = [|tmp; const_null i8_ptr_t|] in
+            ignore (build_call callee args "" llbuilder);
+            (*call_function "llvm.gcroot" args builder;*)
+            (* call llvm.gcroot *)
+
             (*
             let init_val =  const_int i8_t 0 in
             ignore (build_store init_val alloca llbuilder);
             *)
+
             Hashtbl.add named_values lvar_name alloca;
             alloca
       in
@@ -679,7 +695,7 @@ and is_numerical_op = function
  * @param args Typedast.expr array
  * @return llvalue call
  *)
-and call_function name args llbuilder = 
+and call_function (name : string) (args : Typedast.expr array) llbuilder =
   (* Look up the name in the module table. *)
   let callee =
     match lookup_function name llm with
@@ -787,6 +803,17 @@ let _ =
       f_body = [];
     } in
     ignore (codegen_proto subsetphp_concat_function);
+
+    (* Generate llvm.gcroot *)
+    let f_param1 = {param_id = (Pos.none, "x"); param_type = TPtr_ptr} in
+    let f_param2 = {param_id = (Pos.none, "metadata"); param_type = TPtr} in
+    let llvmgcroot = {
+      f_name = (Pos.none, "\\llvm.gcroot");
+      f_params = [f_param1; f_param2];
+      f_ret = TUnit;
+      f_body = [];
+    } in
+    ignore (codegen_proto llvmgcroot);
 
     (* Function for init gc *)
     let subsetphp_gc_init = {
