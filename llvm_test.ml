@@ -255,15 +255,17 @@ and codegen_program program =
   let fty = function_type i32_t [||] in
   (* New function definition, main *)
   let fn = define_function "main" fty llm in
+  set_gc (Some "shadow-stack") fn;
   (* Create a builder at end of block for function main *)
   let llbuilder = builder_at_end llctx (entry_block fn) in
 
   (** Init the GC *)
   let callee =
-    match lookup_function "subsetphp_gc_init" llm with
+    (*match lookup_function "subsetphp_gc_init" llm with*)
+    match lookup_function "llvm_gc_initialize" llm with
       | Some callee -> callee
       | None -> 
-          raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_gc_init"))
+          raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm_gc_initialize"))
   in
   ignore (build_call callee [||] "" llbuilder);
 
@@ -653,7 +655,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
               raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_concat_function"))
       in
       let args = [|lhs; rhs;|] in
-      build_call callee args "subsetphp_concat_function" llbuilder
+      build_call callee args "concat" llbuilder
 
   (* Function call *)
   | p, Call ((pos, Id ((_, callee_name), call_ty)), args, unknown) ->
@@ -788,7 +790,7 @@ let _ =
 
     (* Function for init gc *)
     let subsetphp_gc_init = {
-      f_name = (Pos.none, "\\subsetphp_gc_init"); 
+      f_name = (Pos.none, "\\llvm_gc_initialize"); 
       f_params = [];
       f_ret = TUnit;
       f_body = [];

@@ -20,8 +20,7 @@ struct forwarder
     void*   ptr;        // Points to an object in the to-space
 };
 
-void
-llvm_gc_initialize(unsigned int heapsz)
+void llvm_gc_initialize(unsigned int heapsz)
 {
     printf("Initializing semi-space heap (%d bytes per space)\n", heapsz);
 
@@ -242,8 +241,7 @@ llvm_gc_collect()
     printf("+--------------------------\n");
 }
 
-void*
-llvm_gc_allocate(unsigned int sz)
+void* llvm_gc_allocate(unsigned int sz)
 {
     //printf("gc_alloc(%d)", sz);
 

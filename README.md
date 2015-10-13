@@ -55,6 +55,8 @@ $query = "SELECT * FROM table WHERE a = " . $a;  // Dirty string because of conc
 
 Tainted variables: https://wiki.php.net/rfc/taint
 
+Something similar for XSS?
+
 From IRC:
 
 > 23:52:33 - jwatzman|work: class C {} class D extends C {} function f(C $x) {}

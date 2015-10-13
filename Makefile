@@ -46,7 +46,7 @@ typedast.cmx: pos.cmx ast.cmx typedast.ml
 	ocamlfind ocamlopt -package ppx_deriving.show -c fileInfo.cmx namespace_env.cmx pos.cmx ast.cmx typedast.ml
 
 namespace_env.cmx: utils.cmx namespace_env.ml
-	ocamlfind ocamlopt -package ppx_deriving.show -c namespace_env.ml 
+	ocamlfind ocamlopt -package ppx_deriving.show -c namespace_env.ml
 
 lexer_hack.cmx: lexer_hack.ml
 	ocamlfind ocamlopt -c lexer_hack.ml
@@ -144,18 +144,39 @@ infer.cmx: typedast.cmx infer.ml
 test: typedast.cmx subsetphp test.ml
 	ocamlfind ocamlopt -g -w @5 -linkpkg -package ppx_deriving.show,oUnit ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx typedast.cmx infer.cmx test.ml -o test
 
+# First runtime test with OCaml GC, much harder than first though
+# Not possible to make platform independent either
 runtime.o: bindings.c
-	clang-3.6 -g -I php-src/Zend -I php-src -I php-src/TSRM -I php-src/main -I ocaml -I ocaml/byterun -I ocaml/asmrun php-src/Zend/*.o ocaml/byterun/*.o -o runtime.o bindings.c -lm -ldl -lncurses
+	#clang-3.6 -g -I php-src/Zend -I php-src -I php-src/TSRM -I php-src/main -I ocaml -I ocaml/byterun -I ocaml/asmrun php-src/Zend/*.o ocaml/byterun/*.o -o runtime.o bindings.c -lm -ldl -lncurses
+	clang-3.6 -c -g -I php-src/Zend -I php-src -I php-src/TSRM -I php-src/main -I ocaml -I ocaml/byterun -I ocaml/asmrun -o runtime.o bindings.c
+
+# Second GC try with semi-space copying GC and explicit shadow-stack
+# GC code from semigc
+runtime2.o: bindings2.c semigc
+	clang-3.6 -c -g -I php-src/Zend -I php-src -I php-src/TSRM -I php-src/main -I ocaml -I ocaml/byterun -I ocaml/asmrun -o runtime.o bindings2.c
 
 llvm_test: runtime.o subsetphp typedast.cmx llvm_test.ml
 	ocamlfind ocamlopt -g -w @5 -cc g++ -cc -lncurses -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -I ocaml/asmrun -cc g++ -package llvm,llvm.bitreader,llvm.bitwriter,llvm.target,llvm.analysis,llvm.scalar_opts -linkpkg ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx typedast.cmx infer.cmx php-src/Zend/*.o ocaml/byterun/startup_aux.o ocaml/byterun/misc.o runtime.o llvm_test.ml -o llvm_test
 
-llvm_test_compile: llvm_test runtime.o
+llvm_test_compile: llvm_test
 	./llvm_test
 	llvm-dis-3.6 llvm_test.bc
 	llc-3.6 llvm_test.bc
 	clang-3.6 -g -c llvm_test.s
-	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o runtime.o llvm_test.o -O3 -lm -ldl -lncurses
+	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc.o -O3 -lm -ldl -lncurses
+
+ll2:
+	llc-3.6 llvm_test.ll
+	clang-3.6 -g -c llvm_test.s
+	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc.o -O3 -lm -ldl -lncurses
+
+ll: llvm_test runtime.o
+	llc-3.6 llvm_test_gc.ll
+	clang-3.6 -g -c llvm_test_gc.s
+	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o runtime.o llvm_test_gc.o -O0 -lm -ldl -lncurses
+
+semigc:
+	cd semigc/ && $(make)
 
 clean:
 	rm *.o *.cmi *.cmx

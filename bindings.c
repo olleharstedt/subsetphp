@@ -36,6 +36,7 @@ static void subsetphp_finalize_string(value v) {
   nr_of_free++;
 
   free(str);
+  str = NULL;
 
   CAMLreturn0;
 }
