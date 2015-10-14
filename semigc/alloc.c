@@ -14,12 +14,33 @@ static byte *f_heap, *f_limit;
 static byte *t_heap, *t_limit;
 static byte *t_alloc;
 
+/**
+ * Wrapper around Zend types
+ */
+struct object
+{
+  // Type tag
+  ushort type;
+
+  void* value;
+
+};
+
+/**
+ * ?
+ */
 struct forwarder
 {
     ushort  type;       // Should be 0xffff
     void*   ptr;        // Points to an object in the to-space
 };
 
+/**
+ * Init two heaps
+ *
+ * @param int heapsz Heap-size (twice this size will be alloced)
+ * @return void
+ */
 void llvm_gc_initialize(unsigned int heapsz)
 {
     printf("Initializing semi-space heap (%d bytes per space)\n", heapsz);
@@ -34,8 +55,10 @@ void llvm_gc_initialize(unsigned int heapsz)
     t_alloc = t_heap;
 }
 
-void
-llvm_gc_shutdown()
+/**
+ * Free both heaps
+ */
+void llvm_gc_shutdown()
 {
     printf("+-------------------------------\n");
     printf("| gc_shutdown()\n");
