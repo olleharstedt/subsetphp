@@ -48,8 +48,7 @@ llvm_gc_shutdown()
     free(t_heap);
 }
 
-int
-object_in_from_space(struct C* obj)
+int object_in_from_space(struct C* obj)
 {
     return ((byte*)obj >= f_heap && (byte*)obj < f_limit);
 }
@@ -57,8 +56,7 @@ object_in_from_space(struct C* obj)
 // Copy the given object (which is located in the
 // from-space) to the next empty spot in the to-space.
 // Leave a forwarding pointer in the from-space.
-struct C*
-copy_object(struct C* obj)
+struct C* copy_object(struct C* obj)
 {
     assert(object_in_from_space(obj) && "Object to copy not located in the from-space!");
     assert(obj->type != 0xffff && "Attempting to copy a forwarding pointer!");
@@ -86,8 +84,7 @@ copy_object(struct C* obj)
 // Note: we use hard-coded knowledge of the object layout here (e.g. left_child, right_child).
 // In a general collection routine the object layout would probably be fetched
 // from some kind of metadata structure, based on the type of object being moved.
-void
-llvm_gc_collect()
+void llvm_gc_collect()
 {
     printf("+-------------------------------\n");
     printf("| gc_collect()\n");
