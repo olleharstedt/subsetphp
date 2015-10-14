@@ -183,6 +183,7 @@ llvm_gc_collect()
         object = (struct C*) scanptr;
         printf("| [0x%08x]\n", (unsigned int)object);
 
+        /*
         if (object->left_child)
         {
             child = object->left_child;
@@ -226,6 +227,7 @@ llvm_gc_collect()
         }
         else
             printf("| ... right child NULL\n");
+          */
 
         // Move to next object in to-space
         scanptr += sizeof(struct C);

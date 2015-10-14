@@ -612,7 +612,8 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             (* If variable is not found in this scope, create a new one *)
             let builder = builder_at llctx (instr_begin (entry_block the_function)) in
             (*let alloca = build_alloca i8_ptr_t lvar_name builder in*)
-            let alloca = build_alloca caml_value_ptr_type lvar_name builder in
+            (*let alloca = build_alloca caml_value_ptr_type lvar_name builder in*)
+            let alloca = build_alloca zend_string_ptr_type lvar_name builder in
             let tmp = build_bitcast alloca ptr_ptr_t "tmp" builder in
             let callee =
               match lookup_function "llvm.gcroot" llm with
@@ -788,7 +789,7 @@ let _ =
     let subsetphp_string_init = {
       f_name = (Pos.none, "\\subsetphp_string_init"); 
       f_params = [f_param1; f_param2; f_param3];
-      f_ret = TCaml_value;
+      f_ret = TZend_string_ptr;
       f_body = [];
     } in
     ignore (codegen_proto subsetphp_string_init);

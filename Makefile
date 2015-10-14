@@ -153,7 +153,7 @@ runtime.o: bindings.c
 # Second GC try with semi-space copying GC and explicit shadow-stack
 # GC code from semigc
 runtime2.o: bindings2.c semigc
-	clang-3.6 -c -g -I php-src/Zend -I php-src -I php-src/TSRM -I php-src/main -I ocaml -I ocaml/byterun -I ocaml/asmrun -o runtime.o bindings2.c
+	clang-3.6 -c -g -I php-src/Zend -I php-src -I php-src/TSRM -I php-src/main -I ocaml -I ocaml/byterun -I ocaml/asmrun -o runtime2.o bindings2.c
 
 llvm_test: runtime.o subsetphp typedast.cmx llvm_test.ml
 	ocamlfind ocamlopt -g -w @5 -cc g++ -cc -lncurses -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -I ocaml/asmrun -cc g++ -package llvm,llvm.bitreader,llvm.bitwriter,llvm.target,llvm.analysis,llvm.scalar_opts -linkpkg ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx typedast.cmx infer.cmx php-src/Zend/*.o ocaml/byterun/startup_aux.o ocaml/byterun/misc.o runtime.o llvm_test.ml -o llvm_test
@@ -165,10 +165,10 @@ llvm_test_compile: llvm_test
 	clang-3.6 -g -c llvm_test.s
 	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc.o -O3 -lm -ldl -lncurses
 
-ll2:
+ll2: runtime2.o semigc
 	llc-3.6 llvm_test.ll
 	clang-3.6 -g -c llvm_test.s
-	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc.o -O3 -lm -ldl -lncurses
+	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc.o runtime2.o -O3 -lm -ldl -lncurses
 
 ll: llvm_test runtime.o
 	llc-3.6 llvm_test_gc.ll
