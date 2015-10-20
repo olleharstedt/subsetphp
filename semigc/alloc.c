@@ -16,6 +16,7 @@ static byte *t_alloc;
 
 /**
  * Wrapper around Zend types
+ * Needed?
  */
 struct object
 {
