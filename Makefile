@@ -166,9 +166,10 @@ llvm_test_compile: llvm_test
 	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc.o runtime2.o -O3 -lm -ldl -lncurses
 
 ll2: runtime2.o semigc
+	cd semigc/ && make all
 	llc-3.6 llvm_test.ll
 	clang-3.6 -g -c llvm_test.s
-	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc.o runtime2.o -O3 -lm -ldl -lncurses
+	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc2.o runtime2.o -O3 -lm -ldl -lncurses
 
 ll: llvm_test runtime.o
 	llc-3.6 llvm_test_gc.ll
