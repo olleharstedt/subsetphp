@@ -130,9 +130,9 @@ void markAll() {
     entry = entry->Next;
   }
 
+  // Free all blocks that were not found while scanning roots
   printf("mallocs:\n");
   malloc_list* m = mallocs;
-  malloc_list* prev = m;
   while (m) {
     zend_string* str = (zend_string*) m->value;
     printf("  %d\n", str->gc.refcount);
@@ -141,16 +141,15 @@ void markAll() {
       if (m == mallocs) {
         mallocs = m->next;
         free(m->value);
+        free(m);
       }
       else {
-        prev->next = m->next;
         free(m->value);
         free(m);
       }
     }
 
     m = m->next;
-    prev = m;
   }
 
   // Reset mark stuff
