@@ -112,7 +112,9 @@ let codegen_proto (fun_ : fun_) =
       let f = match lookup_function name llm with
         | None -> 
             let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
-            declare_function name ft llm
+            let fn = declare_function name ft llm in
+            set_gc (Some "shadow-stack") fn;
+            fn
 
         (* If 'f' conflicted, there was already something named 'name'. If it
          * has a body, don't allow redefinition or reextern. *)
