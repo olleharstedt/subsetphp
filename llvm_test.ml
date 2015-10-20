@@ -514,6 +514,18 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   | p, Number nr ->
       const_float double_type nr;
   | p, String (pos, str) ->
+      (* Create temporary variable to store string in *)
+      let alloca = build_alloca zend_string_ptr_type "tmp" llbuilder in
+      let tmp = build_bitcast alloca ptr_ptr_t "tmp2" llbuilder in
+      let callee =
+        match lookup_function "llvm.gcroot" llm with
+          | Some callee -> callee
+          | None -> 
+              raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+      in
+      let args = [|tmp; const_null i8_ptr_t|] in
+      ignore (build_call callee args "" llbuilder);
+
       let str_ptr = build_global_stringptr str str llbuilder in
       let length = const_int i32_t (String.length str) in
       let persistent = const_int i32_t 1 in
@@ -526,7 +538,9 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
           | None -> 
               raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_string_init"))
       in
-      build_call callee args "str" llbuilder
+      let result = build_call callee args "str" llbuilder in
+      ignore(build_store result alloca llbuilder);
+      result
 
   | p, Int (pos, i) ->
       let f = float_of_string i in
