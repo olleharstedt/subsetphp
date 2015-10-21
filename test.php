@@ -1,7 +1,13 @@
 <?php
 
+function bar() {
+  $a = 'asd';
+  return $a;
+}
+
 for ($i = 0; $i < 100000; $i += 1) {
-  $b = 'qwe' . 'asd';
+  $b = 'qwe' . bar();
+  prints($b);
 }
 
 /*
