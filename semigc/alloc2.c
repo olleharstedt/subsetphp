@@ -85,7 +85,9 @@ void* llvm_gc_allocate(unsigned int size) {
     //wrapper->marked = 0;
     //wrapper->value = res;
 
-    markAll();
+    if (nr_of_allocs == 500) {
+      markAll();
+    }
 
     void* res = malloc(size);
     if (res == NULL) {
@@ -189,19 +191,11 @@ void markAll() {
 
     }
     else {
+      str->gc.refcount = 0;
       m = m->next;
     }
 
   }
-
-  // Reset mark stuff
-  m = mallocs;
-  while (m) {
-    zend_string* str = (zend_string*) m->value;
-    str->gc.refcount = 0;
-    m = m->next;
-  }
-  last_malloc = prev;
 
   printf("entries: %d\n", j);
 }
