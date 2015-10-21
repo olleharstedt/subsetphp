@@ -17,6 +17,9 @@
 static byte *f_heap, *f_limit;
 static byte *t_alloc;
 
+// Set to 1 to enable output
+//#define DEBUG
+
 /**
  * Wrapper around Zend types
  * Needed?
@@ -31,7 +34,6 @@ struct object
 
 typedef struct _malloc_list {
   struct _malloc_list* next;
-  struct _malloc_list* prev;
   void* value;
 } malloc_list;
 
@@ -39,8 +41,8 @@ static malloc_list* mallocs;
 static int mallocs_length;  // Length of mallocs list
 static malloc_list* last_malloc;  // Head
 
-void markAll(void);
-void print_mallocs_length(void);
+static void markAll(void);
+static void print_mallocs_length(void);
 
 void llvm_gc_initialize(unsigned int heapsize) {
   mallocs_length = 0;
@@ -56,14 +58,18 @@ void llvm_gc_initialize(unsigned int heapsize) {
 }
 
 void llvm_gc_shutdown() {
+#ifdef DEBUG
     printf("| gc_shutdown()\n");
     printf("+-------------------------------\n");
+#endif
 }
 
 void llvm_gc_collect() {
+#ifdef DEBUG
     printf("+-------------------------------\n");
     printf("| gc_collect()\n");
     printf("+-------------------------------\n");
+#endif
 
     struct StackEntry   *entry = llvm_gc_root_chain;
 
@@ -77,9 +83,10 @@ void* llvm_gc_allocate(unsigned int size) {
     nr_of_allocs++;
     print_mallocs_length();
 
-    if (nr_of_allocs > 1000) {
-      exit(0);
-    }
+    // For testing
+    //if (nr_of_allocs > 1000) {
+      //exit(0);
+    //}
 
     //printf("gc_alloc(%d)\n", size);
 
@@ -109,7 +116,6 @@ void* llvm_gc_allocate(unsigned int size) {
 
     m->value = res;
     m->next = NULL;
-    m->prev = NULL;
     mallocs_length++;
     //printf("mallocs_length = %d\n", mallocs_length);
 
@@ -140,7 +146,7 @@ void mark(zend_string* object) {
     object->gc.refcount = 1;
 }
 
-void markAll() {
+static void markAll() {
   malloc_list* m;
 
   struct StackEntry *entry = llvm_gc_root_chain;
@@ -150,14 +156,21 @@ void markAll() {
 
     //prints((zend_string*) entry->Roots[0]);
     int num_roots = entry->Map->NumRoots;
+#ifdef DEBUG
     printf("num_roots = %d\n", num_roots);
+#endif
     for (int i = 0; i < num_roots; i++) {
         zend_string* root = (zend_string *)entry->Roots[i];
+#ifdef DEBUG
         printf("%p\n", root);
+#endif
         if (root) {
+
+#ifdef DEBUG
           printf("  %p\n", root->val);
           printf("  %s\n", root->val);
           printf("  refcount = %d\n", root->gc.refcount);
+#endif
           root->gc.refcount = 1;
         }
     }
@@ -167,15 +180,21 @@ void markAll() {
   }
 
   // Free all blocks that were not found while scanning roots
+#ifdef DEBUG
   printf("mallocs:\n");
+#endif
+
   m = mallocs;
   malloc_list* prev = NULL;
   malloc_list* tmp = m;
   while (m) {
     zend_string* str = (zend_string*) m->value;
+
+#ifdef DEBUG
     printf("  refcount = %d\n", str->gc.refcount);
     printf("  m = %p\n", m);
     printf("  m->next = %p\n", m->next);
+#endif
 
     if (str->gc.refcount == 0) {
       
@@ -219,10 +238,15 @@ void markAll() {
   }
 
   print_mallocs_length();
+
+#ifdef DEBUG
   printf("entries: %d\n", j);
+#endif
+
 }
 
-void print_mallocs_length(void) {
+static void print_mallocs_length(void) {
+  return;
   malloc_list* m;
   int l = 0;
   m = mallocs;

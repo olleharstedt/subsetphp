@@ -9,10 +9,18 @@ function foo($a) {
   return '123'. $a;
 }
 
-for ($i = 0; $i < 100000; $i += 1) {
-  $b = 'qwe' . foo(bar());
-  prints($b);
+function test() {
+  return 1;
 }
+
+$b = 'asd';
+
+for ($i = 0; $i < 100000; $i += 1) {
+  $a = 1 + test();
+  $b = $b . foo(bar());
+}
+
+echo memory_get_usage();
 
 /*
   val1 = subsetphp_string_init("asd", 3, 1);
