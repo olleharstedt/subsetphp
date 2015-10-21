@@ -40,6 +40,7 @@ static int mallocs_length;  // Length of mallocs list
 static malloc_list* last_malloc;  // Head
 
 void markAll(void);
+void print_mallocs_length(void);
 
 void llvm_gc_initialize(unsigned int heapsize) {
   mallocs_length = 0;
@@ -74,18 +75,19 @@ static int nr_of_allocs = 0;
 
 void* llvm_gc_allocate(unsigned int size) {
     nr_of_allocs++;
+    print_mallocs_length();
 
     if (nr_of_allocs > 1000) {
       exit(0);
     }
 
-    printf("gc_alloc(%d)\n", size);
+    //printf("gc_alloc(%d)\n", size);
 
     //struct object* wrapper = malloc(sizeof (struct object));
     //wrapper->marked = 0;
     //wrapper->value = res;
 
-    if (nr_of_allocs == 500) {
+    if (nr_of_allocs % 50 == 0) {
       markAll();
     }
 
@@ -109,13 +111,16 @@ void* llvm_gc_allocate(unsigned int size) {
     m->next = NULL;
     m->prev = NULL;
     mallocs_length++;
-    printf("mallocs_length = %d\n", mallocs_length);
+    //printf("mallocs_length = %d\n", mallocs_length);
 
     if (mallocs_length == 1) {
       mallocs = m;
     }
     else if (mallocs_length > 1) {
 
+      if (last_malloc != NULL) {
+        last_malloc->next = m;
+      }
       // If mallocs_length > 1 then we've had a malloc before
       //assert(last_malloc != NULL);
 
@@ -136,6 +141,8 @@ void mark(zend_string* object) {
 }
 
 void markAll() {
+  malloc_list* m;
+
   struct StackEntry *entry = llvm_gc_root_chain;
   int j = 0;
 
@@ -161,7 +168,7 @@ void markAll() {
 
   // Free all blocks that were not found while scanning roots
   printf("mallocs:\n");
-  malloc_list* m = mallocs;
+  m = mallocs;
   malloc_list* prev = NULL;
   malloc_list* tmp = m;
   while (m) {
@@ -173,9 +180,22 @@ void markAll() {
     if (str->gc.refcount == 0) {
       
       if (m->value) {
+
+        // Set next pointer of previous block
+        if (prev && prev->next) {
+          prev->next = m->next;
+        }
+
         tmp = m;
-        free(m->value);
-        m = m->next;
+        m = tmp->next;
+        tmp->next = NULL;
+        free(tmp->value);
+
+        // If this is the first block
+        if (tmp == mallocs) {
+          mallocs = m;
+        }
+        
         free(tmp);
       }
 
@@ -192,10 +212,23 @@ void markAll() {
     }
     else {
       str->gc.refcount = 0;
+      prev = m;
       m = m->next;
     }
 
   }
 
+  print_mallocs_length();
   printf("entries: %d\n", j);
+}
+
+void print_mallocs_length(void) {
+  malloc_list* m;
+  int l = 0;
+  m = mallocs;
+  while(m != NULL) {
+    m = m->next;
+    l++;
+  }
+  printf("mallocs length = %d\n", l);
 }

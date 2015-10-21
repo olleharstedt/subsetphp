@@ -5,8 +5,12 @@ function bar() {
   return $a;
 }
 
+function foo($a) {
+  return '123'. $a;
+}
+
 for ($i = 0; $i < 100000; $i += 1) {
-  $b = 'qwe' . bar();
+  $b = 'qwe' . foo(bar());
   prints($b);
 }
 

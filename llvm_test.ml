@@ -692,11 +692,30 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       build_call callee args "str" llbuilder
 
   (* Function call *)
-  | p, Call ((pos, Id ((_, callee_name), call_ty)), args, unknown) ->
-  (* (p, Call ((pos, Id ((_, name),  .TUnit)),  [(<opaque>, Typedast.Lvar ((<opaque>, \"$i\"), Typedast.TNumber))], [\n   ]))") *)
+  | p, Call ((pos, Id ((_, callee_name), TUnit)), args, unknown) ->
 
       let args = Array.of_list args in
       call_function callee_name args llbuilder
+
+  | p, Call ((pos, Id ((_, callee_name), call_ty)), args, unknown) ->
+  (* (p, Call ((pos, Id ((_, name),  .TUnit)),  [(<opaque>, Typedast.Lvar ((<opaque>, \"$i\"), Typedast.TNumber))], [\n   ]))") *)
+
+      (* Create temporary variable to store string in *)
+      let alloca = build_alloca (zend_string_ptr_type) "tmp" llbuilder in
+      let tmp = build_bitcast alloca ptr_ptr_t "tmp2" llbuilder in
+      let callee =
+        match lookup_function "llvm.gcroot" llm with
+          | Some callee -> callee
+          | None -> 
+              raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+      in
+      let args2 = [|tmp; const_null i8_ptr_t|] in
+      ignore (build_call callee args2 "" llbuilder);
+
+      let args = Array.of_list args in
+      let result = call_function callee_name args llbuilder in
+      ignore(build_store result alloca llbuilder);
+      result
 
   | expr -> raise (Llvm_not_implemented (sprintf "codegen_expr: %s" (show_expr expr)))
 
