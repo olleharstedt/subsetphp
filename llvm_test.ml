@@ -691,13 +691,20 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let args = [|lhs; rhs;|] in
       build_call callee args "str" llbuilder
 
-  (* Function call *)
+  (* Function call that return unit *)
   | p, Call ((pos, Id ((_, callee_name), TUnit)), args, unknown) ->
 
       let args = Array.of_list args in
       call_function callee_name args llbuilder
 
-  | p, Call ((pos, Id ((_, callee_name), call_ty)), args, unknown) ->
+  (* Function call that return number (no gc for now) *)
+  | p, Call ((pos, Id ((_, callee_name), TNumber)), args, unknown) ->
+
+      let args = Array.of_list args in
+      call_function callee_name args llbuilder
+
+  (* Function call that return string, and result must be stored in intermediate gcroot variable *)
+  | p, Call ((pos, Id ((_, callee_name), TString)), args, unknown) ->
   (* (p, Call ((pos, Id ((_, name),  .TUnit)),  [(<opaque>, Typedast.Lvar ((<opaque>, \"$i\"), Typedast.TNumber))], [\n   ]))") *)
 
       (* Create temporary variable to store string in *)
