@@ -681,6 +681,18 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let lhs = codegen_expr expr1 llbuilder in
       let rhs = codegen_expr expr2 llbuilder in
 
+      (* Create temporary variable to store string in *)
+      let alloca = build_alloca (zend_string_ptr_type) "tmp" llbuilder in
+      let tmp = build_bitcast alloca ptr_ptr_t "tmp2" llbuilder in
+      let callee =
+        match lookup_function "llvm.gcroot" llm with
+          | Some callee -> callee
+          | None -> 
+              raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+      in
+      let args2 = [|tmp; const_null i8_ptr_t|] in
+      ignore (build_call callee args2 "" llbuilder);
+
       (* Call subsetphp_concat_function *)
       let callee =
         match lookup_function "subsetphp_concat_function" llm with
@@ -689,7 +701,10 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
               raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_concat_function"))
       in
       let args = [|lhs; rhs;|] in
-      build_call callee args "str" llbuilder
+      (*build_call callee args "str" llbuilder*)
+      let result = build_call callee args "str" llbuilder in
+      ignore(build_store result alloca llbuilder);
+      result
 
   (* Function call that return unit *)
   | p, Call ((pos, Id ((_, callee_name), TUnit)), args, unknown) ->
