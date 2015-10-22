@@ -161,25 +161,25 @@ llvm_test: runtime.o subsetphp typedast.cmx llvm_test.ml
 llvm_test_compile: llvm_test
 	./llvm_test
 	llvm-dis-3.6 llvm_test.bc
-	llc-3.6 llvm_test.bc -O3
+	llc-3.6 llvm_test.bc
 	clang-3.6 -g -c llvm_test.s
-	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc.o runtime2.o -O3 -lm -ldl -lncurses
+	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc.o runtime2.o -lm -ldl -lncurses
 
 ll2: runtime2.o semigc
 	cd semigc/ && make all
-	llc-3.6 llvm_test.ll -O3
+	llc-3.6 llvm_test.ll
 	clang-3.6 -g -c llvm_test.s
-	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc2.o runtime2.o -O3 -lm -ldl -lncurses
+	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc2.o runtime2.o -lm -ldl -lncurses
 
 opt: ll2
-	opt-3.6 llvm_test.ll -o llvm_test_opt.bc -O3
+	opt-3.6 llvm_test.ll -o llvm_test_opt.bc
 	clang-3.6 -c llvm_test_opt.bc
-	clang-3.6 -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test_opt.o semigc/alloc2.o runtime2.o -O3 -lm -ldl -lncurses
+	clang-3.6 -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test_opt.o semigc/alloc2.o runtime2.o -lm -ldl -lncurses
 
 ll: llvm_test runtime.o
 	llc-3.6 llvm_test_gc.ll
 	clang-3.6 -g -c llvm_test_gc.s
-	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o runtime.o llvm_test_gc.o -O0 -lm -ldl -lncurses
+	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o runtime.o llvm_test_gc.o -lm -ldl -lncurses
 
 semigc:
 	cd semigc/ && $(make)
