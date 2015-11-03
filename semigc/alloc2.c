@@ -75,6 +75,7 @@ void llvm_gc_collect() {
 }
 
 static int nr_of_allocs = 0;
+static int nr_of_frees = 0;
 
 void* llvm_gc_allocate(unsigned int size) {
     nr_of_allocs++;
@@ -121,6 +122,10 @@ void* llvm_gc_allocate(unsigned int size) {
     }
     else if (mallocs_length > 1) {
 
+      if (last_malloc != NULL) {
+        last_malloc->next = m;
+      }
+
       // If mallocs_length > 1 then we've had a malloc before
       //assert(last_malloc != NULL);
 
@@ -154,19 +159,19 @@ static void markAll() {
     printf("num_roots = %d\n", num_roots);
 #endif
     for (int i = 0; i < num_roots; i++) {
-        // TODO: What if root is not string?
+        // TODO: What if root is not string? Bug in compiler, errournous gcroot?
         zend_string* root = (zend_string *) entry->Roots[i];
-#ifdef DEBUG
-        printf("root = %p\n", root);
-        printf("  sizeof root = %lu\n", sizeof(root));
-#endif
+
         if (root) {
 
 #ifdef DEBUG
+          printf("  root = %p\n", root);
+          printf("  sizeof root = %lu\n", sizeof(root));
           printf("  %p\n", root->val);
           printf("  %s\n", root->val);
           printf("  type_info = %d\n", root->gc.u.type_info);
           printf("  refcount = %d\n", root->gc.refcount);
+          printf("  ---\n");
 #endif
           if (root->gc.u.type_info == 262) {  // 262 = string?
             root->gc.refcount = 1;
@@ -180,6 +185,7 @@ static void markAll() {
 
   // Free all blocks that were not found while scanning roots
 #ifdef DEBUG
+  printf("collect\n");
   printf("mallocs:\n");
 #endif
 
@@ -215,6 +221,7 @@ static void markAll() {
         }
         
         free(tmp);
+        nr_of_frees++;
       }
 
       // Four cases?

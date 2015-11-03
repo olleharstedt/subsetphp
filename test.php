@@ -1,26 +1,19 @@
 <?php
 
-function bar() {
-  $a = 'asd';
-  return $a;
+function foo($b) {
+  return $b . 'asd';
 }
 
-function foo($a) {
-  return '123'. $a;
+$a = '';
+
+for ($i = 0; $i < 1000; $i += 1) {
+  $a = foo('glq') . foo('aas') . foo('qwe');
 }
 
-function test() {
-  return 1;
-}
+//prints($a);
 
-$b = 'asd';
 
-for ($i = 0; $i < 100000; $i += 1) {
-  $a = 1 + test();
-  $b = $b . foo(bar());
-}
-
-echo memory_get_usage();
+//prints($b);
 
 /*
   val1 = subsetphp_string_init("asd", 3, 1);

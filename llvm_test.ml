@@ -158,6 +158,20 @@ let create_argument_allocas the_function fun_ llbuilder =
     (* Create an alloca for this variable. *)
     let alloca = create_entry_block_alloca the_function var_name var_type in
 
+    (* Call gcroot for arg *)
+    (* TODO: Only needed for heap allocated args? *)
+    (*
+    let tmp = build_bitcast alloca ptr_ptr_t "tmp" llbuilder in
+    let callee =
+      match lookup_function "llvm.gcroot" llm with
+        | Some callee -> callee
+        | None -> 
+            raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+    in
+    let args = [|tmp; const_null i8_ptr_t|] in
+    ignore (build_call callee args "" llbuilder);
+    *)
+
     (* Store the initial value into the alloca. *)
     ignore(build_store ai alloca llbuilder);
 

@@ -562,6 +562,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (p, Typedast.False), env, TBoolean
   | p, String (pos, str) ->
       (p, Typedast.String (pos, str)), env, TString
+  | p, String2 (pos, str) ->
+      failwith "Only strings with '' are supported"
   | p, Int (pos, pstring) ->
       (p, Typedast.Int (pos, pstring)), env, TNumber
   | p, Float (pos, pstring) ->
@@ -686,6 +688,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       in
       (p, Typedast.Lvar ((pos, var_name), ty_of_ty var_type)), env, var_type
 
+  (* Function call *)
   | p, Call ((pos1, Id (pos_fn, fn_name)), arg_list, dontknow) ->
       let fn_ty = try Some (Env.lookup env fn_name) with | Not_found -> None in
       let return_ty = (match fn_ty with
