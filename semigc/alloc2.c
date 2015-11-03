@@ -18,7 +18,7 @@ static byte *f_heap, *f_limit;
 static byte *t_alloc;
 
 // Set to 1 to enable output
-//#define DEBUG
+#define DEBUG 1
 
 /**
  * Wrapper around Zend types
@@ -59,22 +59,19 @@ void llvm_gc_initialize(unsigned int heapsize) {
 
 void llvm_gc_shutdown() {
 #ifdef DEBUG
-    printf("| gc_shutdown()\n");
-    printf("+-------------------------------\n");
+    printf("llvm_gc_shutdown()\n");
 #endif
 }
 
 void llvm_gc_collect() {
 #ifdef DEBUG
-    printf("+-------------------------------\n");
-    printf("| gc_collect()\n");
-    printf("+-------------------------------\n");
+    printf("llvm_gc_collect()\n");
 #endif
 
     struct StackEntry   *entry = llvm_gc_root_chain;
 
-    while (entry) {
-    }
+    //while (entry) {
+    //}
 }
 
 static int nr_of_allocs = 0;
@@ -94,7 +91,7 @@ void* llvm_gc_allocate(unsigned int size) {
     //wrapper->marked = 0;
     //wrapper->value = res;
 
-    if (nr_of_allocs % 50 == 0) {
+    if (nr_of_allocs % 100 == 0) {
       markAll();
     }
 
@@ -124,9 +121,6 @@ void* llvm_gc_allocate(unsigned int size) {
     }
     else if (mallocs_length > 1) {
 
-      if (last_malloc != NULL) {
-        last_malloc->next = m;
-      }
       // If mallocs_length > 1 then we've had a malloc before
       //assert(last_malloc != NULL);
 
@@ -160,18 +154,23 @@ static void markAll() {
     printf("num_roots = %d\n", num_roots);
 #endif
     for (int i = 0; i < num_roots; i++) {
-        zend_string* root = (zend_string *)entry->Roots[i];
+        // TODO: What if root is not string?
+        zend_string* root = (zend_string *) entry->Roots[i];
 #ifdef DEBUG
-        printf("%p\n", root);
+        printf("root = %p\n", root);
+        printf("  sizeof root = %lu\n", sizeof(root));
 #endif
         if (root) {
 
 #ifdef DEBUG
           printf("  %p\n", root->val);
           printf("  %s\n", root->val);
+          printf("  type_info = %d\n", root->gc.u.type_info);
           printf("  refcount = %d\n", root->gc.refcount);
 #endif
-          root->gc.refcount = 1;
+          if (root->gc.u.type_info == 262) {  // 262 = string?
+            root->gc.refcount = 1;
+          }
         }
     }
 
