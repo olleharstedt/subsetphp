@@ -46,8 +46,11 @@ let zend_string_ptr_type = pointer_type zend_string_type
 (* ocaml value opaque type *)
 let caml_value_type = named_struct_type llctx "caml_value"
 let caml_value_ptr_type = pointer_type caml_value_type
-(* TODO: Should differ between global and local scope *)
+
+(* TODO: Should differ between global and local scope? 
+ * Or just clear hash table at new function, as is now. *)
 let global_named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
+
 let zero = const_int i32_t 0
 
 (**
@@ -275,6 +278,9 @@ and codegen_program program =
         aux_fun tail
   in
   aux_fun program;
+
+  (* Better clear this... *)
+  Hashtbl.clear global_named_values;
 
   (* New function type *)
   let fty = function_type i32_t [||] in
@@ -633,6 +639,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let the_function = block_parent (insertion_block llbuilder) in
       let variable = try Hashtbl.find global_named_values lvar_name with
         | Not_found ->
+            print_endline "new variable in scope";
             (* If variable is not found in this scope, create a new one *)
             let alloca = create_entry_block_alloca the_function lvar_name double_type in
             let init_val =  const_float double_type 0.0 in
