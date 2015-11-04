@@ -714,6 +714,31 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       env, 
       TUnit
 
+  (* Print for arbitrary expressions *)
+  | p, Call ((pos1, Id (pos_fn, "echo")), [expr], dontknow) ->
+    (* Function to get typed expression *)
+    let get_typed_expr = (fun expr ->
+        let (typed_expr, env, ty) = infer_expr env level expr in
+        typed_expr
+    ) in
+    let typed_expr, env, ty = infer_expr env level expr in
+    begin match ty with
+      | TNumber ->
+          let typed_dontknow = List.map get_typed_expr dontknow in
+          (p, Typedast.Call ((pos1, Typedast.Id ((pos_fn, "printd"), Typedast.TUnit)), 
+            [typed_expr], typed_dontknow)), 
+            env, 
+            TUnit
+      | TString ->
+          let typed_dontknow = List.map get_typed_expr dontknow in
+          (p, Typedast.Call ((pos1, Typedast.Id ((pos_fn, "prints"), Typedast.TUnit)), 
+            [typed_expr], typed_dontknow)), 
+            env, 
+            TUnit
+      | ty ->
+          raise (Not_implemented (sprintf "echo not supported for type %s" (show_ty ty)))
+    end
+
   (* Function call *)
   | p, Call ((pos1, Id (pos_fn, fn_name)), arg_list, dontknow) ->
       let fn_ty = try Some (Env.lookup env fn_name) with | Not_found -> None in

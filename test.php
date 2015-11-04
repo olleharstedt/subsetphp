@@ -12,7 +12,7 @@ for ($i = 0; $i < 1000; $i += 1) {
   $a = foo('123') . bar('234');
 }
 
-print(1);
+print(1 + 2);
 
 /*
   val1 = subsetphp_string_init("asd", 3, 1);
