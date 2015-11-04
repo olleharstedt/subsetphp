@@ -1,12 +1,18 @@
 <?php
 
 function foo($a) {
-  return $a + 1;
+  return $a . 'asd';
 }
 
-$a = 10;
+function bar($a) {
+  return 'qwe' . $a;
+}
 
-printd($a);
+for ($i = 0; $i < 1000; $i += 1) {
+  $a = foo('123') . bar('234');
+}
+
+print(1);
 
 /*
   val1 = subsetphp_string_init("asd", 3, 1);

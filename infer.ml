@@ -688,6 +688,32 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       in
       (p, Typedast.Lvar ((pos, var_name), ty_of_ty var_type)), env, var_type
 
+  (* Hard-code support for print *)
+  (* Print for number *)
+  | p, Call ((pos1, Id (pos_fn, "echo")), [(pos_arg, Int int_string)], dontknow) ->
+    (* Function to get typed expression *)
+    let get_typed_expr = (fun expr ->
+        let (typed_expr, env, ty) = infer_expr env level expr in
+        typed_expr
+    ) in
+    let typed_dontknow = List.map get_typed_expr dontknow in
+    (p, Typedast.Call ((pos1, Typedast.Id ((pos_fn, "printd"), Typedast.TUnit)), [(pos_arg, Typedast.Int int_string)], typed_dontknow)), 
+      env,
+      TUnit
+
+  (* Print for string *)
+  | p, Call ((pos1, Id (pos_fn, "echo")), [(pos_arg, String str)], dontknow) ->
+    (* Function to get typed expression *)
+    let get_typed_expr = (fun expr ->
+        let (typed_expr, env, ty) = infer_expr env level expr in
+        typed_expr
+    ) in
+    let typed_dontknow = List.map get_typed_expr dontknow in
+    (p, Typedast.Call ((pos1, Typedast.Id ((pos_fn, "prints"), Typedast.TUnit)), 
+      [(pos_arg, Typedast.String str)], typed_dontknow)), 
+      env, 
+      TUnit
+
   (* Function call *)
   | p, Call ((pos1, Id (pos_fn, fn_name)), arg_list, dontknow) ->
       let fn_ty = try Some (Env.lookup env fn_name) with | Not_found -> None in
