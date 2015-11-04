@@ -46,7 +46,8 @@ let zend_string_ptr_type = pointer_type zend_string_type
 (* ocaml value opaque type *)
 let caml_value_type = named_struct_type llctx "caml_value"
 let caml_value_ptr_type = pointer_type caml_value_type
-let named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
+(* TODO: Should differ between global and local scope *)
+let global_named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
 let zero = const_int i32_t 0
 
 (**
@@ -137,7 +138,7 @@ let codegen_proto (fun_ : fun_) =
         let ty = args.(i) in
         let n = string_of_ty ty in 
         set_value_name n a;
-        Hashtbl.add named_values n a;
+        Hashtbl.add global_named_values n a;
         ) (params f);
       f
     end
@@ -154,6 +155,10 @@ let create_argument_allocas the_function fun_ llbuilder =
   let args = Array.of_list args in
   Array.iteri (fun i ai -> 
     let var_name = args.(i) in
+    (* TODO: Renaming to avoid name collision does not work
+    let (_, f_name) = fun_.f_name in
+    let var_name = f_name ^ var_name in
+    *)
     let var_type = List.nth llvm_args i in
     (* Create an alloca for this variable. *)
     let alloca = create_entry_block_alloca the_function var_name var_type in
@@ -176,7 +181,7 @@ let create_argument_allocas the_function fun_ llbuilder =
     ignore(build_store ai alloca llbuilder);
 
     (* Add arguments to variable symbol table. *)
-    Hashtbl.add named_values var_name alloca;
+    Hashtbl.add global_named_values var_name alloca;
   ) (params the_function)
 
 
@@ -191,7 +196,7 @@ let create_argument_allocas the_function fun_ llbuilder =
 let rec codegen_fun (fun_ : fun_) the_fpm =
   
   (* TODO: This means all function must come before "main" script code? *)
-  Hashtbl.clear named_values;
+  Hashtbl.clear global_named_values;
 
   let the_function = codegen_proto fun_ in
   let llbuilder = builder_at_end llctx (entry_block the_function) in
@@ -222,7 +227,8 @@ let rec codegen_fun (fun_ : fun_) the_fpm =
     Llvm_analysis.assert_valid_function the_function;
 
     (* Optimize the function. *)
-    let _ = PassManager.run_function the_function the_fpm in
+    (* TODO: Don't do this here, but in the module, for better error messages. *)
+    (*let _ = PassManager.run_function the_function the_fpm in*)
 
     the_function
   with e ->
@@ -456,9 +462,9 @@ and codegen_stmt (stmt : stmt ) llbuilder : llvalue =
        * shadows an existing variable, we have to restore it, so save it
        * now. *)
       let old_val =
-      try Some (Hashtbl.find named_values var_name) with Not_found -> None
+      try Some (Hashtbl.find global_named_values var_name) with Not_found -> None
       in
-      Hashtbl.add named_values var_name alloca;
+      Hashtbl.add global_named_values var_name alloca;
 
       (* Emit the body of the loop.  This, like any other expr, can change the
        * current BB.  Note that we ignore the value computed by the body, but
@@ -493,7 +499,7 @@ and codegen_stmt (stmt : stmt ) llbuilder : llvalue =
       (* Restore the unshadowed variable. *)
       (* TODO: Not relevant for PHP, fix. *)
       begin match old_val with
-        | Some old_val -> Hashtbl.add named_values var_name old_val
+        | Some old_val -> Hashtbl.add global_named_values var_name old_val
         | None -> ()
       end;
 
@@ -522,9 +528,12 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   | p, Lvar ((pos, lvar_name), ty) -> 
       (*print_endline lvar_name;*)
       (*let the_function = block_parent (insertion_block llbuilder) in*)
-      let variable = try Hashtbl.find named_values lvar_name with
+      let variable = try Hashtbl.find global_named_values lvar_name with
         | Not_found ->
-            raise (Llvm_error (sprintf "Lvar is used on rhs before ever used on the lhs: %s" lvar_name))
+            let line, start, end_ = Pos.info_pos pos in
+            let pos_info = sprintf "File %S, line %d, characters %d-%d"
+              (snd Pos.(pos.pos_file)) line start end_ in
+            raise (Llvm_error (sprintf "Lvar is used on rhs before ever used on the lhs: %s, %s" lvar_name (pos_info)))
       in
       build_load variable lvar_name llbuilder
   | p, Number nr ->
@@ -592,7 +601,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   (* +=, only allowed on numbers *)
   | p, Binop (Eq (Some Plus), (lha_pos, Lvar ((lvar_pos, lvar_name), TNumber)), rexpr, TNumber) ->
       (*let the_function = block_parent (insertion_block llbuilder) in*)
-      let variable = try Hashtbl.find named_values lvar_name with
+      let variable = try Hashtbl.find global_named_values lvar_name with
         | Not_found ->
             (* Should not happen *)
             failwith "Tried to use += on variable that is not defined"
@@ -607,7 +616,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   (* -=, only allowed on numbers *)
   | p, Binop (Eq (Some Minus), (lha_pos, Lvar ((lvar_pos, lvar_name), TNumber)), rexpr, TNumber) ->
       (*let the_function = block_parent (insertion_block llbuilder) in*)
-      let variable = try Hashtbl.find named_values lvar_name with
+      let variable = try Hashtbl.find global_named_values lvar_name with
         | Not_found ->
             (* Should not happen *)
             failwith "Tried to use -= on variable that is not defined"
@@ -622,13 +631,13 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   (* Assign number to variable *)
   | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TNumber)), value_expr, binop_ty) ->
       let the_function = block_parent (insertion_block llbuilder) in
-      let variable = try Hashtbl.find named_values lvar_name with
+      let variable = try Hashtbl.find global_named_values lvar_name with
         | Not_found ->
             (* If variable is not found in this scope, create a new one *)
             let alloca = create_entry_block_alloca the_function lvar_name double_type in
             let init_val =  const_float double_type 0.0 in
             ignore (build_store init_val alloca llbuilder);
-            Hashtbl.add named_values lvar_name alloca;
+            Hashtbl.add global_named_values lvar_name alloca;
             alloca
             in
       let value_expr_code = codegen_expr value_expr llbuilder in
@@ -638,7 +647,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   (* Assign string to variable *)
   | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TString)), value_expr, binop_ty) ->
       let the_function = block_parent (insertion_block llbuilder) in
-      let variable = try Hashtbl.find named_values lvar_name with
+      let variable = try Hashtbl.find global_named_values lvar_name with
         | Not_found ->
             (* If variable is not found in this scope, create a new one *)
             let builder = builder_at llctx (instr_begin (entry_block the_function)) in
@@ -662,7 +671,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             ignore (build_store init_val alloca llbuilder);
             *)
 
-            Hashtbl.add named_values lvar_name alloca;
+            Hashtbl.add global_named_values lvar_name alloca;
             alloca
       in
       let value_expr_code = codegen_expr value_expr llbuilder in
