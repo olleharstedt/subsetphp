@@ -733,6 +733,10 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let typed_lvar = Typedast.Lvar ((pos_var_name, var_name), ty_of_ty value_ty) in
       (p, Typedast.Binop (Typedast.Eq None, (pos_lvar, typed_lvar), typed_value_expr, Typedast.TUnit)), env, TUnit
 
+  (* Assignment to object field, like $point->x = 10 *)
+  | p, Binop (Eq None, (pos1, Obj_get ((pos2, (Lvar (pos3, obj_name))), (pos4, (Id (pos5, field_name))), og_null_flavor)), value_expr) ->
+      (p, Typedast.True), env, TBoolean
+
   (* Numerical op *)
   | p, Binop (bop, expr1, expr2) when is_numerical_op bop ->
       let (typed_bop, typed_expr1, typed_expr2, env) = infer_numberical_op env level bop expr1 expr2 in
@@ -880,9 +884,6 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
  Ast.Obj_get ((<opaque>, (Ast.Lvar (<opaque>, "$a"))),
    (<opaque>, (Ast.Id (<opaque>, "x"))), Ast.OG_nullthrows)),
 *)
-
-  | p, Obj_get ((pos2, (Lvar (pos3, var_name))), (pos4, (Id (pos5, obj_name))), og_null_flavor) ->
-      (p, Typedast.True), env, TBoolean
 
   | expr -> raise (Not_implemented (sprintf "infer_exprs: %s" (show_expr expr)))
 
