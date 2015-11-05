@@ -484,7 +484,7 @@ OCaml has slower concat than PHP, but OCaml can use Buffer which is _much_ faste
     19:10:43 - mrvn: ollehar: maybe strings could be concated lazyliy (just collect a list a strings) and only copied when the result is used.
     19:11:04 - orbitz: THe thing is, I'm not sure using a Buffer helps at all.  Consider: while(true) { x += y; print(x); }
 
-`$a[5]` , then `$a` promoted to buffer.
+`$a[5]` , then `$a` promoted to buffer. Also at `$a .= ...`.
 
 Ropes uses tree-structure to increase speed of insertion and deletion. O(log n) to get char at position. Possibly faster when iterating over the hole string.
 
@@ -566,7 +566,7 @@ vtable and stuff.
 Could this be represented as a pure struct? No methods or inheritance. How to enforce type? Allow individual type for each usage? Abort compilation if we can't guess type? Or just leave it since it's not used.
 
 ```php
-final public class TestStruct {
+final class TestStruct {
   public $x;
   public $y;
 }
