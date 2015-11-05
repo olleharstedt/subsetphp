@@ -18,7 +18,7 @@ static byte *f_heap, *f_limit;
 static byte *t_alloc;
 
 // Set to 1 to enable output
-#define DEBUG 1
+//#define DEBUG 1
 
 /**
  * Wrapper around Zend types
