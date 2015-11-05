@@ -37,6 +37,7 @@ type ty =
   | TVar of tvar ref                  (* type variable *)
   | TNumber
   | TString
+  | TStruct
   | TBoolean
   | TUnit
 [@@deriving show]
@@ -168,6 +169,7 @@ let rec ty_of_ty typ =
   | TString -> Typedast.TString
   | TBoolean -> Typedast.TBoolean
   | TUnit -> Typedast.TUnit
+  | TStruct -> Typedast.TStruct
   | TArrow (args, ret) ->
       Typedast.TArrow ([], ty_of_ty ret)
 
@@ -213,7 +215,7 @@ let occurs_check_adjust_levels tvar_id tvar_level ty =
     | TArrow(param_ty_list, return_ty) ->
         List.iter f param_ty_list ;
         f return_ty
-    | TNumber | TString | TBoolean | TUnit | TConst _ -> ()
+    | TNumber | TString | TStruct | TBoolean | TUnit | TConst _ -> ()
   in
   f ty
 
@@ -254,7 +256,7 @@ let rec generalize level = function
   | TArrow(param_ty_list, return_ty) ->
       TArrow(List.map (generalize level) param_ty_list, generalize level return_ty)
   | TVar {contents = Link ty} -> generalize level ty
-  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TNumber | TBoolean | TUnit | TConst _ as ty -> ty
+  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TStruct | TNumber | TBoolean | TUnit | TConst _ as ty -> ty
 
   (*| ty -> failwith (sprintf "generalize error: %s" (show_ty ty))*)
 
@@ -262,7 +264,7 @@ let rec generalize level = function
 let instantiate level ty =
   let id_var_map = Hashtbl.create 10 in
   let rec f ty = match ty with
-    | TNumber | TString | TBoolean | TUnit | TConst _ -> ty
+    | TNumber | TString | TStruct | TBoolean | TUnit | TConst _ -> ty
     | TVar {contents = Link ty} -> f ty
     | TVar {contents = Generic id} ->
         begin
@@ -326,7 +328,11 @@ and infer_program level (defs : def list) : Typedast.program =
   let env = Env.extend env "prints" prints_ty in
 
   (**
+   * Helper function to infer types of defs
+   * Stmts, funs, classes...
+   *
    * @param typed_program Collect typed subexpressions and return
+   * @return typed_program
    *)
   let rec aux env level defs (typed_program : Typedast.program) =
     Env.dump env;
@@ -352,6 +358,11 @@ and infer_program level (defs : def list) : Typedast.program =
         let env = Env.extend env fn_name fn_ty in
         (*infer_exprs (Env.extend env var_name generalized_ty) level tail;*)
         aux env level tail (typed_program @ [typed_fn])
+    | Class class_ :: tail ->
+        let (typed_class, env, class_ty) = infer_class env level class_ in
+        let (_, class_name) = class_.c_name in
+        let env = Env.extend env class_name class_ty in
+        aux env level tail (typed_program @ [typed_class])
     | _ -> raise (Not_implemented "infer_program")
   in
   aux env level defs []
@@ -546,6 +557,49 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
   (typed_fn, env, TArrow(param_ty_list, return_type))
 
 (**
+ * Infer class
+ *
+ * Class can be struct
+ *
+ * @param env
+ * @param level ?
+ * @param class_
+ * @return Typedast.class * env * ty
+ *)
+and infer_class (env : Env.env) level class_ : Typedast.def * Env.env * ty =
+  match class_ with
+  (*
+[(Ast.Class
+    { Ast.c_mode = FileInfo.Mpartial; c_user_attributes = []; c_final = true;
+      c_kind = Ast.Cnormal; c_is_xhp = false; c_name = (<opaque>, "\\Point");
+      c_tparams = []; c_extends = []; c_implements = [];
+      c_body = [Ast.ClassVars ([Ast.Public], None, [((<opaque>, "x"), None)]);
+                Ast.ClassVars ([Ast.Public], None, [((<opaque>, "y"), None)])];
+      c_namespace = { Namespace_env.ns_uses = <opaque>; ns_name = None };
+      c_enum = None })]
+*)
+  | {c_final = true; c_body} when c_body_is_only_public c_body -> 
+      Typedast.Struct {Typedast.fields = []}, env, TStruct
+  | _ ->
+      raise (Not_implemented ("This class type is not implemented: " ^ show_def (Class class_)))
+
+(**
+ * Return true if class body contains only
+ * public fields
+ *
+ * @param c_body
+ * @return bool
+ *)
+and c_body_is_only_public c_body =
+  List.for_all (fun class_elt ->
+    match class_elt with
+    | ClassVars ([Public], None, [(_, None)]) ->
+        true
+    | _ ->
+        false
+  ) c_body
+
+(**
  * Infer types for an expression and return typed AST, new env and expr type
  *
  * @param env
@@ -554,7 +608,7 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
  * @return Typedast.expr * env * ty
  *)
 and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
-  Env.dump env;
+  (*Env.dump env;*)
   match expr with
   | p, True ->
       (p, Typedast.True), env, TBoolean

@@ -14,6 +14,7 @@ type ty =
   | TString
   | TString_literal
   | TZend_string_ptr
+  | TStruct
   | TPtr_ptr  (* i8** *)
   | TPtr  (* i8* *)
   | TCaml_value
@@ -30,6 +31,7 @@ and program = def list
 and def =
   | Stmt of stmt
   | Fun of fun_
+  | Struct of struct_
 
 and stmt =
   | Expr of ty * expr
@@ -75,6 +77,10 @@ and fun_ = {
   f_ret : ty;
   f_body : block;
 }
+
+and struct_ = {
+  fields : (string * ty) list;
+}
 [@@deriving show]
 
 let string_of_ty ty = match ty with
@@ -83,6 +89,7 @@ let string_of_ty ty = match ty with
   | TString -> "TString"
   | TString_literal -> "TString_literal"
   | TZend_string_ptr -> "TZend_string_ptr"
+  | TStruct -> "TStruct"
   | TPtr_ptr -> "TPtr_ptr"
   | TPtr -> "TPtr"
   | TCaml_value -> "TCaml_value"
