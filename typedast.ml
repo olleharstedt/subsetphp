@@ -55,6 +55,7 @@ and expr_ =
   | Float of pstring
   | Binop of bop * expr * expr * ty
   | Call of expr * expr list * expr list
+  | New of expr * expr list * expr list * ty
 
 and bop =
 | Plus

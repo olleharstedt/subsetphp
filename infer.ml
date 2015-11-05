@@ -40,12 +40,14 @@ type ty =
   | TStruct
   | TBoolean
   | TUnit
+  | TUnresolved  (* Not yet resolved, as in struct which need to be used to know the type *)
 [@@deriving show]
 
 (** TODO: Explain? *)
+(** Type variable *)
 and tvar =
   | Unbound of id * level
-  | Link of ty
+  | Link of ty  (* alias? *)
   | Generic of id
 [@@deriving show]
 
@@ -138,15 +140,12 @@ module Env = struct
    * @return unit
    *)
   let dump (env : env) =
-    ()
-    (*
     print_endline "[ env = ";
     StringMap.iter (fun key value ->
       print_endline (sprintf "    %s : %s" key (show_ty value))
     ) env.map;
     print_endline (sprintf "    return type = %s" (match env.return_ty with Some ty -> show_ty ty | None -> "None"));
     print_endline "]"
-    *)
 end
 
 (**
@@ -170,6 +169,7 @@ let rec ty_of_ty typ =
   | TBoolean -> Typedast.TBoolean
   | TUnit -> Typedast.TUnit
   | TStruct -> Typedast.TStruct
+  | TUnresolved -> failwith "type is unresolved"
   | TArrow (args, ret) ->
       Typedast.TArrow ([], ty_of_ty ret)
 
@@ -197,6 +197,9 @@ let expr_of_expr_ expr =
   match expr with
   | (pos, expr_) -> expr_
 
+(**
+ * ?
+ *)
 let occurs_check_adjust_levels tvar_id tvar_level ty =
   let rec f = function
     | TVar {contents = Link ty} -> f ty
@@ -215,7 +218,7 @@ let occurs_check_adjust_levels tvar_id tvar_level ty =
     | TArrow(param_ty_list, return_ty) ->
         List.iter f param_ty_list ;
         f return_ty
-    | TNumber | TString | TStruct | TBoolean | TUnit | TConst _ -> ()
+    | TNumber | TString | TStruct | TBoolean | TUnit | TConst _ | TUnresolved-> ()
   in
   f ty
 
@@ -256,7 +259,7 @@ let rec generalize level = function
   | TArrow(param_ty_list, return_ty) ->
       TArrow(List.map (generalize level) param_ty_list, generalize level return_ty)
   | TVar {contents = Link ty} -> generalize level ty
-  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TStruct | TNumber | TBoolean | TUnit | TConst _ as ty -> ty
+  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TStruct | TNumber | TBoolean | TUnit | TUnresolved | TConst _ as ty -> ty
 
   (*| ty -> failwith (sprintf "generalize error: %s" (show_ty ty))*)
 
@@ -264,7 +267,7 @@ let rec generalize level = function
 let instantiate level ty =
   let id_var_map = Hashtbl.create 10 in
   let rec f ty = match ty with
-    | TNumber | TString | TStruct | TBoolean | TUnit | TConst _ -> ty
+    | TNumber | TString | TStruct | TBoolean | TUnit | TConst _ | TUnresolved -> ty
     | TVar {contents = Link ty} -> f ty
     | TVar {contents = Generic id} ->
         begin
@@ -335,7 +338,7 @@ and infer_program level (defs : def list) : Typedast.program =
    * @return typed_program
    *)
   let rec aux env level defs (typed_program : Typedast.program) =
-    Env.dump env;
+    (*Env.dump env;*)
     match defs with
     | [] ->
         typed_program
@@ -361,7 +364,9 @@ and infer_program level (defs : def list) : Typedast.program =
     | Class class_ :: tail ->
         let (typed_class, env, class_ty) = infer_class env level class_ in
         let (_, class_name) = class_.c_name in
+        let class_name = String.sub class_name 1 (String.length class_name - 1) in  (* Strip leading \ (namespace thing) *)
         let env = Env.extend env class_name class_ty in
+        (*Env.dump env;*)
         aux env level tail (typed_program @ [typed_class])
     | _ -> raise (Not_implemented "infer_program")
   in
@@ -394,7 +399,7 @@ and infer_block env level (stmts : stmt list) : Typedast.block * Env.env =
  * @return Typedast.program * env
  *)
 and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
-  Env.dump env;
+  (*Env.dump env;*)
   match stmt with
   | Expr expr ->
 
@@ -483,7 +488,7 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
  *)
 and create_typed_params env (f_params : Ast.fun_param list) =
   printf "create_typed_params";
-  Env.dump env;
+  (*Env.dump env;*)
   let open Typedast in
   let rec aux (params : Ast.fun_param list) typed_params =
     match params with
@@ -579,7 +584,8 @@ and infer_class (env : Env.env) level class_ : Typedast.def * Env.env * ty =
       c_enum = None })]
 *)
   | {c_final = true; c_body} when c_body_is_only_public c_body -> 
-      Typedast.Struct {Typedast.fields = []}, env, TStruct
+      let typed_struct = c_body_to_struct c_body in
+      Typedast.Struct {Typedast.fields = typed_struct}, env, TStruct
   | _ ->
       raise (Not_implemented ("This class type is not implemented: " ^ show_def (Class class_)))
 
@@ -597,6 +603,22 @@ and c_body_is_only_public c_body =
         true
     | _ ->
         false
+  ) c_body
+
+(**
+ * For a struct, take all fields
+ * and make them typed struct fields
+ *
+ * @param c_body
+ * @return string, ty list - string = name of field
+ *)
+and c_body_to_struct (c_body : class_elt list) =
+  List.map (fun class_elt ->
+    match class_elt with
+    | ClassVars ([Public], None, [((pos, name), None)]) ->
+      name, Typedast.TUnknown  (* Not known before-hand *)
+    | _ ->
+        failwith "Internal error: illegal class element"
   ) c_body
 
 (**
@@ -828,6 +850,40 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let typed_dontknow = List.map get_typed_expr dontknow in
       let typed_call = Typedast.Call ((pos1, Typedast.Id ((pos_fn, fn_name), ty_of_ty return_ty)), typed_arg_list, typed_dontknow) in
       (p, typed_call), env, return_ty
+   (*Ast.New ((<opaque>, (Ast.Id (<opaque>, "Point"))), [], []))))));*)
+  | p, New ((pos, (Ast.Id (pos2, object_name))), [], []) ->
+      let object_ty = try Some (Env.lookup env object_name) with | Not_found -> None in
+      let _ = begin match object_ty with
+        | Some ty ->
+            ()
+        | None ->
+            failwith (sprintf "not implemented: infer object type before definition: %s" object_name)
+      end in
+      (p, Typedast.New 
+        (
+          (pos, 
+            (Typedast.Id 
+              ((pos2, object_name),
+              Typedast.TStruct
+              )
+            )
+          ), 
+          [], 
+          [],
+          Typedast.TUnknown
+        )
+      ), env, new_var 0
+      (*(p, Typedast.New ((pos, (Typedast.Id (pos2, object_name))), [], [], object_ty)), env, TUnknown*)
+
+(*
+(<opaque>,
+ Ast.Obj_get ((<opaque>, (Ast.Lvar (<opaque>, "$a"))),
+   (<opaque>, (Ast.Id (<opaque>, "x"))), Ast.OG_nullthrows)),
+*)
+
+  | p, Obj_get ((pos2, (Lvar (pos3, var_name))), (pos4, (Id (pos5, obj_name))), og_null_flavor) ->
+      (p, Typedast.True), env, TBoolean
+
   | expr -> raise (Not_implemented (sprintf "infer_exprs: %s" (show_expr expr)))
 
 (**
