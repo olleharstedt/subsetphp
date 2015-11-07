@@ -37,7 +37,7 @@ type ty =
   | TVar of tvar ref                  (* type variable *)
   | TNumber
   | TString
-  | TStruct of ty list                (* field list *)
+  | TStruct of (string * ty) list                (* field list *)
   | TBoolean
   | TUnit
   | TUnresolved  (* Not yet resolved, as in struct which need to be used to know the type *)
@@ -168,7 +168,7 @@ let rec ty_of_ty typ =
   | TString -> Typedast.TString
   | TBoolean -> Typedast.TBoolean
   | TUnit -> Typedast.TUnit
-  | TStruct tys -> Typedast.TStruct (List.map (fun t -> ty_of_ty t) tys)
+  | TStruct tys -> Typedast.TStruct (List.map (fun (name, ty) -> ty_of_ty ty) tys)
   | TUnresolved -> 
       let none = ref None in
       Typedast.TWeak_poly none
@@ -587,7 +587,10 @@ and infer_class (env : Env.env) level class_ : Typedast.def * Env.env * ty =
 *)
   | {c_final = true; c_body} when c_body_is_only_public c_body -> 
       let typed_struct_fields = c_body_to_struct c_body in
-      let ty_fields = List.map (fun field -> TUnresolved) c_body in
+
+      (* Extract field types from class body *)
+      let ty_fields = c_body_to_ty c_body in
+
       Typedast.Struct {Typedast.fields = typed_struct_fields}, env, TStruct ty_fields
   | _ ->
       raise (Not_implemented ("This class type is not implemented: " ^ show_def (Class class_)))
@@ -624,6 +627,20 @@ and c_body_to_struct (c_body : class_elt list) =
     | _ ->
         failwith "Internal error: illegal class element"
   ) c_body
+
+(**
+ * Convert c_body to a list of field ty
+ *
+ * @param c_body
+ * @return ty list
+ *)
+and c_body_to_ty (c_body : class_elt list) =
+  List.map (fun field -> match field with
+    | ClassVars ([Public], None, [((p, field_name), None)]) ->
+        field_name, TUnresolved 
+    | _ -> failwith "Not a struct"
+  ) c_body
+  
 
 (**
  * Converts a typed ast struct to ty (ast)
@@ -756,11 +773,16 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       if value_ty = TUnit then failwith "Right-hand can't evaluate to void";
 
       (* TODO: What is this? *)
-      let generalized_ty = generalize level value_ty in
+      (*let generalized_ty = generalize level value_ty in*)
 
       let object_ty = try Env.lookup env obj_name with
         | Not_found -> failwith (sprintf "Object variable %s is not defined: %s" obj_name (get_pos_msg p))
       in
+
+      (* Check if this object has field field_name *)
+
+
+      print_endline (show_ty object_ty);
 
       (p, Typedast.True), env, TUnit
 
@@ -795,9 +817,11 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       in
       (p, Typedast.Lvar ((pos, var_name), ty_of_ty var_type)), env, var_type
 
-  (* Hard-code support for print *)
+  (** Hard-code support for overloaded print *)
+
   (* Print for number *)
   | p, Call ((pos1, Id (pos_fn, "echo")), [(pos_arg, Int int_string)], dontknow) ->
+
     (* Function to get typed expression *)
     let get_typed_expr = (fun expr ->
         let (typed_expr, env, ty) = infer_expr env level expr in
@@ -823,12 +847,15 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
   (* Print for arbitrary expressions *)
   | p, Call ((pos1, Id (pos_fn, "echo")), [expr], dontknow) ->
+
     (* Function to get typed expression *)
     let get_typed_expr = (fun expr ->
         let (typed_expr, env, ty) = infer_expr env level expr in
         typed_expr
     ) in
+
     let typed_expr, env, ty = infer_expr env level expr in
+
     begin match ty with
       | TNumber ->
           let typed_dontknow = List.map get_typed_expr dontknow in
