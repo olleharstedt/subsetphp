@@ -37,7 +37,7 @@ type ty =
   | TVar of tvar ref                  (* type variable *)
   | TNumber
   | TString
-  | TStruct
+  | TStruct of ty list                (* field list *)
   | TBoolean
   | TUnit
   | TUnresolved  (* Not yet resolved, as in struct which need to be used to know the type *)
@@ -168,8 +168,10 @@ let rec ty_of_ty typ =
   | TString -> Typedast.TString
   | TBoolean -> Typedast.TBoolean
   | TUnit -> Typedast.TUnit
-  | TStruct -> Typedast.TStruct
-  | TUnresolved -> failwith "type is unresolved"
+  | TStruct tys -> Typedast.TStruct (List.map (fun t -> ty_of_ty t) tys)
+  | TUnresolved -> 
+      let none = ref None in
+      Typedast.TWeak_poly none
   | TArrow (args, ret) ->
       Typedast.TArrow ([], ty_of_ty ret)
 
@@ -218,7 +220,7 @@ let occurs_check_adjust_levels tvar_id tvar_level ty =
     | TArrow(param_ty_list, return_ty) ->
         List.iter f param_ty_list ;
         f return_ty
-    | TNumber | TString | TStruct | TBoolean | TUnit | TConst _ | TUnresolved-> ()
+    | TNumber | TString | TStruct _ | TBoolean | TUnit | TConst _ | TUnresolved-> ()
   in
   f ty
 
@@ -259,7 +261,7 @@ let rec generalize level = function
   | TArrow(param_ty_list, return_ty) ->
       TArrow(List.map (generalize level) param_ty_list, generalize level return_ty)
   | TVar {contents = Link ty} -> generalize level ty
-  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TStruct | TNumber | TBoolean | TUnit | TUnresolved | TConst _ as ty -> ty
+  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TStruct _ | TNumber | TBoolean | TUnit | TUnresolved | TConst _ as ty -> ty
 
   (*| ty -> failwith (sprintf "generalize error: %s" (show_ty ty))*)
 
@@ -267,7 +269,7 @@ let rec generalize level = function
 let instantiate level ty =
   let id_var_map = Hashtbl.create 10 in
   let rec f ty = match ty with
-    | TNumber | TString | TStruct | TBoolean | TUnit | TConst _ | TUnresolved -> ty
+    | TNumber | TString | TStruct _ | TBoolean | TUnit | TConst _ | TUnresolved -> ty
     | TVar {contents = Link ty} -> f ty
     | TVar {contents = Generic id} ->
         begin
@@ -584,8 +586,9 @@ and infer_class (env : Env.env) level class_ : Typedast.def * Env.env * ty =
       c_enum = None })]
 *)
   | {c_final = true; c_body} when c_body_is_only_public c_body -> 
-      let typed_struct = c_body_to_struct c_body in
-      Typedast.Struct {Typedast.fields = typed_struct}, env, TStruct
+      let typed_struct_fields = c_body_to_struct c_body in
+      let ty_fields = List.map (fun field -> TUnresolved) c_body in
+      Typedast.Struct {Typedast.fields = typed_struct_fields}, env, TStruct ty_fields
   | _ ->
       raise (Not_implemented ("This class type is not implemented: " ^ show_def (Class class_)))
 
@@ -610,16 +613,28 @@ and c_body_is_only_public c_body =
  * and make them typed struct fields
  *
  * @param c_body
- * @return string, ty list - string = name of field
+ * @return string, Typedast.ty list - string = name of field
  *)
 and c_body_to_struct (c_body : class_elt list) =
   List.map (fun class_elt ->
     match class_elt with
     | ClassVars ([Public], None, [((pos, name), None)]) ->
-      name, Typedast.TUnknown  (* Not known before-hand *)
+        let none = ref None in
+        name, Typedast.TWeak_poly none (* Not known before-hand *)
     | _ ->
         failwith "Internal error: illegal class element"
   ) c_body
+
+(**
+ * Converts a typed ast struct to ty (ast)
+ *
+ * @param s Typedast.Struct
+ * @return Ast.ty
+ *)
+and typed_struct_to_ty s =
+  List.map (fun ty ->
+    ()
+  ) s
 
 (**
  * Infer types for an expression and return typed AST, new env and expr type
@@ -735,7 +750,15 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
   (* Assignment to object field, like $point->x = 10 *)
   | p, Binop (Eq None, (pos1, Obj_get ((pos2, (Lvar (pos3, obj_name))), (pos4, (Id (pos5, field_name))), og_null_flavor)), value_expr) ->
-      (p, Typedast.True), env, TBoolean
+      let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
+
+      (* Abort if right-hand is unit *)
+      if value_ty = TUnit then failwith "Right-hand can't evaluate to void";
+
+      (* TODO: What is this? *)
+      let generalized_ty = generalize level value_ty in
+
+      (p, Typedast.True), env, TUnit
 
   (* Numerical op *)
   | p, Binop (bop, expr1, expr2) when is_numerical_op bop ->
@@ -856,10 +879,15 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (p, typed_call), env, return_ty
    (*Ast.New ((<opaque>, (Ast.Id (<opaque>, "Point"))), [], []))))));*)
   | p, New ((pos, (Ast.Id (pos2, object_name))), [], []) ->
-      let object_ty = try Some (Env.lookup env object_name) with | Not_found -> None in
-      let _ = begin match object_ty with
+      let object_ty_option = try Some (Env.lookup env object_name) with | Not_found -> None in
+      let object_ty = begin match object_ty_option with
         | Some ty ->
-            ()
+            (*
+            print_endline (show_ty ty);
+            print_endline (Typedast.string_of_ty (ty_of_ty ty));
+            exit 1;
+            *)
+            ty
         | None ->
             failwith (sprintf "not implemented: infer object type before definition: %s" object_name)
       end in
@@ -868,7 +896,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
           (pos, 
             (Typedast.Id 
               ((pos2, object_name),
-              Typedast.TStruct
+              ty_of_ty object_ty
               )
             )
           ), 
@@ -876,7 +904,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
           [],
           Typedast.TUnknown
         )
-      ), env, new_var 0
+      ), env, object_ty
       (*(p, Typedast.New ((pos, (Typedast.Id (pos2, object_name))), [], [], object_ty)), env, TUnknown*)
 
 (*
