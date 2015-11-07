@@ -835,11 +835,15 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
       (* Check type of field *)
       begin match value_ty, field with
+        | ty, (_, Typedast.TWeak_poly {contents = Some t}) ->
+            if ty_of_ty ty != t then
+              failwith (sprintf "This is probably the wrong type. Got %s, expected %s: %s"
+                (show_ty ty)
+                (Typedast.string_of_ty t)
+                (get_pos_msg p)
+              )
         | ty, (_, Typedast.TWeak_poly ref) ->
             ref := Some (ty_of_ty ty);
-            print_endline "here"
-        | ty, (_, Typedast.TWeak_poly {contents = Some a}) ->
-            print_endline "there"
       end;
 
       (p, Typedast.True), env, TUnit

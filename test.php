@@ -8,6 +8,7 @@ final class Point {
 $a = new Point();
 
 $a->x = 10;  // Infer int for x field, need tvar? not availeble in Typedast because it should be fully typed at that point
+$a->y = 'asd';
 
 /*
 function foo($a) {
