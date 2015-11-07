@@ -37,7 +37,7 @@ type ty =
   | TVar of tvar ref                  (* type variable *)
   | TNumber
   | TString
-  | TStruct of (string * ty) list                (* field list *)
+  | TStruct of string * (string * ty) list                (* class name, field list *)
   | TBoolean
   | TUnit
   | TUnresolved  (* Not yet resolved, as in struct which need to be used to know the type *)
@@ -148,6 +148,8 @@ module Env = struct
     print_endline "]"
 end
 
+let typed_classes = Hashtbl.create 10
+
 (**
  * Map from ty to Typedast.ty
  *
@@ -168,7 +170,25 @@ let rec ty_of_ty typ =
   | TString -> Typedast.TString
   | TBoolean -> Typedast.TBoolean
   | TUnit -> Typedast.TUnit
-  | TStruct tys -> Typedast.TStruct (List.map (fun (name, ty) -> ty_of_ty ty) tys)
+  | TStruct (struct_name, tys) -> 
+
+      (* Getting a bit weird here, where struct type fields point
+       * to definition of struct refs, so it can be updated as
+       * the typing algorithm runs. *)
+      let struct_name = String.sub struct_name 1 (String.length struct_name - 1) in  (* Strip leading \ (namespace thing) *)
+      let typedast_object_ty = try Hashtbl.find typed_classes struct_name with
+        | Not_found -> failwith ("Found no typed ast object with name " ^ struct_name)
+      in
+      print_endline "ty of ty tstruct";
+      (*Typedast.TStruct (List.map (fun (name, ty) -> ty_of_ty ty) (tys : (string * ty) list))*)
+
+      let object_fields = begin match typedast_object_ty with
+        | Typedast.Struct {Typedast.fields} -> fields
+        | _ -> failwith "Unknown object type: Found no fields"
+      end in
+
+      Typedast.TStruct (List.map (fun (_, t) -> t ) object_fields)
+
   | TUnresolved -> 
       let none = ref None in
       Typedast.TWeak_poly none
@@ -327,14 +347,18 @@ and infer_program level (defs : def list) : Typedast.program =
   let env = Env.empty in
 
   (* Add core functions *)
+  (* Not used since overloaded support for print/echo
   let printd_ty = TArrow ([TNumber], TUnit) in
   let env = Env.extend env "printd" printd_ty in
   let prints_ty = TArrow ([TString], TUnit) in
   let env = Env.extend env "prints" prints_ty in
+  *)
 
   (**
    * Helper function to infer types of defs
    * Stmts, funs, classes...
+   *
+   * This function basically types the entire program.
    *
    * @param typed_program Collect typed subexpressions and return
    * @return typed_program
@@ -367,7 +391,9 @@ and infer_program level (defs : def list) : Typedast.program =
         let (typed_class, env, class_ty) = infer_class env level class_ in
         let (_, class_name) = class_.c_name in
         let class_name = String.sub class_name 1 (String.length class_name - 1) in  (* Strip leading \ (namespace thing) *)
+
         let env = Env.extend env class_name class_ty in
+        Hashtbl.add typed_classes class_name typed_class;
         (*Env.dump env;*)
         aux env level tail (typed_program @ [typed_class])
     | _ -> raise (Not_implemented "infer_program")
@@ -585,13 +611,13 @@ and infer_class (env : Env.env) level class_ : Typedast.def * Env.env * ty =
       c_namespace = { Namespace_env.ns_uses = <opaque>; ns_name = None };
       c_enum = None })]
 *)
-  | {c_final = true; c_body} when c_body_is_only_public c_body -> 
+  | {c_final = true; c_body; c_name = (_, class_name)} when c_body_is_only_public c_body -> 
       let typed_struct_fields = c_body_to_struct c_body in
 
       (* Extract field types from class body *)
       let ty_fields = c_body_to_ty c_body in
 
-      Typedast.Struct {Typedast.fields = typed_struct_fields}, env, TStruct ty_fields
+      Typedast.Struct {Typedast.fields = typed_struct_fields}, env, TStruct (class_name, ty_fields)
   | _ ->
       raise (Not_implemented ("This class type is not implemented: " ^ show_def (Class class_)))
 
@@ -775,14 +801,46 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (* TODO: What is this? *)
       (*let generalized_ty = generalize level value_ty in*)
 
+      (* Get type of variable. Abort if not defined. *)
       let object_ty = try Env.lookup env obj_name with
         | Not_found -> failwith (sprintf "Object variable %s is not defined: %s" obj_name (get_pos_msg p))
       in
 
-      (* Check if this object has field field_name *)
+      (* Get class name *)
+      let class_name = match object_ty with
+        | TStruct (struct_name, fields) -> struct_name
+        | _ -> failwith "Unknown object type: Found no fields"
+      in
+      let class_name = String.sub class_name 1 (String.length class_name - 1) in  (* Strip leading \ (namespace thing) *)
 
+      let typedast_object_ty = try Hashtbl.find typed_classes class_name with
+        | Not_found -> failwith ("Found no typed ast object with name " ^ class_name)
+      in
 
-      print_endline (show_ty object_ty);
+      let object_fields = begin match typedast_object_ty with
+        | Typedast.Struct {Typedast.fields} -> fields
+        | _ -> failwith "Unknown object type: Found no fields"
+      end in
+
+      (* Get the field type. Abort if it doesn't exist for this object *)
+      let field = try List.find (fun (struct_field_name, _) ->
+        field_name = struct_field_name
+      ) object_fields with
+      | Not_found ->
+          (* Abort if object does not have field *)
+          failwith (sprintf "Object %s does not have field %s: %s" obj_name field_name (get_pos_msg p))
+      in
+
+      (* TODO: Check if field is public *)
+
+      (* Check type of field *)
+      begin match value_ty, field with
+        | ty, (_, Typedast.TWeak_poly ref) ->
+            ref := Some (ty_of_ty ty);
+            print_endline "here"
+        | ty, (_, Typedast.TWeak_poly {contents = Some a}) ->
+            print_endline "there"
+      end;
 
       (p, Typedast.True), env, TUnit
 
