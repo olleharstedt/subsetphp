@@ -758,6 +758,10 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (* TODO: What is this? *)
       let generalized_ty = generalize level value_ty in
 
+      let object_ty = try Env.lookup env obj_name with
+        | Not_found -> failwith (sprintf "Object variable %s is not defined: %s" obj_name (get_pos_msg p))
+      in
+
       (p, Typedast.True), env, TUnit
 
   (* Numerical op *)
