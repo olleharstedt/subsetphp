@@ -279,6 +279,22 @@ and codegen_program program =
   in
   aux_fun program;
 
+  let rec aux_class program = match program with
+    | [] ->
+        ()
+        (*
+    | Class class_ :: tail ->
+        let _ = codegen_class fun_ the_fpm in
+        aux_class tail
+        *)
+    | Struct struct_ :: tail ->
+        let _ = codegen_struct struct_ the_fpm in
+        aux_class tail
+    | somethingelse :: tail ->
+        aux_class tail
+  in
+  aux_class program;
+
   (* Better clear this... *)
   Hashtbl.clear global_named_values;
 
@@ -344,6 +360,19 @@ and codegen_block block llbuilder : llvalue =
 
   (*stmt_values*)
   the_block
+
+(**
+ * Generate code for struct
+ *
+ * Structs in subsetphp are final classes with only
+ * public member variables.
+ *
+ * @param struct_
+ * @param llbuilder
+ * @return llvalue
+ *)
+and codegen_struct struct_ llbuilder : llvalue =
+  zero
 
 (**
  * Generate LLVM IR for stmt
