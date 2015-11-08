@@ -148,6 +148,10 @@ module Env = struct
     print_endline "]"
 end
 
+(** 
+ * We store class def here
+ * @TODO Namespaces
+ *)
 let typed_classes = Hashtbl.create 10
 
 (**
@@ -179,8 +183,6 @@ let rec ty_of_ty typ =
       let typedast_object_ty = try Hashtbl.find typed_classes struct_name with
         | Not_found -> failwith ("Found no typed ast object with name " ^ struct_name)
       in
-      print_endline "ty of ty tstruct";
-      (*Typedast.TStruct (List.map (fun (name, ty) -> ty_of_ty ty) (tys : (string * ty) list))*)
 
       let object_fields = begin match typedast_object_ty with
         | Typedast.Struct {Typedast.fields} -> fields
@@ -210,6 +212,10 @@ let bop_to_typed bop =
   | Starstar -> Typedast.Starstar
   | Percent -> Typedast.Percent
   | _ -> raise (Not_implemented "bop_to_typed")
+
+let og_null_flavor_to_typed = function
+  | OG_nullthrows -> Typedast.OG_nullthrows
+  | OG_nullsafe -> Typedast.OG_nullsafe
 
 (**
  * Turn type expr into expr_
@@ -831,7 +837,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
           failwith (sprintf "Object %s does not have field %s: %s" obj_name field_name (get_pos_msg p))
       in
 
-      (* TODO: Check if field is public *)
+      (* TODO: Check if field is public or private *)
 
       (* Check type of field *)
       begin match value_ty, field with
@@ -844,9 +850,17 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
               )
         | ty, (_, Typedast.TWeak_poly ref) ->
             ref := Some (ty_of_ty ty);
+        | ty, field ->
+            failwith "Internal error: Exepcted TWeak_poly, got whatever"
       end;
 
-      (p, Typedast.True), env, TUnit
+      (*Obj_get of expr * expr * og_null_flavor * ty*)
+      let expr1 = (pos2, Typedast.Lvar ((pos3, obj_name), ty_of_ty object_ty)) in
+      let expr2 = (pos4, Typedast.Id ((pos5, field_name), ty_of_ty value_ty)) in  (* value_ty is from left hand-side, but we know it's OK by here *)
+      let obj_get = (pos1, Typedast.Obj_get (expr1, expr2, og_null_flavor_to_typed og_null_flavor, Typedast.TUnit)) in
+      let eq = (p, (Typedast.Binop (Typedast.Eq None, obj_get, typed_value_expr, Typedast.TUnit))) in
+
+      eq, env, TUnit
 
   (* Numerical op *)
   | p, Binop (bop, expr1, expr2) when is_numerical_op bop ->

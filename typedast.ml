@@ -61,6 +61,7 @@ and expr_ =
   | Binop of bop * expr * expr * ty
   | Call of expr * expr list * expr list
   | New of expr * expr list * expr list * ty
+  | Obj_get of expr * expr * og_null_flavor * ty
 
 and bop =
 | Plus
@@ -83,6 +84,10 @@ and fun_ = {
   f_ret : ty;
   f_body : block;
 }
+
+and og_null_flavor =
+  | OG_nullthrows
+  | OG_nullsafe
 
 and struct_ = {
   fields : (string * ty) list;
