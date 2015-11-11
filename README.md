@@ -277,6 +277,7 @@ Garbage collection
 * Assume real-time performance is not important
 * Assume it's OK to waste memory for better through-put
 * Do _not_ assume scripts will run shortly - they may run for days.
+* We do not need eager collection, but this should configurable
 
 Features we need or not:
 
@@ -288,7 +289,29 @@ Which one is fastest? Which one is more appropriate for PHP? Need to change sema
 
 > It looks into possibilities such as having some types ref counted and not others (IRefCounted!), or having specific instances ref counted, and why none of these solutions were deemed acceptable.
 
-Escape analysis - decide what can be stack allocated and what must be heap allocated during compile time.
+Tune GC to waste memory for higher throughput.
+
+Reference counting or garbage collecting? Must use refcount because of destructors. Remove destructors and deterministic free.
+
+Dead simple GC using shadow-stack and malloc list with mark-sweep.
+
+### Escape analysis
+
+Escape analysis - decide what can be stack allocated and what must be heap allocated during compile time. LLVM has some support if malloc has the right sig?
+
+> LLVM already removes malloc+(perhaps compare with null)+free.
+
+Take a look at:
+
+    Instruction *InstCombiner::visitMalloc(Instruction &MI) {
+      // If we have a malloc call which is only used in any amount of comparisons
+      // to null and free calls, delete the calls and replace the comparisons with
+      // true or false as appropriate.
+      if (IsOnlyNullComparedAndFreed(MI)) {
+
+HeapToStack promotion pass?
+
+### Resources
 
 Some resources on why GC can be preferred over refcount (C#, D):
 
@@ -296,9 +319,7 @@ http://blogs.msdn.com/b/brada/archive/2005/02/11/371015.aspx
 
 http://dlang.org/garbage.html
 
-Tune GC to waste memory for higher throughput.
-
-Reference counting or garbage collecting? Must use refcount because of destructors.
+### Discussions on OCaml IRC
 
 > 14:22:30 - ely-se: you need refcounting if you want PHP programs to behave consistently with the official implementation
 >
