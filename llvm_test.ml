@@ -53,6 +53,8 @@ let global_named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
 
 let zero = const_int i32_t 0
 
+let structs : (string, lltype) Hashtbl.t = Hashtbl.create 10
+
 (**
  * Return LLVM type of typed AST type
  *
@@ -65,6 +67,8 @@ let llvm_ty_of_ty ty = match ty with
   | TString -> i8_ptr_t
   | TZend_string_ptr -> zend_string_ptr_type
   | TUnit -> void_t
+  | Typedast.TWeak_poly {contents = ((Some Typedast.TNumber))} -> double_type
+  | Typedast.TWeak_poly {contents = ((Some Typedast.TString))} -> zend_string_ptr_type
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
 
 (**
@@ -288,7 +292,7 @@ and codegen_program program =
         aux_class tail
         *)
     | Struct struct_ :: tail ->
-        let _ = codegen_struct struct_ the_fpm in
+        codegen_struct struct_ the_fpm;
         aux_class tail
     | somethingelse :: tail ->
         aux_class tail
@@ -363,6 +367,8 @@ and codegen_block block llbuilder : llvalue =
 
 (**
  * Generate code for struct
+ * Actually just stores type information for this struct
+ * type name.
  *
  * Structs in subsetphp are final classes with only
  * public member variables.
@@ -371,12 +377,17 @@ and codegen_block block llbuilder : llvalue =
  * @param llbuilder
  * @return llvalue
  *)
-and codegen_struct struct_ llbuilder : llvalue =
+and codegen_struct struct_ llbuilder : unit =
   match struct_ with
-  | {struct_name = name; struct_fields = fields} -> zero
-  (*
-      let stype = struct_type
-      *)
+  | {struct_name = name; struct_fields = fields} ->
+      let fields = List.map (fun field ->
+        match field with
+        | (field_name, field_ty) -> llvm_ty_of_ty field_ty
+      ) fields in
+      let fields = Array.of_list fields in
+      let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
+      let t = struct_type llctx fields in
+      Hashtbl.add structs name t;
 
 (**
  * Generate LLVM IR for stmt
@@ -723,6 +734,40 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       (*let ptr = build_in_bounds_gep value_expr_code [|zero|] "" llbuilder in*)
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
+
+  (* Assign int to struct *)
+  | (p, Typedast.Binop ((Typedast.Eq None),
+         (pos1,
+          Typedast.Obj_get (
+            (pos2,
+             Typedast.Lvar ((pos3, lvar_name),
+               (Typedast.TStruct fields)
+               )
+             ),
+            (pos4, Typedast.Id ((pos5, field_name), Typedast.TNumber)),
+            Typedast.OG_nullthrows, Typedast.TUnit)),
+         (pos6, (Typedast.Int (pos7, "10"))), Typedast.TUnit)) ->
+       zero
+
+  (* Create new struct *)
+  | (p,
+       Typedast.Binop ((Typedast.Eq None),
+         (pos1,
+          Typedast.Lvar ((pos2, lvar_name), lvar_type
+            )
+          ),
+         (pos3,
+          Typedast.New (
+            (pos4,
+             Typedast.Id ((pos5, struct_type_name), struct_type
+               )
+             ),
+            [], [], Typedast.TUnknown)), Typedast.TUnit)) ->
+      let ty = try Hashtbl.find structs struct_type_name with
+      | Not_found ->
+          failwith ("Could not find any struct type " ^ struct_type_name ^ ": " ^ Infer.get_pos_msg p)
+      in
+      build_alloca ty "struct" llbuilder
 
   (* Assign whatever to object member variable *)
   | p, Binop ((Typedast.Eq None), _, _, _) ->
