@@ -185,7 +185,7 @@ let rec ty_of_ty typ =
       in
 
       let object_fields = begin match typedast_object_ty with
-        | Typedast.Struct {Typedast.fields} -> fields
+        | Typedast.Struct {Typedast.struct_fields} -> struct_fields
         | _ -> failwith "Unknown object type: Found no fields"
       end in
 
@@ -623,7 +623,7 @@ and infer_class (env : Env.env) level class_ : Typedast.def * Env.env * ty =
       (* Extract field types from class body *)
       let ty_fields = c_body_to_ty c_body in
 
-      Typedast.Struct {Typedast.fields = typed_struct_fields}, env, TStruct (class_name, ty_fields)
+      Typedast.Struct {struct_name = class_name; Typedast.struct_fields = typed_struct_fields}, env, TStruct (class_name, ty_fields)
   | _ ->
       raise (Not_implemented ("This class type is not implemented: " ^ show_def (Class class_)))
 
@@ -824,7 +824,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       in
 
       let object_fields = begin match typedast_object_ty with
-        | Typedast.Struct {Typedast.fields} -> fields
+        | Typedast.Struct {Typedast.struct_fields} -> struct_fields
         | _ -> failwith "Unknown object type: Found no fields"
       end in
 

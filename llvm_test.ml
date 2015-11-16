@@ -372,7 +372,11 @@ and codegen_block block llbuilder : llvalue =
  * @return llvalue
  *)
 and codegen_struct struct_ llbuilder : llvalue =
-  zero
+  match struct_ with
+  | {struct_name = name; struct_fields = fields} -> zero
+  (*
+      let stype = struct_type
+      *)
 
 (**
  * Generate LLVM IR for stmt
@@ -719,6 +723,10 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       (*let ptr = build_in_bounds_gep value_expr_code [|zero|] "" llbuilder in*)
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
+
+  (* Assign whatever to object member variable *)
+  | p, Binop ((Typedast.Eq None), _, _, _) ->
+      zero
 
   (* Numerical operations *)
   | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->

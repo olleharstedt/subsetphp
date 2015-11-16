@@ -90,7 +90,8 @@ and og_null_flavor =
   | OG_nullsafe
 
 and struct_ = {
-  fields : (string * ty) list;
+  struct_name : string;
+  struct_fields : (string * ty) list;
 }
 [@@deriving show]
 
