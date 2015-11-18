@@ -98,6 +98,59 @@ let create_entry_block_alloca the_function var_name ty =
   build_alloca ty var_name builder
 
 (**
+ * Create a new alloca with type ty and make it
+ * gcroot
+ *
+ * @param llbuilder
+ * @param ty lltype Pointer type, probably
+ * @return unit
+ *)
+let create_new_gcroot_alloca llbuilder ty : llvalue =
+  let alloca = build_alloca ty "tmp" llbuilder in
+  let tmp = build_bitcast alloca ptr_ptr_t "tmp2" llbuilder in
+  let callee =
+    match lookup_function "llvm.gcroot" llm with
+      | Some callee -> callee
+      | None -> 
+          raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+  in
+  let args = [|tmp; const_null i8_ptr_t|] in
+  build_call callee args "" llbuilder
+
+(**
+ * Create a new alloca with type ty and size and make it
+ * gcroot
+ *
+ * @param llbuilder
+ * @param ty lltype Pointer type, probably
+ * @param size int
+ * @return unit
+ *)
+let create_new_gcroot_malloc llbuilder ty size : llvalue =
+  let alloca = build_alloca ptr_t "tmp" llbuilder in
+  let tmp = build_bitcast alloca ptr_ptr_t "tmp2" llbuilder in
+  let callee =
+    match lookup_function "llvm.gcroot" llm with
+      | Some callee -> callee
+      | None -> 
+          raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+  in
+  let args = [|tmp; const_null i8_ptr_t|] in
+  ignore (build_call callee args "" llbuilder);
+
+  let args = [|const_int i32_t 2|] in
+  let malloc =
+    match lookup_function "llvm_gc_allocate" llm with
+      | Some callee -> callee
+      | None -> 
+          raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+  in
+
+  let malloc_result = build_call malloc args "tmp" llbuilder in
+
+  build_store malloc_result alloca llbuilder
+
+(**
  * Generate code for a function prototype
  * From LLVM tutorial
  *
@@ -149,7 +202,6 @@ let codegen_proto (fun_ : fun_) =
         ) (params f);
       f
     end
-
 
 (* Create an alloca for each argument and register the argument in the symbol
  * table so that references to it will succeed. *)
@@ -767,7 +819,8 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       | Not_found ->
           failwith ("Could not find any struct type " ^ struct_type_name ^ ": " ^ Infer.get_pos_msg p)
       in
-      build_alloca ty "struct" llbuilder
+      create_new_gcroot_malloc llbuilder (pointer_type ty) (size_of ty)
+      (*build_alloca ty "struct" llbuilder*)
 
   (* Assign whatever to object member variable *)
   | p, Binop ((Typedast.Eq None), _, _, _) ->
@@ -995,6 +1048,17 @@ let _ =
       f_body = [];
     } in
     ignore (codegen_proto subsetphp_gc_init);
+
+    (* llvm_gc_allocate *)
+    (* TODO: rename to malloc so LLVM can recongnize its signature? *)
+    let f_param1 = {param_id = (Pos.none, "size"); param_type = TInt} in
+    let llvm_gc_allocate = {
+      f_name = (Pos.none, "\\llvm_gc_allocate"); 
+      f_params = [f_param1];
+      f_ret = TPtr;
+      f_body = [];
+    } in
+    ignore (codegen_proto llvm_gc_allocate);
 
     ignore (codegen_program program);
 
