@@ -108,7 +108,7 @@ void* llvm_gc_allocate(unsigned int size) {
     // Set type info
     zend_string* str = (zend_string*) res;
     str->gc.u.type_info = 0;
-    str->gc.refcount = 0;
+    str->gc.refcount = 0;  // Used in mark phase
 
     // Add malloc to list of all mallocs (used by sweep phase)
     malloc_list* malloc_header = malloc(sizeof (malloc_list));

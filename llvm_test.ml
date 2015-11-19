@@ -124,6 +124,8 @@ let create_new_gcroot_alloca llbuilder ty : llvalue =
  * Create a new alloca with type ty and size and make it
  * gcroot
  *
+ * Add the header of zend_refcounted, which is uint32_t * 2 = 8 bytes.
+ *
  * @param llbuilder
  * @param ty lltype Pointer type, probably
  * @param size int
@@ -132,7 +134,10 @@ let create_new_gcroot_alloca llbuilder ty : llvalue =
 let create_new_gcroot_malloc llbuilder ty size : llvalue =
   let alloca = build_alloca ptr_t "tmp" llbuilder in
 
-  (*let args = [|const_int i32_t (size + 8)|] in  (* TODO: Enough for malloc header? *)*)
+  let zend_refcounted_size = const_int i32_t 8 in
+
+  let size = const_bitcast size i32_t in
+  let size = build_add size zend_refcounted_size "size" llbuilder in
   let args = [|size|] in
   let malloc =
     match lookup_function "llvm_gc_allocate" llm with
@@ -1056,7 +1061,7 @@ let _ =
 
     (* llvm_gc_allocate *)
     (* TODO: rename to malloc so LLVM can recongnize its signature? *)
-    let f_param1 = {param_id = (Pos.none, "size"); param_type = TInt64} in
+    let f_param1 = {param_id = (Pos.none, "size"); param_type = TInt} in
     let llvm_gc_allocate = {
       f_name = (Pos.none, "\\llvm_gc_allocate"); 
       f_params = [f_param1];
