@@ -35,17 +35,21 @@ struct object
 typedef struct _malloc_list {
   struct _malloc_list* next;
   void* value;
+  int test_value;
 } malloc_list;
 
 static malloc_list* mallocs;
 static int mallocs_length;  // Length of mallocs list
 static malloc_list* last_malloc;  // Head
 
-static void markAll(void);
+static void mark(void);
+static void sweep(void);
 static void print_mallocs_length(void);
 
 void llvm_gc_initialize(unsigned int heapsize) {
   mallocs_length = 0;
+  mallocs = NULL;
+  last_malloc = NULL;
   /*
     printf("Initializing heap: %d \n", heapsize);
 
@@ -68,32 +72,31 @@ void llvm_gc_collect() {
     printf("llvm_gc_collect()\n");
 #endif
 
-    struct StackEntry   *entry = llvm_gc_root_chain;
-
-    //while (entry) {
-    //}
+    mark();
+    sweep();
 }
 
 static int nr_of_allocs = 0;
 static int nr_of_frees = 0;
 
+/**
+ * Allocate memory
+ * Uses a memory block to keep track
+ * of all mallocs in the system.
+ *
+ * @param int size
+ * @return
+ */
 void* llvm_gc_allocate(unsigned int size) {
+
     nr_of_allocs++;
-    print_mallocs_length();
 
-    // For testing
-    //if (nr_of_allocs > 1000) {
-      //exit(0);
-    //}
+#ifdef DEBUG
+    printf("nr_of_allocs = %d\n", nr_of_allocs);
+#endif
 
-    //printf("gc_alloc(%d)\n", size);
-
-    //struct object* wrapper = malloc(sizeof (struct object));
-    //wrapper->marked = 0;
-    //wrapper->value = res;
-
-    if (nr_of_allocs % 100 == 0) {
-      markAll();
+    if (nr_of_allocs % 100 == 5) {
+      llvm_gc_collect();
     }
 
     void* res = malloc(size);
@@ -102,51 +105,72 @@ void* llvm_gc_allocate(unsigned int size) {
       exit(1);
     }
 
-    //((zend_string*)(res))->gc.refcount = 0;  // Done in binding (wrong?)
+    // Set type info
+    zend_string* str = (zend_string*) res;
+    str->gc.u.type_info = 0;
+    str->gc.refcount = 0;
 
     // Add malloc to list of all mallocs (used by sweep phase)
-    malloc_list* m = malloc(sizeof (malloc_list));
+    malloc_list* malloc_header = malloc(sizeof (malloc_list));
 
-    if (m == NULL) {
+    if (malloc_header == NULL) {
       printf("Out of memory\n");
       exit(1);
     }
 
-    m->value = res;
-    m->next = NULL;
+    malloc_header->value = res;
+    malloc_header->next = NULL;
+    malloc_header->test_value = nr_of_allocs;
     mallocs_length++;
-    //printf("mallocs_length = %d\n", mallocs_length);
 
-    if (mallocs_length == 1) {
-      mallocs = m;
+    if (last_malloc != NULL) {
+#ifdef DEBUG
+      printf("last_malloc->test_value = %d\n", last_malloc->test_value);
+#endif
+      last_malloc->next = malloc_header;
+      last_malloc = malloc_header;
     }
-    else if (mallocs_length > 1) {
-
-      if (last_malloc != NULL) {
-        last_malloc->next = m;
-      }
-
-      // If mallocs_length > 1 then we've had a malloc before
-      //assert(last_malloc != NULL);
-
-      //m->prev = last_malloc;
-      //assert(m->prev != NULL);
+    else if (mallocs == NULL) {
+      last_malloc = malloc_header;
+      mallocs = malloc_header;
     }
     else {
       assert(false);
     }
 
-    last_malloc = m;
+#ifdef DEBUG
+    print_mallocs_length();
+#endif
+
+    /*
+    if (mallocs_length == 1) {
+      mallocs = malloc_header;
+    }
+    else if (mallocs_length > 1) {
+
+      if (last_malloc != NULL) {
+        last_malloc->next = malloc_header;
+      }
+
+    }
+    else {
+      assert(false);
+    }
+    */
+
 
     return res;
 }
 
-void mark(zend_string* object) {
-    object->gc.refcount = 1;
-}
+//void mark(zend_string* object) {
+    //object->gc.refcount = 1;
+//}
 
-static void markAll() {
-  malloc_list* m;
+static void mark() {
+
+#ifdef DEBUG
+    printf("mark begin\n");
+#endif
 
   struct StackEntry *entry = llvm_gc_root_chain;
   int j = 0;
@@ -167,13 +191,13 @@ static void markAll() {
 #ifdef DEBUG
           printf("  root = %p\n", root);
           printf("  sizeof root = %lu\n", sizeof(root));
-          printf("  %p\n", root->val);
-          printf("  %s\n", root->val);
           printf("  type_info = %d\n", root->gc.u.type_info);
           printf("  refcount = %d\n", root->gc.refcount);
-          printf("  ---\n");
 #endif
-          if (root->gc.u.type_info == 262) {  // 262 = string?
+          if (root->gc.u.type_info == 262 || root->gc.u.type_info == 0) {  // 262 = string?
+#ifdef DEBUG
+            printf("  set refcount to 1\n");
+#endif
             root->gc.refcount = 1;
           }
         }
@@ -183,16 +207,34 @@ static void markAll() {
     entry = entry->Next;
   }
 
-  // Free all blocks that were not found while scanning roots
 #ifdef DEBUG
-  printf("collect\n");
-  printf("mallocs:\n");
+  printf("gcroots: %d\n", j);
+  printf("mark end\n");
+#endif
+
+}
+
+/**
+ * Sweep and free all malloc
+ * blocks that has refcount == 0
+ *
+ * @return void
+ */
+static void sweep()
+{
+  malloc_list* m;
+
+#ifdef DEBUG
+  printf("sweep begin\n");
 #endif
 
   m = mallocs;
   malloc_list* prev = NULL;
   malloc_list* tmp = m;
+  int i = 0;
   while (m) {
+    i++;
+    // TODO: Not only string
     zend_string* str = (zend_string*) m->value;
 
 #ifdef DEBUG
@@ -219,6 +261,11 @@ static void markAll() {
         if (tmp == mallocs) {
           mallocs = m;
         }
+
+        // If this is the last block
+        if (tmp == last_malloc) {
+          last_malloc = prev;
+        }
         
         free(tmp);
         nr_of_frees++;
@@ -243,16 +290,14 @@ static void markAll() {
 
   }
 
-  print_mallocs_length();
-
 #ifdef DEBUG
-  printf("entries: %d\n", j);
+  printf("mallocs length = %d\n", i);
+  printf("sweep end\n");
 #endif
-
 }
 
 static void print_mallocs_length(void) {
-  return;
+#ifdef DEBUG
   malloc_list* m;
   int l = 0;
   m = mallocs;
@@ -261,4 +306,5 @@ static void print_mallocs_length(void) {
     l++;
   }
   printf("mallocs length = %d\n", l);
+#endif
 }
