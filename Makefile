@@ -159,7 +159,7 @@ runtime2.o: bindings2.c semigc
 llvm_test: runtime.o subsetphp typedast.cmx llvm_test.ml
 	ocamlfind ocamlopt -g -w @5 -cc g++ -cc -lncurses -cclib -lffi -I /home/olle/.opam/4.02.1/llvm/ -I ocaml/asmrun -cc g++ -package llvm,llvm.bitreader,llvm.bitwriter,llvm.target,llvm.analysis,llvm.scalar_opts,llvm.linker -linkpkg ident.cmx utils.cmx str.cmxa sys_utils.cmx path.cmx relative_path.cmx pos.cmx errors.cmx lexer_hack.cmx namespace_env.cmx lint.cmx prefix.cmx eventLogger.cmx realpath.o hh_shared.o sharedMem.cmx parser_heap.cmx namespaces.cmx parser_hack.cmx fileInfo.cmx ast.cmx typedast.cmx infer.cmx php-src/Zend/*.o ocaml/byterun/startup_aux.o ocaml/byterun/misc.o runtime.o llvm_test.ml -o llvm_test
 
-comp: llvm_test runtime2.o
+comp: llvm_test runtime2.o semigc
 	./llvm_test
 	llvm-dis llvm_test.bc
 	llc llvm_test.bc

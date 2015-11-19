@@ -35,6 +35,7 @@ let llctx = global_context ()
 let llm = create_module llctx "mymodule"
 let double_type = double_type llctx
 let i32_t = i32_type llctx
+let i64_t = i64_type llctx
 let i8_t = i8_type llctx
 let void_t = void_type llctx
 let i8_ptr_t = pointer_type i8_t
@@ -67,6 +68,7 @@ let llvm_ty_of_ty ty = match ty with
   | TString -> i8_ptr_t
   | TZend_string_ptr -> zend_string_ptr_type
   | TUnit -> void_t
+  | Typedast.TInt64 -> i64_t
   | Typedast.TWeak_poly {contents = ((Some Typedast.TNumber))} -> double_type
   | Typedast.TWeak_poly {contents = ((Some Typedast.TString))} -> zend_string_ptr_type
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
@@ -86,6 +88,7 @@ let llvm_ty_of_ty_fun ty = match ty with
   | TZend_string_ptr -> zend_string_ptr_type
   | TCaml_value -> caml_value_ptr_type
   | TUnit -> void_t
+  | Typedast.TInt64 -> i64_t
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty_fun: %s" (show_ty ty)))
 (** 
  * Create an alloca instruction in the entry block of the function. This
@@ -128,17 +131,9 @@ let create_new_gcroot_alloca llbuilder ty : llvalue =
  *)
 let create_new_gcroot_malloc llbuilder ty size : llvalue =
   let alloca = build_alloca ptr_t "tmp" llbuilder in
-  let tmp = build_bitcast alloca ptr_ptr_t "tmp2" llbuilder in
-  let callee =
-    match lookup_function "llvm.gcroot" llm with
-      | Some callee -> callee
-      | None -> 
-          raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
-  in
-  let args = [|tmp; const_null i8_ptr_t|] in
-  ignore (build_call callee args "" llbuilder);
 
-  let args = [|const_int i32_t 2|] in
+  (*let args = [|const_int i32_t (size + 8)|] in  (* TODO: Enough for malloc header? *)*)
+  let args = [|size|] in
   let malloc =
     match lookup_function "llvm_gc_allocate" llm with
       | Some callee -> callee
@@ -148,7 +143,17 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue =
 
   let malloc_result = build_call malloc args "tmp" llbuilder in
 
-  build_store malloc_result alloca llbuilder
+  ignore (build_store malloc_result alloca llbuilder);
+
+  let tmp = build_bitcast alloca ptr_ptr_t "tmp2" llbuilder in
+  let callee =
+    match lookup_function "llvm.gcroot" llm with
+      | Some callee -> callee
+      | None -> 
+          raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+  in
+  let args = [|tmp; const_null i8_ptr_t|] in
+  build_call callee args "" llbuilder
 
 (**
  * Generate code for a function prototype
@@ -1051,7 +1056,7 @@ let _ =
 
     (* llvm_gc_allocate *)
     (* TODO: rename to malloc so LLVM can recongnize its signature? *)
-    let f_param1 = {param_id = (Pos.none, "size"); param_type = TInt} in
+    let f_param1 = {param_id = (Pos.none, "size"); param_type = TInt64} in
     let llvm_gc_allocate = {
       f_name = (Pos.none, "\\llvm_gc_allocate"); 
       f_params = [f_param1];

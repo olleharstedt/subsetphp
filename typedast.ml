@@ -11,6 +11,7 @@ open Printf
 type ty =
   | TNumber
   | TInt
+  | TInt64
   | TString
   | TString_literal
   | TZend_string_ptr
@@ -98,6 +99,7 @@ and struct_ = {
 let rec string_of_ty ty = match ty with
   | TNumber -> "TNumber"
   | TInt -> "TInt"
+  | TInt64 -> "TInt64"
   | TString -> "TString"
   | TString_literal -> "TString_literal"
   | TZend_string_ptr -> "TZend_string_ptr"

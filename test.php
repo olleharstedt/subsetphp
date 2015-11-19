@@ -10,6 +10,10 @@ $a = new Point();
 $a->x = 10;  // Infer int for x field, need tvar? not availeble in Typedast because it should be fully typed at that point
 $a->y = 'asd';
 
+for ($i = 0; $i < 101000; $i += 1) {
+  $a = new Point();
+}
+
 /*
 function foo($a) {
   return $a . 'asd';
