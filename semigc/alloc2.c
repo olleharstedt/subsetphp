@@ -35,7 +35,7 @@ struct object
 typedef struct _malloc_list {
   struct _malloc_list* next;
   void* value;
-  int test_value;
+  //int test_value;
 } malloc_list;
 
 static malloc_list* mallocs;
@@ -120,12 +120,12 @@ void* llvm_gc_allocate(unsigned int size) {
 
     malloc_header->value = res;
     malloc_header->next = NULL;
-    malloc_header->test_value = nr_of_allocs;
+    //malloc_header->test_value = nr_of_allocs;
     mallocs_length++;
 
     if (last_malloc != NULL) {
 #ifdef DEBUG
-      printf("last_malloc->test_value = %d\n", last_malloc->test_value);
+      //printf("last_malloc->test_value = %d\n", last_malloc->test_value);
 #endif
       last_malloc->next = malloc_header;
       last_malloc = malloc_header;
@@ -166,6 +166,10 @@ void* llvm_gc_allocate(unsigned int size) {
     //object->gc.refcount = 1;
 //}
 
+/**
+ * Mark all malloc blocks that are not
+ * in gcroot list.
+ */
 static void mark() {
 
 #ifdef DEBUG
