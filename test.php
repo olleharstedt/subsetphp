@@ -1,6 +1,9 @@
 <?php
 
 final class Point {
+  // Add meta-information?
+  // x is int
+  // y is string and needs to be collected.
   public $x;
   public $y;
 }

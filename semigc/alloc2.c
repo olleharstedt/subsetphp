@@ -46,10 +46,21 @@ static void mark(void);
 static void sweep(void);
 static void print_mallocs_length(void);
 
+struct structs_gc_info_ {
+  char i;
+};
+extern struct structs_gc_info_ structs_gc_info[];
+
 void llvm_gc_initialize(unsigned int heapsize) {
   mallocs_length = 0;
   mallocs = NULL;
   last_malloc = NULL;
+
+  // Test structs_gc_info
+  //struct structs_gc_info_ s = structs_gc_info[0];
+  char i = structs_gc_info[0].i;
+  printf("i = %d\n", i);
+
   /*
     printf("Initializing heap: %d \n", heapsize);
 
@@ -203,6 +214,9 @@ static void mark() {
             printf("  set refcount to 1\n");
 #endif
             root->gc.refcount = 1;
+
+            // TODO: Traverase children of struct/object/array
+            // Use meta-information?
           }
         }
     }

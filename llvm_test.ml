@@ -55,6 +55,8 @@ let global_named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
 let zero = const_int i32_t 0
 
 let structs : (string, lltype) Hashtbl.t = Hashtbl.create 10
+(* Information for the GC ob how to collect structs (pointer offsets) *)
+let structs_gc : (string, struct_) Hashtbl.t = Hashtbl.create 10
 
 (**
  * Return LLVM type of typed AST type
@@ -364,7 +366,7 @@ and codegen_program program =
   (* Better clear this... *)
   Hashtbl.clear global_named_values;
 
-  (* New function type *)
+  (* New function type for the main function *)
   let fty = function_type i32_t [||] in
   (* New function definition, main *)
   let fn = define_function "main" fty llm in
@@ -398,7 +400,57 @@ and codegen_program program =
   in
   aux program;
   let _ = build_ret (const_int i32_t 0) llbuilder in
+
+  (** Generate GC runtime type information *)
+  (*let begin_pos = global_begin llm in*)
+  (*instr_begin*)
+  (*position_builder begin_pos llbuilder;*)
+
+  generate_gc_runtime_type_information llbuilder;
   ()
+
+(**
+ * The GC needs to know what pointer in a struct
+ * to collect.
+ *
+ * @param llbuilder
+ * @return unit
+ *)
+and generate_gc_runtime_type_information llbuilder =
+  (*let nr_of_struct_types = Hashtbl.length structs in*)
+  (*let t = array_type i8_ptr_t nr_of_struct_types in*)
+  (*ignore (build_alloca t "struct_types" llbuilder);*)
+  let pointer_offsets = array_type i8_t 10 in
+  let s_t = struct_type llctx [|i8_t|] in
+  let s_ptr_t = pointer_type s_t in
+  (*let gc_info_array_type = array_type s 10 in*)
+  (*set_initializer*)
+  (*let g = declare_global gc_info_array_type "subsetphp.structs" llm in*)
+  let stru = const_struct llctx [|const_int i8_t 13|] in
+  let const = const_array s_t [|stru|] in
+  let gv = define_global "structs_gc_info" const llm in
+  Hashtbl.iter (fun name struct_ ->
+    match struct_ with
+    | {struct_name = name; struct_fields = fields} ->
+        List.iteri (fun i field ->
+          (*let field = List.nth fields i in*)
+          (* Find out if this field is a pointer *)
+          let (_, field_type) = field in
+          match field_type with
+          | Typedast.TZend_string_ptr ->
+              let alloca = build_alloca s_t "tmp" llbuilder in
+              let const = const_struct llctx [|const_int i8_t 13|] in
+              ignore (build_store const alloca llbuilder);
+              ()
+          | _ ->
+              (* Zend_string is the only pointer type for now *)
+              (* TODO: Add struct pointer type *)
+              ()
+        ) fields;
+        ()
+    (*| _ ->
+        raise (Llvm_not_implemented "Can only generate GC runtime information of struct")*)
+  ) structs_gc
 
 (**
  * Generate LLVM IR for block (stmt list)
@@ -450,6 +502,7 @@ and codegen_struct struct_ llbuilder : unit =
       let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
       let t = struct_type llctx fields in
       Hashtbl.add structs name t;
+      Hashtbl.add structs_gc name struct_;
 
 (**
  * Generate LLVM IR for stmt

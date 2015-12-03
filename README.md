@@ -319,6 +319,30 @@ http://blogs.msdn.com/b/brada/archive/2005/02/11/371015.aspx
 
 http://dlang.org/garbage.html
 
+### Discussion about runtime type information
+
+> 19:19:30 - ollehar: hm, is there a conventional way of storing object/struct meta-data for the garbage collector?
+>
+> 19:21:54 - jonaslund [~chatzilla@92-244-17-198.customers.ownit.se] entered the room.
+>
+> 19:22:44 - DKordic: ollehar: I don't understand the question.  Can You please elaborate?  
+>
+> 19:23:03 - ollehar: DKordic: hm, the gc need type information during runtime to know how to collect, right?
+>
+> 19:24:00 - DKordic: So what should be the ``GC Meta Data'' struct?  In that case choose some GC implementation.  
+>
+> 19:24:20 - ollehar: found this: http://stackoverflow.com/questions/222117/garbage-collection-and-runtime-type-information
+>
+> 19:24:21 - ollehar: hm
+>
+> 19:24:46 - doomlord [~textual@host81-155-67-16.range81-155.btcentralplus.com] entered the room.
+>
+> 19:25:03 - ollehar: DKordic: yeah, I'm making my own gc at the moment. :P
+>
+> 19:27:21 - velco: it basically needs to know where pointers are in a type layout
+>
+> 19:27:31 - velco: say, a sequence of offsets
+
 ### Discussions on OCaml IRC
 
 > 14:22:30 - ely-se: you need refcounting if you want PHP programs to behave consistently with the official implementation
