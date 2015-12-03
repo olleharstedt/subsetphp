@@ -48,6 +48,7 @@ static void print_mallocs_length(void);
 
 struct structs_gc_info_ {
   char i;
+  int pointer_offsets[];
 };
 extern struct structs_gc_info_ structs_gc_info[];
 
@@ -58,8 +59,10 @@ void llvm_gc_initialize(unsigned int heapsize) {
 
   // Test structs_gc_info
   //struct structs_gc_info_ s = structs_gc_info[0];
-  char i = structs_gc_info[0].i;
+  int i = structs_gc_info[0].i;
+  int j = structs_gc_info[0].pointer_offsets[0]; 
   printf("i = %d\n", i);
+  printf("j = %d\n", j);
 
   /*
     printf("Initializing heap: %d \n", heapsize);
@@ -198,7 +201,7 @@ static void mark() {
     printf("num_roots = %d\n", num_roots);
 #endif
     for (int i = 0; i < num_roots; i++) {
-        // TODO: What if root is not string? Bug in compiler, errournous gcroot?
+        // TODO: What if root is not string? Like struct, array.
         zend_string* root = (zend_string *) entry->Roots[i];
 
         if (root) {
@@ -217,6 +220,10 @@ static void mark() {
 
             // TODO: Traverase children of struct/object/array
             // Use meta-information?
+            // Get struct gc info from type_info
+            // struct structs_gc_info type_info = structs_gc_info[gc.u.type_info]
+            // for each pointer offset in type_info
+            // sweep_child(root[pointer_offset]);
           }
         }
     }

@@ -412,45 +412,62 @@ and codegen_program program =
 (**
  * The GC needs to know what pointer in a struct
  * to collect.
+ * 
+ * { type : int; nr_of_offsets : int; pointer_offsets : int array }
  *
  * @param llbuilder
  * @return unit
  *)
 and generate_gc_runtime_type_information llbuilder =
-  (*let nr_of_struct_types = Hashtbl.length structs in*)
+  let nr_of_struct_types = Hashtbl.length structs in
   (*let t = array_type i8_ptr_t nr_of_struct_types in*)
   (*ignore (build_alloca t "struct_types" llbuilder);*)
-  let pointer_offsets = array_type i8_t 10 in
-  let s_t = struct_type llctx [|i8_t|] in
-  let s_ptr_t = pointer_type s_t in
+  let pointer_offsets_t = array_type i32_t 1 in
+  let s_t = struct_type llctx [|i32_t; pointer_offsets_t|] in
+  (*let s_ptr_t = pointer_type s_t in*)
   (*let gc_info_array_type = array_type s 10 in*)
   (*set_initializer*)
   (*let g = declare_global gc_info_array_type "subsetphp.structs" llm in*)
-  let stru = const_struct llctx [|const_int i8_t 13|] in
-  let const = const_array s_t [|stru|] in
-  let gv = define_global "structs_gc_info" const llm in
+  let dummy_struct = const_struct llctx [|const_int i32_t 33; const_int i32_t 22|] in
+  let array_of_structs = Array.make nr_of_struct_types dummy_struct in
+  let j = ref 0 in
   Hashtbl.iter (fun name struct_ ->
-    match struct_ with
+    begin match struct_ with
     | {struct_name = name; struct_fields = fields} ->
-        List.iteri (fun i field ->
+
+        (* Remove all non-gc fields *)
+        let fields = List.filter (fun field ->
+          let (_, field_type) = field in
+          match field_type with
+          | Typedast.TWeak_poly {contents = Some TString} -> true
+          | _ -> false
+        ) fields in
+
+        let fields_list : llvalue list = List.map (fun field ->
           (*let field = List.nth fields i in*)
           (* Find out if this field is a pointer *)
           let (_, field_type) = field in
           match field_type with
-          | Typedast.TZend_string_ptr ->
-              let alloca = build_alloca s_t "tmp" llbuilder in
-              let const = const_struct llctx [|const_int i8_t 13|] in
-              ignore (build_store const alloca llbuilder);
-              ()
-          | _ ->
+          | Typedast.TWeak_poly {contents = Some TString} ->
+              const_int i32_t 14
+          | t ->
+              print_endline (string_of_ty t);
               (* Zend_string is the only pointer type for now *)
               (* TODO: Add struct pointer type *)
-              ()
-        ) fields;
-        ()
+              failwith "Impossible"
+        ) fields in
+        let fields_array = Array.of_list fields_list in
+        let fields_array = const_array i32_t fields_array in
+        let const = const_struct llctx [|const_int i32_t (!j + 1); fields_array|] in
+        array_of_structs.(!j) <- const;
+    end;
+    j := !j + 1;
     (*| _ ->
         raise (Llvm_not_implemented "Can only generate GC runtime information of struct")*)
-  ) structs_gc
+  ) structs_gc;
+  let const = const_array s_t array_of_structs in
+  ignore (define_global "structs_gc_info" const llm)
+
 
 (**
  * Generate LLVM IR for block (stmt list)
