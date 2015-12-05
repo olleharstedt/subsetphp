@@ -424,9 +424,9 @@ and generate_gc_runtime_type_information llbuilder =
   let nr_of_struct_types = Hashtbl.length structs in
   print_endline "2";
   printf "nr_of_struct_types = %d\n" nr_of_struct_types;
-  let pointer_offsets_t = array_type i32_t 1 in
+  let pointer_offsets_t = array_type i32_t 2 in
   print_endline "3";
-  let s_t = struct_type llctx [|i32_t; pointer_offsets_t|] in
+  let s_t = struct_type llctx [|i32_t; i32_t|] in
   print_endline "4";
   let dummy_struct = const_struct llctx [|const_int i32_t 33; const_int i32_t 22|] in
   print_endline "5";
@@ -468,7 +468,7 @@ and generate_gc_runtime_type_information llbuilder =
         print_endline "14";
         let fields_array = const_array i32_t fields_array in
         print_endline "15";
-        let const = const_struct llctx [|const_int i32_t (!j + 1); const_int i32_t 1|] in
+        let const = const_struct llctx [|const_int i32_t (!j + 1); fields_array|] in
         print_endline "16";
         array_of_structs.(!j) <- const;
     end;
@@ -478,7 +478,8 @@ and generate_gc_runtime_type_information llbuilder =
         raise (Llvm_not_implemented "Can only generate GC runtime information of struct")*)
   ) structs_gc;
   print_endline "18";
-  let const = const_array s_t array_of_structs in
+  Array.iter (fun t -> print_endline (string_of_llvalue t)) array_of_structs;
+  let const = const_array s_t array_of_structs in (* struct has type {i32, i32} *)
   print_endline "19";
   ignore (define_global "structs_gc_info" const llm);
   print_endline "20"
