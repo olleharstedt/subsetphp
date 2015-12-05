@@ -67,6 +67,7 @@ let structs_gc : (string, struct_) Hashtbl.t = Hashtbl.create 10
 let llvm_ty_of_ty ty = match ty with
   | TNumber -> double_type
   | TInt -> i32_t
+  | TInt64 -> i64_t
   | TString -> i8_ptr_t
   | TZend_string_ptr -> zend_string_ptr_type
   | TUnit -> void_t
@@ -136,9 +137,9 @@ let create_new_gcroot_alloca llbuilder ty : llvalue =
 let create_new_gcroot_malloc llbuilder ty size : llvalue =
   let alloca = build_alloca ptr_t "tmp" llbuilder in
 
-  let zend_refcounted_size = const_int i32_t 8 in
+  let zend_refcounted_size = const_int i64_t 8 in
 
-  let size = const_bitcast size i32_t in
+  let size = const_bitcast size i64_t in
   let size = build_add size zend_refcounted_size "size" llbuilder in
   let args = [|size|] in
   let malloc =
@@ -410,8 +411,8 @@ and codegen_program program =
   ()
 
 (**
- * The GC needs to know what pointer in a struct
- * to collect.
+ * The GC needs to know what pointers in a struct
+ * to follow and mark/sweep.
  * 
  * { type : int; nr_of_offsets : int; pointer_offsets : int array }
  *
@@ -419,55 +420,68 @@ and codegen_program program =
  * @return unit
  *)
 and generate_gc_runtime_type_information llbuilder =
+  print_endline "1";
   let nr_of_struct_types = Hashtbl.length structs in
-  (*let t = array_type i8_ptr_t nr_of_struct_types in*)
-  (*ignore (build_alloca t "struct_types" llbuilder);*)
+  print_endline "2";
+  printf "nr_of_struct_types = %d\n" nr_of_struct_types;
   let pointer_offsets_t = array_type i32_t 1 in
+  print_endline "3";
   let s_t = struct_type llctx [|i32_t; pointer_offsets_t|] in
-  (*let s_ptr_t = pointer_type s_t in*)
-  (*let gc_info_array_type = array_type s 10 in*)
-  (*set_initializer*)
-  (*let g = declare_global gc_info_array_type "subsetphp.structs" llm in*)
+  print_endline "4";
   let dummy_struct = const_struct llctx [|const_int i32_t 33; const_int i32_t 22|] in
+  print_endline "5";
   let array_of_structs = Array.make nr_of_struct_types dummy_struct in
+  print_endline "6";
   let j = ref 0 in
+  print_endline "7";
   Hashtbl.iter (fun name struct_ ->
     begin match struct_ with
     | {struct_name = name; struct_fields = fields} ->
 
         (* Remove all non-gc fields *)
         let fields = List.filter (fun field ->
+          print_endline "8";
           let (_, field_type) = field in
+          print_endline "9";
           match field_type with
           | Typedast.TWeak_poly {contents = Some TString} -> true
           | _ -> false
         ) fields in
 
-        let fields_list : llvalue list = List.map (fun field ->
-          (*let field = List.nth fields i in*)
-          (* Find out if this field is a pointer *)
+        print_endline "10";
+        (* Get struct offsets of gc fields *)
+        let fields_list : llvalue list = List.mapi (fun i field ->
           let (_, field_type) = field in
+          print_endline "11";
           match field_type with
+          (* String/struct/array is the only pointer types for now *)
           | Typedast.TWeak_poly {contents = Some TString} ->
-              const_int i32_t 14
+              print_endline "12";
+              const_int i32_t i
           | t ->
               print_endline (string_of_ty t);
-              (* Zend_string is the only pointer type for now *)
               (* TODO: Add struct pointer type *)
               failwith "Impossible"
         ) fields in
+        print_endline "13";
         let fields_array = Array.of_list fields_list in
+        print_endline "14";
         let fields_array = const_array i32_t fields_array in
-        let const = const_struct llctx [|const_int i32_t (!j + 1); fields_array|] in
+        print_endline "15";
+        let const = const_struct llctx [|const_int i32_t (!j + 1); const_int i32_t 1|] in
+        print_endline "16";
         array_of_structs.(!j) <- const;
     end;
+    print_endline "17";
     j := !j + 1;
     (*| _ ->
         raise (Llvm_not_implemented "Can only generate GC runtime information of struct")*)
   ) structs_gc;
+  print_endline "18";
   let const = const_array s_t array_of_structs in
-  ignore (define_global "structs_gc_info" const llm)
-
+  print_endline "19";
+  ignore (define_global "structs_gc_info" const llm);
+  print_endline "20"
 
 (**
  * Generate LLVM IR for block (stmt list)
@@ -1131,7 +1145,7 @@ let _ =
 
     (* llvm_gc_allocate *)
     (* TODO: rename to malloc so LLVM can recongnize its signature? *)
-    let f_param1 = {param_id = (Pos.none, "size"); param_type = TInt} in
+    let f_param1 = {param_id = (Pos.none, "size"); param_type = TInt64} in
     let llvm_gc_allocate = {
       f_name = (Pos.none, "\\llvm_gc_allocate"); 
       f_params = [f_param1];

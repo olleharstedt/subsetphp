@@ -59,10 +59,10 @@ void llvm_gc_initialize(unsigned int heapsize) {
 
   // Test structs_gc_info
   //struct structs_gc_info_ s = structs_gc_info[0];
-  int i = structs_gc_info[0].i;
-  int j = structs_gc_info[0].pointer_offsets[0]; 
-  printf("i = %d\n", i);
-  printf("j = %d\n", j);
+  //int i = structs_gc_info[0].i;
+  //int j = structs_gc_info[0].pointer_offsets[0]; 
+  //printf("i = %d\n", i);
+  //printf("j = %d\n", j);
 
   /*
     printf("Initializing heap: %d \n", heapsize);
