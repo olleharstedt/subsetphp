@@ -71,7 +71,6 @@ let llvm_ty_of_ty ty = match ty with
   | TString -> i8_ptr_t
   | TZend_string_ptr -> zend_string_ptr_type
   | TUnit -> void_t
-  | Typedast.TInt64 -> i64_t
   | Typedast.TWeak_poly {contents = ((Some Typedast.TNumber))} -> double_type
   | Typedast.TWeak_poly {contents = ((Some Typedast.TString))} -> zend_string_ptr_type
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
@@ -407,7 +406,17 @@ and codegen_program program =
   (*instr_begin*)
   (*position_builder begin_pos llbuilder;*)
 
-  generate_gc_runtime_type_information llbuilder;
+  (*generate_gc_runtime_type_information llbuilder;*)
+  generate_json_gc_type_information ();
+  ()
+
+(**
+ * Second try to generate type-information for the GC
+ * This time using JSON serialization and store it into
+ * an external file which is read by the GC at program
+ * initialisation.
+ *)
+and generate_json_gc_type_information () =
   ()
 
 (**
@@ -424,7 +433,7 @@ and generate_gc_runtime_type_information llbuilder =
   let nr_of_struct_types = Hashtbl.length structs in
   print_endline "2";
   printf "nr_of_struct_types = %d\n" nr_of_struct_types;
-  let pointer_offsets_t = array_type i32_t 2 in
+  (*let pointer_offsets_t = array_type i32_t 2 in*)
   print_endline "3";
   let s_t = struct_type llctx [|i32_t; i32_t|] in
   print_endline "4";

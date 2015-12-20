@@ -295,6 +295,17 @@ Reference counting or garbage collecting? Must use refcount because of destructo
 
 Dead simple GC using shadow-stack and malloc list with mark-sweep.
 
+How to represent GC type-information during runtime?
+
+```llvm
+@gc.info.type1 = global {i32, i32} {i32 1, i32 2}
+@gc.info.type1_ptr = global i8* bitcast ({i32, i32}* @gc.info.type1 to i8*)
+@gc.info.type2 = global {i32, i32, i32} {i32 1, i32 2, i32 3}
+@gc.info.type2_ptr = global i8* bitcast ({i32, i32, i32}* @gc.info.type2 to i8*)
+@gc.info.types = global [2 x i8** ] [ i8** @gc.info.type1_ptr, i8** @gc.info.type2_ptr ]
+```
+
+
 ### Escape analysis
 
 Escape analysis - decide what can be stack allocated and what must be heap allocated during compile time. LLVM has some support if malloc has the right sig?
