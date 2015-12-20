@@ -35,7 +35,9 @@ let llctx = global_context ()
 let llm = create_module llctx "mymodule"
 let double_type = double_type llctx
 let i32_t = i32_type llctx
+let i32_ptr_t = pointer_type i32_t
 let i64_t = i64_type llctx
+let i64_ptr_t = pointer_type i64_t
 let i8_t = i8_type llctx
 let void_t = void_type llctx
 let i8_ptr_t = pointer_type i8_t
@@ -406,8 +408,8 @@ and codegen_program program =
   (*instr_begin*)
   (*position_builder begin_pos llbuilder;*)
 
-  (*generate_gc_runtime_type_information llbuilder;*)
-  generate_json_gc_type_information ();
+  generate_gc_runtime_type_information llbuilder;
+  (*generate_json_gc_type_information ();*)
   ()
 
 (**
@@ -429,6 +431,7 @@ and generate_json_gc_type_information () =
  * @return unit
  *)
 and generate_gc_runtime_type_information llbuilder =
+
   print_endline "1";
   let nr_of_struct_types = Hashtbl.length structs in
   print_endline "2";
@@ -439,14 +442,37 @@ and generate_gc_runtime_type_information llbuilder =
   print_endline "4";
   let dummy_struct = const_struct llctx [|const_int i32_t 33; const_int i32_t 22|] in
   print_endline "5";
-  let array_of_structs = Array.make nr_of_struct_types dummy_struct in
+  let array_of_ptrs = Array.make nr_of_struct_types (const_pointer_null i8_ptr_t) in
   print_endline "6";
   let j = ref 0 in
   print_endline "7";
-  Hashtbl.iter (fun name struct_ ->
-    begin match struct_ with
-    | {struct_name = name; struct_fields = fields} ->
 
+  (**
+   * Generate a bunch of global structs with
+   * type information.
+   *
+   * @param struct_type ?
+   * @return ?
+   *)
+  let generate_struct_type_info name struct_type_ =
+    begin match struct_type_ with
+    | {struct_name = name; struct_fields = fields} ->
+        let struct_t = struct_type llctx [|i32_t|] in
+        let const = const_struct llctx [|const_int i32_t 1;|] in
+        let const_ptr = define_global ("structs_gc_info_" ^ name) const llm in
+        let ptr = const_bitcast const_ptr i8_ptr_t in
+        let glob_ptr = define_global ("structs_gc_info_ptr_" ^ name) ptr llm in
+        array_of_ptrs.(!j) <- glob_ptr;
+        j := !j + 1;
+
+        (* const_int ? *)
+        (* bitcast *)
+        ()
+    end
+  in
+
+  Hashtbl.iter generate_struct_type_info structs_gc;
+        (*
         (* Remove all non-gc fields *)
         let fields = List.filter (fun field ->
           print_endline "8";
@@ -479,18 +505,14 @@ and generate_gc_runtime_type_information llbuilder =
         print_endline "15";
         let const = const_struct llctx [|const_int i32_t (!j + 1); fields_array|] in
         print_endline "16";
-        array_of_structs.(!j) <- const;
-    end;
-    print_endline "17";
-    j := !j + 1;
-    (*| _ ->
-        raise (Llvm_not_implemented "Can only generate GC runtime information of struct")*)
-  ) structs_gc;
+        (*array_of_structs.(!j) <- const;*)
+        *)
+  (*
   print_endline "18";
-  Array.iter (fun t -> print_endline (string_of_llvalue t)) array_of_structs;
-  let const = const_array s_t array_of_structs in (* struct has type {i32, i32} *)
+  let const = const_array s_t array_of_ptrs in (* struct has type {i32, i32} *)
   print_endline "19";
   ignore (define_global "structs_gc_info" const llm);
+  *)
   print_endline "20"
 
 (**
