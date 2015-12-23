@@ -12,12 +12,18 @@ final class Something {
   public $str;
 }
 
+final class Square {
+  public $a;
+}
+
 for ($i = 0; $i < 1; $i += 1) {
   $a = new Point();
   $a->x = 10;  // Infer int for x field, need tvar? not availeble in Typedast because it should be fully typed at that point
   $a->y = 10;
   $b = new Something();
   $b->str = 'asd';
+  $c = new Square();
+  $c->a = 1;
 }
 
 /*

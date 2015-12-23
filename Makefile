@@ -167,7 +167,7 @@ comp: llvm_test runtime2.o semigc
 	./llvm_test
 	llvm-dis llvm_test.bc
 	llc llvm_test.bc
-	clang-3.6 -g -c llvm_test.s
+	clang-3.6 -g -c -m64 llvm_test.s
 	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc2.o runtime2.o -lm -ldl -lncurses
 
 ll2: runtime2.o semigc

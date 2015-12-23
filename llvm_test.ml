@@ -438,10 +438,6 @@ and generate_gc_runtime_type_information llbuilder =
   printf "nr_of_struct_types = %d\n" nr_of_struct_types;
   (*let pointer_offsets_t = array_type i32_t 2 in*)
   print_endline "3";
-  let s_t = struct_type llctx [|i32_t; i32_t|] in
-  print_endline "4";
-  let dummy_struct = const_struct llctx [|const_int i32_t 33; const_int i32_t 22|] in
-  print_endline "5";
   let array_of_ptrs = Array.make nr_of_struct_types (const_pointer_null i8_ptr_t) in
   print_endline "6";
   let j = ref 0 in
@@ -457,62 +453,23 @@ and generate_gc_runtime_type_information llbuilder =
   let generate_struct_type_info name struct_type_ =
     begin match struct_type_ with
     | {struct_name = name; struct_fields = fields} ->
-        let struct_t = struct_type llctx [|i32_t|] in
-        let const = const_struct llctx [|const_int i32_t 1;|] in
+        let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
+        let const = const_struct llctx [|const_int i32_t (!j * 2 + 3); const_int i32_t 11; const_int i32_t 22|] in
         let const_ptr = define_global ("structs_gc_info_" ^ name) const llm in
-        let ptr = const_bitcast const_ptr i8_ptr_t in
+        let ptr = const_pointercast const_ptr i8_ptr_t in
         let glob_ptr = define_global ("structs_gc_info_ptr_" ^ name) ptr llm in
         array_of_ptrs.(!j) <- glob_ptr;
-        j := !j + 1;
-
-        (* const_int ? *)
-        (* bitcast *)
-        ()
+        j := !j + 1
     end
   in
 
   Hashtbl.iter generate_struct_type_info structs_gc;
-        (*
-        (* Remove all non-gc fields *)
-        let fields = List.filter (fun field ->
-          print_endline "8";
-          let (_, field_type) = field in
-          print_endline "9";
-          match field_type with
-          | Typedast.TWeak_poly {contents = Some TString} -> true
-          | _ -> false
-        ) fields in
 
-        print_endline "10";
-        (* Get struct offsets of gc fields *)
-        let fields_list : llvalue list = List.mapi (fun i field ->
-          let (_, field_type) = field in
-          print_endline "11";
-          match field_type with
-          (* String/struct/array is the only pointer types for now *)
-          | Typedast.TWeak_poly {contents = Some TString} ->
-              print_endline "12";
-              const_int i32_t i
-          | t ->
-              print_endline (string_of_ty t);
-              (* TODO: Add struct pointer type *)
-              failwith "Impossible"
-        ) fields in
-        print_endline "13";
-        let fields_array = Array.of_list fields_list in
-        print_endline "14";
-        let fields_array = const_array i32_t fields_array in
-        print_endline "15";
-        let const = const_struct llctx [|const_int i32_t (!j + 1); fields_array|] in
-        print_endline "16";
-        (*array_of_structs.(!j) <- const;*)
-        *)
-  (*
   print_endline "18";
-  let const = const_array s_t array_of_ptrs in (* struct has type {i32, i32} *)
+  dump_type ptr_ptr_t;
+  let const = const_array ptr_ptr_t array_of_ptrs in (* struct has type {i32, i32} *)
   print_endline "19";
   ignore (define_global "structs_gc_info" const llm);
-  *)
   print_endline "20"
 
 (**
@@ -1064,13 +1021,15 @@ and call_function (name : string) (args : Typedast.expr array) llbuilder =
 
 let _ =
   (*
-  let triple = "i686" in
+  let triple = "x86_64-unknown-linux-gnu" in
   let lltarget  = Llvm_target.Target.by_triple triple in
   let llmachine = Llvm_target.TargetMachine.create ~triple:triple lltarget in
   let lldly     = Llvm_target.TargetMachine.data_layout llmachine in
   set_target_triple (Llvm_target.TargetMachine.triple llmachine) llm;
   set_data_layout (Llvm_target.DataLayout.as_string lldly) llm;
   *)
+
+  (*Llvm_X86.initialize ();*)
 
   (* Build a return of value 0 *)
   (*let _ = build_ret (const_int i32_t 0) llbuilder in*)
@@ -1188,7 +1147,7 @@ let _ =
 
     ignore (codegen_program program);
 
-    dump_module llm;
+    (*dump_module llm;*)
 
     Llvm_analysis.assert_valid_module llm;
 

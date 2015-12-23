@@ -4,6 +4,7 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,10 +48,17 @@ static void sweep(void);
 static void print_mallocs_length(void);
 
 struct structs_gc_info_ {
-  char i;
-  int pointer_offsets[];
+  int32_t i;
+  int32_t j;
+  int32_t k;
 };
-extern struct structs_gc_info_ structs_gc_info[];
+extern struct structs_gc_info_** structs_gc_info[];
+
+/**
+ * 22:51:15 - eddyb: so you said the definition is:
+ * 22:51:16 - eddyb: @structs_gc_info = global [2 x i8**] [i8** @structs_gc_info_ptr_Something, i8** @structs_gc_info_ptr_Point]
+ * 22:51:52 - eddyb: that would translate directly to extern char** structs_gc_info[2]; AFAIK
+ */
 
 void llvm_gc_initialize(unsigned int heapsize) {
   mallocs_length = 0;
@@ -58,11 +66,17 @@ void llvm_gc_initialize(unsigned int heapsize) {
   last_malloc = NULL;
 
   // Test structs_gc_info
-  //struct structs_gc_info_ s = structs_gc_info[0];
-  //int i = structs_gc_info[0].i;
-  //int j = structs_gc_info[0].pointer_offsets[0]; 
-  //printf("i = %d\n", i);
+  //char** s = structs_gc_info;
+  //char** s1 = structs_gc_info + 16;
+  struct structs_gc_info_* stru = *(structs_gc_info[2]);
+  int32_t i = stru->i;
+  //int32_t j = stru->j;
+  printf("i = %d\n", i);
   //printf("j = %d\n", j);
+  //printf("i2 = %d\n", i2);
+  //printf("j = %d\n", j);
+
+  printf("sizeof(char) = %lu\n", sizeof(void*)); 
 
   /*
     printf("Initializing heap: %d \n", heapsize);
