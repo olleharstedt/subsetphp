@@ -453,8 +453,32 @@ and generate_gc_runtime_type_information llbuilder =
   let generate_struct_type_info name struct_type_ =
     begin match struct_type_ with
     | {struct_name = name; struct_fields = fields} ->
+
+        (* Number of heap allocated fields that needs to be collected *)
+        let nr_of_gc_fields = ref 0 in
+
+        (* List of offsets for above fields, so the GC knows where to look *)
+        let list_of_gc_offsets = ref [] in
+
+        (* Iterate through fields and catch all heap allocated dito *)
+        List.iter (fun fi -> match fi with
+        | (field_name, Typedast.TWeak_poly {contents = Some Typedast.TString}) ->
+            print_endline ("here " ^ field_name);
+            list_of_gc_offsets := !list_of_gc_offsets @ [(const_int i32_t !nr_of_gc_fields)];
+            printf "offset = %d\n" !nr_of_gc_fields;
+            nr_of_gc_fields := !nr_of_gc_fields + 1;
+        | (field_name, _)  ->
+            (* Not a heap allocation, just increase number of fields *)
+            nr_of_gc_fields := !nr_of_gc_fields + 1;
+        ) fields;
+
         let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
-        let const = const_struct llctx [|const_int i32_t (!j * 2 + 3); const_int i32_t 11; const_int i32_t 22|] in
+        let const = const_struct llctx [|
+          (* Number of fields that need to be collected = length of array *)
+          const_int i32_t !nr_of_gc_fields; 
+          (* Array of offsets *)
+          const_array i32_t (Array.of_list !list_of_gc_offsets)
+        |] in
         let const_ptr = define_global ("structs_gc_info_" ^ name) const llm in
         let ptr = const_pointercast const_ptr i8_ptr_t in
         let glob_ptr = define_global ("structs_gc_info_ptr_" ^ name) ptr llm in

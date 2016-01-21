@@ -49,8 +49,7 @@ static void print_mallocs_length(void);
 
 struct structs_gc_info_ {
   int32_t i;
-  int32_t j;
-  int32_t k;
+  int32_t j[];
 };
 extern struct structs_gc_info_** structs_gc_info[];
 
@@ -68,10 +67,12 @@ void llvm_gc_initialize(unsigned int heapsize) {
   // Test structs_gc_info
   //char** s = structs_gc_info;
   //char** s1 = structs_gc_info + 16;
-  struct structs_gc_info_* stru = *(structs_gc_info[2]);
+  struct structs_gc_info_* stru = *(structs_gc_info[1]);
   int32_t i = stru->i;
+  int32_t j = stru->j[1];
   //int32_t j = stru->j;
   printf("i = %d\n", i);
+  printf("j = %d\n", j);
   //printf("j = %d\n", j);
   //printf("i2 = %d\n", i2);
   //printf("j = %d\n", j);
