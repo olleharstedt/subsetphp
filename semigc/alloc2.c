@@ -70,14 +70,10 @@ void llvm_gc_initialize(unsigned int heapsize) {
   struct structs_gc_info_* stru = *(structs_gc_info[1]);
   int32_t i = stru->i;
   int32_t j = stru->j[1];
-  //int32_t j = stru->j;
-  printf("i = %d\n", i);
-  printf("j = %d\n", j);
-  //printf("j = %d\n", j);
-  //printf("i2 = %d\n", i2);
+  //printf("i = %d\n", i);
   //printf("j = %d\n", j);
 
-  printf("sizeof(char) = %lu\n", sizeof(void*)); 
+  //printf("sizeof(char) = %lu\n", sizeof(void*)); 
 
   /*
     printf("Initializing heap: %d \n", heapsize);

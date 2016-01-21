@@ -8,27 +8,29 @@ final class Point {
   public $y;
 }
 
-final class Something {
-  public $a;
-  public $str;
-  public $str2;
-}
+//final class Something {
+  //public $a;
+  //public $str;
+  //public $str2;
+//}
 
-final class Square {
-  public $a;
-}
+//final class Square {
+  //public $a;
+//}
 
-for ($i = 0; $i < 1; $i += 1) {
-  $a = new Point();
-  $a->x = 10;  // Infer int for x field, need tvar? not availeble in Typedast because it should be fully typed at that point
-  $a->y = 10;
-  $b = new Something();
-  $b->a = 1;
-  $b->str = 'asd';
-  $b->str2 = 'asd';
-  $c = new Square();
-  $c->a = 1;
-}
+//for ($i = 0; $i < 1; $i += 1) {
+$a = new Point();
+$a->x = 10;  // Infer int for x field, need tvar? not availeble in Typedast because it should be fully typed at that point
+$a->y = 10;
+  //$b = new Something();
+  //$b->a = 1;
+  //$b->str = 'asd';
+  //$b->str2 = 'asd';
+  //$c = new Square();
+  //$c->a = 1;
+//}
+
+print($a->x);
 
 /*
 function foo($a) {
