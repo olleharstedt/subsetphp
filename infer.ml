@@ -7,6 +7,7 @@ open Printf
 
 exception Not_implemented of string
 exception MapMergeException of string
+exception Infer_exception of string
 
 type name = string
 [@@deriving show]
@@ -149,10 +150,11 @@ module Env = struct
 end
 
 (** 
- * We store class def here
+ * We store class def here for the Typedast
+ *
  * @TODO Namespaces
  *)
-let typed_classes = Hashtbl.create 10
+let typed_classes : (string, Typedast.def) Hashtbl.t = Hashtbl.create 10
 
 (**
  * Map from ty to Typedast.ty
@@ -648,7 +650,7 @@ and c_body_is_only_public c_body =
  * and make them typed struct fields
  *
  * @param c_body
- * @return string, Typedast.ty list - string = name of field
+ * @return (string, Typedast.ty) list - string = name of field
  *)
 and c_body_to_struct (c_body : class_elt list) =
   List.map (fun class_elt ->
@@ -868,7 +870,6 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (p, Typedast.Binop (typed_bop, typed_expr1, typed_expr2, Typedast.TNumber)), env, TNumber
 
   (* . concatenation *)
-  (*| p, Binop (Dot, (p, (Lvar (p, "$a"))), (p, (String (p, "qwe")))) ->*)
   | p, Binop (Dot, expr1, expr2) ->
       let (typed_expr1, env, expr1_ty) = infer_expr env (level + 1) expr1 in
       let (typed_expr2, env, expr2_ty) = infer_expr env (level + 1) expr2 in
@@ -885,6 +886,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (* Binop of bop * expr * expr * ty *)
       (p, (Typedast.Binop (Typedast.Dot, typed_expr1, typed_expr2, Typedast.TString))), env, TString
 
+  (* What? *)
   | p, Lvar (pos, var_name) ->
       let var_type = try Some (Env.lookup env var_name) with | Not_found -> None in
       let var_type = (match var_type with
@@ -984,7 +986,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let typed_dontknow = List.map get_typed_expr dontknow in
       let typed_call = Typedast.Call ((pos1, Typedast.Id ((pos_fn, fn_name), ty_of_ty return_ty)), typed_arg_list, typed_dontknow) in
       (p, typed_call), env, return_ty
-   (*Ast.New ((<opaque>, (Ast.Id (<opaque>, "Point"))), [], []))))));*)
+
+  (* Allocation of new object *)
   | p, New ((pos, (Ast.Id (pos2, object_name))), [], []) ->
       let object_ty_option = try Some (Env.lookup env object_name) with | Not_found -> None in
       let object_ty = begin match object_ty_option with
@@ -1012,13 +1015,59 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
           Typedast.TUnknown
         )
       ), env, object_ty
-      (*(p, Typedast.New ((pos, (Typedast.Id (pos2, object_name))), [], [], object_ty)), env, TUnknown*)
-
-(*
-(<opaque>,
- Ast.Obj_get ((<opaque>, (Ast.Lvar (<opaque>, "$a"))),
-   (<opaque>, (Ast.Id (<opaque>, "x"))), Ast.OG_nullthrows)),
+  
+  (* Using field in object in expression *) 
+      (*
+    (<opaque>,
+            Ast.Obj_get ((<opaque>, (Ast.Lvar (<opaque>, "$a"))),
+              (<opaque>, (Ast.Id (<opaque>, "x"))), Ast.OG_nullthrows))
 *)
+  | p, Ast.Obj_get ((pos1, (Ast.Lvar (pos2, obj_name))), (pos3, (Ast.Id (pos4, field_name))), Ast.OG_nullthrows) ->
+      (* What type has var_name? What type has field_name? Return that type *)
+
+      (* Get type of variable. Abort if not defined. *)
+      let object_ty = try Env.lookup env obj_name with
+        | Not_found -> failwith (sprintf "Object variable %s is not defined: %s" obj_name (get_pos_msg p))
+      in
+
+      (* Get class name *)
+      let class_name = match object_ty with
+        | TStruct (struct_name, fields) -> struct_name
+        | _ -> failwith "Unknown object type: Found no fields"
+      in
+      let class_name = String.sub class_name 1 (String.length class_name - 1) in  (* Strip leading \ (namespace thing) *)
+
+      let typedast_object_ty = try Hashtbl.find typed_classes class_name with
+        | Not_found -> failwith ("Found no typed ast object with name " ^ class_name)
+      in
+
+      let object_fields = begin match typedast_object_ty with
+        | Typedast.Struct {Typedast.struct_fields} -> struct_fields
+        | _ -> failwith "Unknown object type: Found no fields"
+      end in
+
+      (* Get the field type. Abort if it doesn't exist for this object *)
+      let field_name_and_type = try List.find (fun (struct_field_name, _) ->
+        field_name = struct_field_name
+      ) object_fields with
+      | Not_found ->
+          (* Abort if object does not have field *)
+          failwith (sprintf "Object %s does not have field %s: %s" obj_name field_name (get_pos_msg p))
+      in
+
+      let (field_name, typedast_field_ty) = field_name_and_type in
+
+      let field_ty = match typedast_field_ty with
+      | Typedast.TWeak_poly ({contents = Some Typedast.TNumber})-> TNumber
+      | Typedast.TWeak_poly ({contents = Some Typedast.TString})-> TString
+      | Typedast.TWeak_poly ({contents = None})-> raise (Infer_exception "The type of the field is not known at this point")
+      | something -> raise (Infer_exception (sprintf "Unsupported type of field %s in object %s" field_name class_name))
+      in
+
+      let typed_lvar = pos1, Typedast.Lvar ((pos2, obj_name), ty_of_ty object_ty) in
+      let typed_field = pos3, Typedast.Lvar ((pos4, field_name), typedast_field_ty) in
+
+      (p, Typedast.Obj_get (typed_lvar, typed_field, Typedast.OG_nullthrows, typedast_field_ty)), env, field_ty
 
   | expr -> raise (Not_implemented (sprintf "infer_exprs: %s" (show_expr expr)))
 
