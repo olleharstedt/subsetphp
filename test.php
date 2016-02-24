@@ -2,12 +2,12 @@
 
 final class Point {
   public $x;
-  public $y;
+  //public $y;
 }
 
 $p = new Point();
 $p->x = 10;  // Infer int for x field, need tvar? not availeble in Typedast because it should be fully typed at that point
-$p->y = 20;
+$x = $p->x;
 
 //final class Something {
   //public $a;

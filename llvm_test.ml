@@ -937,6 +937,15 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       ignore(build_store (const_float double_type 10.0) gep llbuilder);
       zero
 
+  (* Get int/variable from struct *)
+  | p, Typedast.Obj_get (
+        (pos1, Typedast.Lvar ((pos2, struct_var_name), Typedast.TStruct (struct_name, struct_fields))),
+        (pos3, Typedast.Lvar ((pos4, struct_field_name), struct_field_ty)),
+        Typedast.OG_nullthrows,
+        result_ty
+      ) ->
+    zero
+
   (* Create new struct *)
   | (p,
        Typedast.Binop ((Typedast.Eq None),
