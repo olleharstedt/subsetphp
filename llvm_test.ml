@@ -133,15 +133,18 @@ let create_new_gcroot_alloca llbuilder ty : llvalue =
  * @param llbuilder
  * @param ty lltype Pointer type, probably
  * @param size int
- * @return unit
+ * @return build_call * alloca
  *)
-let create_new_gcroot_malloc llbuilder ty size : llvalue =
+let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
   let alloca = build_alloca ptr_t "tmp" llbuilder in
 
   let zend_refcounted_size = const_int i64_t 8 in
 
+  (* Add header size *)
   let size = const_bitcast size i64_t in
   let size = build_add size zend_refcounted_size "size" llbuilder in
+
+  (* Call custom gc malloc *)
   let args = [|size|] in
   let malloc =
     match lookup_function "llvm_gc_allocate" llm with
@@ -149,11 +152,10 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue =
       | None -> 
           raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
   in
-
   let malloc_result = build_call malloc args "tmp" llbuilder in
-
   ignore (build_store malloc_result alloca llbuilder);
 
+  (* Call llvm.gcroot *)
   let tmp = build_bitcast alloca ptr_ptr_t "tmp2" llbuilder in
   let callee =
     match lookup_function "llvm.gcroot" llm with
@@ -162,7 +164,7 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue =
           raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
   in
   let args = [|tmp; const_null i8_ptr_t|] in
-  build_call callee args "" llbuilder
+  build_call callee args "" llbuilder, alloca
 
 (**
  * Generate code for a function prototype
@@ -442,6 +444,8 @@ and generate_gc_runtime_type_information llbuilder =
   print_endline "6";
   let j = ref 0 in
   print_endline "7";
+
+  (*let t1 = struct_type*)
 
   (**
    * Generate a bunch of global structs with
@@ -894,19 +898,44 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
 
-  (* Assign int to struct *)
+  (* Assign int to struct 
+   * 
+   * PHP:
+   *   $struct->x = 10;
+   * 
+   * LLVM:
+   *   %Foo = type {i32, i32}
+   *   %foo = alloca %Foo
+   *   %0 = getelementptr %Foo* %foo, i32 0, i32 1
+   *   store i32 10, i32* %0
+   *)
   | (p, Typedast.Binop ((Typedast.Eq None),
          (pos1,
           Typedast.Obj_get (
             (pos2,
              Typedast.Lvar ((pos3, lvar_name),
-               (Typedast.TStruct fields)
+               (Typedast.TStruct (struct_name, fields))
                )
              ),
             (pos4, Typedast.Id ((pos5, field_name), Typedast.TNumber)),
             Typedast.OG_nullthrows, Typedast.TUnit)),
-         (pos6, (Typedast.Int (pos7, "10"))), Typedast.TUnit)) ->
-       zero
+         (pos6, (Typedast.Int (pos7, value_expr))), Typedast.TUnit)) ->
+
+      let the_function = block_parent (insertion_block llbuilder) in
+      let stru = try Hashtbl.find global_named_values lvar_name with
+        | Not_found -> raise (Llvm_error (sprintf "Tried to assign number to struct variable that doesn't exist: %s" lvar_name))
+      in
+
+      (* Cast alloca to struct type? *)
+      let struct_ty = Hashtbl.find structs struct_name in
+      (*let struct_ptr_ty = pointer_type struct_ty in*)
+      dump_type struct_ty;
+      let alloca = build_alloca struct_ty "tmp" llbuilder in
+      dump_value alloca;
+      let gep = build_struct_gep alloca 0 "gep" llbuilder in
+      dump_value gep;
+      ignore(build_store (const_float double_type 10.0) gep llbuilder);
+      zero
 
   (* Create new struct *)
   | (p,
@@ -926,12 +955,14 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       | Not_found ->
           failwith ("Could not find any struct type " ^ struct_type_name ^ ": " ^ Infer.get_pos_msg p)
       in
-      create_new_gcroot_malloc llbuilder (pointer_type ty) (size_of ty)
+      let build, alloca = create_new_gcroot_malloc llbuilder (pointer_type ty) (size_of ty) in
+      Hashtbl.add global_named_values lvar_name alloca;
+      build
       (*build_alloca ty "struct" llbuilder*)
 
   (* Assign whatever to object member variable *)
   | p, Binop ((Typedast.Eq None), _, _, _) ->
-      zero
+      raise (Llvm_not_implemented "Assign to member variable")
 
   (* Numerical operations *)
   | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->

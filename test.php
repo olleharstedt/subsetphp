@@ -1,16 +1,13 @@
 <?php
 
-final class Number {
-  public $x;
-}
-
 final class Point {
-  // Add meta-information?
-  // x is int
-  // y is string and needs to be collected.
   public $x;
   public $y;
 }
+
+$p = new Point();
+$p->x = 10;  // Infer int for x field, need tvar? not availeble in Typedast because it should be fully typed at that point
+$p->y = 20;
 
 //final class Something {
   //public $a;
@@ -23,11 +20,7 @@ final class Point {
 //}
 
 //for ($i = 0; $i < 1; $i += 1) {
-$n = new Number();
-$n->x = 'asd';
-$a = new Point();
-$a->x = 10;  // Infer int for x field, need tvar? not availeble in Typedast because it should be fully typed at that point
-$a->y = $n;
+
   //$b = new Something();
   //$b->a = 1;
   //$b->str = 'asd';
@@ -36,7 +29,7 @@ $a->y = $n;
   //$c->a = 1;
 //}
 
-print($a->y);
+//print($a->x);
 
 /*
 function foo($a) {

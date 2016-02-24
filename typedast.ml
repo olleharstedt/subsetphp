@@ -15,7 +15,7 @@ type ty =
   | TString
   | TString_literal
   | TZend_string_ptr
-  | TStruct of ty list
+  | TStruct of string * ty list
   | TPtr_ptr  (* i8** *)
   | TPtr  (* i8* *)
   | TCaml_value
@@ -103,7 +103,7 @@ let rec string_of_ty ty = match ty with
   | TString -> "TString"
   | TString_literal -> "TString_literal"
   | TZend_string_ptr -> "TZend_string_ptr"
-  | TStruct tys -> "TStruct [" ^ (List.fold_left (fun a b -> a ^ string_of_ty b) "" tys) ^ "]"
+  | TStruct (name, tys) -> "TStruct " ^ name ^ ": [" ^ (List.fold_left (fun a b -> a ^ string_of_ty b) "" tys) ^ "]"
   | TPtr_ptr -> "TPtr_ptr"
   | TPtr -> "TPtr"
   | TCaml_value -> "TCaml_value"

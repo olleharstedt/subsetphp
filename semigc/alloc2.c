@@ -67,9 +67,11 @@ void llvm_gc_initialize(unsigned int heapsize) {
   // Test structs_gc_info
   //char** s = structs_gc_info;
   //char** s1 = structs_gc_info + 16;
-  struct structs_gc_info_* stru = *(structs_gc_info[1]);
-  int32_t i = stru->i;
-  int32_t j = stru->j[1];
+
+  //struct structs_gc_info_* stru = *(structs_gc_info[1]);
+  //int32_t i = stru->i;
+  //int32_t j = stru->j[1];
+
   //printf("i = %d\n", i);
   //printf("j = %d\n", j);
 

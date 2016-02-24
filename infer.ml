@@ -191,7 +191,7 @@ let rec ty_of_ty typ =
         | _ -> failwith "Unknown object type: Found no fields"
       end in
 
-      Typedast.TStruct (List.map (fun (_, t) -> t ) object_fields)
+      Typedast.TStruct (struct_name, (List.map (fun (_, t) -> t ) object_fields))
 
   | TUnresolved -> 
       let none = ref None in
