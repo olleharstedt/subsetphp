@@ -118,7 +118,7 @@ let create_new_gcroot_alloca llbuilder ty : llvalue =
   let callee =
     match lookup_function "llvm.gcroot" llm with
       | Some callee -> callee
-      | None -> 
+      | None ->
           raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
   in
   let args = [|tmp; const_null i8_ptr_t|] in
@@ -149,7 +149,7 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
   let malloc =
     match lookup_function "llvm_gc_allocate" llm with
       | Some callee -> callee
-      | None -> 
+      | None ->
           raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
   in
   let malloc_result = build_call malloc args "tmp" llbuilder in
@@ -160,7 +160,7 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
   let callee =
     match lookup_function "llvm.gcroot" llm with
       | Some callee -> callee
-      | None -> 
+      | None ->
           raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
   in
   let args = [|tmp; const_null i8_ptr_t|] in
@@ -176,7 +176,7 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
  * @param def def
  * @return llvalue
  *)
-let codegen_proto (fun_ : fun_) = 
+let codegen_proto (fun_ : fun_) =
   match fun_ with
   | {f_name = (f_name_pos, name); f_params; f_ret} -> begin
       (* Make the function type: double(double,double) etc. *)
@@ -187,7 +187,7 @@ let codegen_proto (fun_ : fun_) =
       ) args in
       let ft = function_type (llvm_ty_of_ty_fun f_ret) llvm_args in
       let f = match lookup_function name llm with
-        | None -> 
+        | None ->
             let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
             let fn = declare_function name ft llm in
             set_gc (Some "shadow-stack") fn;
@@ -212,7 +212,7 @@ let codegen_proto (fun_ : fun_) =
       (* Set names for all arguments. *)
       Array.iteri (fun i a ->
         let ty = args.(i) in
-        let n = string_of_ty ty in 
+        let n = string_of_ty ty in
         set_value_name n a;
         Hashtbl.add global_named_values n a;
         ) (params f);
@@ -228,7 +228,7 @@ let create_argument_allocas the_function fun_ llbuilder =
           llvm_ty_of_ty_fun param_type
   ) fun_.f_params in
   let args = Array.of_list args in
-  Array.iteri (fun i ai -> 
+  Array.iteri (fun i ai ->
     let var_name = args.(i) in
     (* TODO: Renaming to avoid name collision does not work
     let (_, f_name) = fun_.f_name in
@@ -245,7 +245,7 @@ let create_argument_allocas the_function fun_ llbuilder =
     let callee =
       match lookup_function "llvm.gcroot" llm with
         | Some callee -> callee
-        | None -> 
+        | None ->
             raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
     in
     let args = [|tmp; const_null i8_ptr_t|] in
@@ -269,7 +269,7 @@ let create_argument_allocas the_function fun_ llbuilder =
  * @return llvalue
  *)
 let rec codegen_fun (fun_ : fun_) the_fpm =
-  
+
   (* TODO: This means all function must come before "main" script code? *)
   Hashtbl.clear global_named_values;
 
@@ -383,7 +383,7 @@ and codegen_program program =
     (*match lookup_function "subsetphp_gc_init" llm with*)
     match lookup_function "llvm_gc_initialize" llm with
       | Some callee -> callee
-      | None -> 
+      | None ->
           raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm_gc_initialize"))
   in
   let heapsize = const_int i32_t 100000 in
@@ -426,7 +426,7 @@ and generate_json_gc_type_information () =
 (**
  * The GC needs to know what pointers in a struct
  * to follow and mark/sweep.
- * 
+ *
  * { type : int; nr_of_offsets : int; pointer_offsets : int array }
  *
  * @param llbuilder
@@ -479,7 +479,7 @@ and generate_gc_runtime_type_information llbuilder =
         let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
         let const = const_struct llctx [|
           (* Number of fields that need to be collected = length of array *)
-          const_int i32_t !nr_of_gc_fields; 
+          const_int i32_t !nr_of_gc_fields;
           (* Array of offsets *)
           const_array i32_t (Array.of_list !list_of_gc_offsets)
         |] in
@@ -559,7 +559,7 @@ and codegen_struct struct_ llbuilder : unit =
  * @param llbuilder
  * @return llvalue
  *)
-and codegen_stmt (stmt : stmt ) llbuilder : llvalue = 
+and codegen_stmt (stmt : stmt ) llbuilder : llvalue =
   match stmt with
   | Block block ->
       codegen_block block llbuilder
@@ -571,7 +571,7 @@ and codegen_stmt (stmt : stmt ) llbuilder : llvalue =
             build_ret_void llbuilder
         | Some expr ->
             let expr = codegen_expr expr llbuilder in
-            build_ret expr llbuilder 
+            build_ret expr llbuilder
       end
   | If (expr, then_, else_) ->
       let expr = codegen_expr expr llbuilder in
@@ -728,17 +728,17 @@ and codegen_stmt (stmt : stmt ) llbuilder : llvalue =
  * @param llbuilder
  * @return llvalue
  *)
-and codegen_expr (expr : expr) llbuilder : llvalue = 
+and codegen_expr (expr : expr) llbuilder : llvalue =
   match expr with
   (*
-  | p, Id (id, ty) -> 
+  | p, Id (id, ty) ->
       ()
   *)
   | p, True ->
       const_float double_type 1.0
   | p, False ->
       const_float double_type 0.0
-  | p, Lvar ((pos, lvar_name), ty) -> 
+  | p, Lvar ((pos, lvar_name), ty) ->
       (*print_endline lvar_name;*)
       (*let the_function = block_parent (insertion_block llbuilder) in*)
       let variable = try Hashtbl.find global_named_values lvar_name with
@@ -758,7 +758,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let callee =
         match lookup_function "llvm.gcroot" llm with
           | Some callee -> callee
-          | None -> 
+          | None ->
               raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
       in
       let args = [|tmp; const_null i8_ptr_t|] in
@@ -773,7 +773,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let callee =
         match lookup_function "subsetphp_string_init" llm with
           | Some callee -> callee
-          | None -> 
+          | None ->
               raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_string_init"))
       in
       let result = build_call callee args "str" llbuilder in
@@ -872,7 +872,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             let callee =
               match lookup_function "llvm.gcroot" llm with
                 | Some callee -> callee
-                | None -> 
+                | None ->
                     raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
             in
             let args = [|tmp; const_null i8_ptr_t|] in
@@ -926,25 +926,50 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         | Not_found -> raise (Llvm_error (sprintf "Tried to assign number to struct variable that doesn't exist: %s" lvar_name))
       in
 
-      (* Cast alloca to struct type? *)
       let struct_ty = Hashtbl.find structs struct_name in
-      (*let struct_ptr_ty = pointer_type struct_ty in*)
-      dump_type struct_ty;
       let alloca = build_alloca struct_ty "tmp" llbuilder in
-      dump_value alloca;
       let gep = build_struct_gep alloca 0 "gep" llbuilder in
-      dump_value gep;
       ignore(build_store (const_float double_type 10.0) gep llbuilder);
-      zero
+      zero (* Should be unit *)
 
-  (* Get int/variable from struct *)
+  (* Get int/variable from struct
+   *
+   * PHP:
+   *   $x = $struct->x
+   * 
+   * LLVM:
+   *   %struct.Foo = type { double, double }
+   *     %foo = alloca %struct.Foo, align 8
+   *     %x = alloca double, align 8
+   *     %1 = getelementptr inbounds %struct.Foo* %foo, i32 0, i32 0
+   *     %2 = load double* %1, align 8
+   *     store double %2, double* %x, align 8
+   *     ret i32 0
+   *)
   | p, Typedast.Obj_get (
         (pos1, Typedast.Lvar ((pos2, struct_var_name), Typedast.TStruct (struct_name, struct_fields))),
         (pos3, Typedast.Lvar ((pos4, struct_field_name), struct_field_ty)),
         Typedast.OG_nullthrows,
-        result_ty
-      ) ->
-    zero
+        result_ty) ->
+
+      let struct_ty = Hashtbl.find structs struct_name in
+      dump_type struct_ty;
+      let struct_field_llvm_ty = llvm_ty_of_ty struct_field_ty in
+      dump_type struct_field_llvm_ty;
+      let alloca = build_alloca struct_field_llvm_ty "tmp" llbuilder in
+      dump_value alloca;
+      let stru : llvalue = try Hashtbl.find global_named_values struct_var_name with
+        | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" struct_var_name))
+      in
+      dump_value stru;
+      let alloca_stru = build_alloca (struct_ty) "alloca_stru" llbuilder in
+      let tmp = build_bitcast alloca_stru (pointer_type struct_ty) "tmp2" llbuilder in
+
+      let gep = build_struct_gep tmp 0 "gep" llbuilder in
+      dump_value gep;
+      let load = build_load gep "load" llbuilder in
+      dump_value load;
+      load
 
   (* Create new struct *)
   | (p,
@@ -967,7 +992,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let build, alloca = create_new_gcroot_malloc llbuilder (pointer_type ty) (size_of ty) in
       Hashtbl.add global_named_values lvar_name alloca;
       build
-      (*build_alloca ty "struct" llbuilder*)
 
   (* Assign whatever to object member variable *)
   | p, Binop ((Typedast.Eq None), _, _, _) ->
@@ -977,7 +1001,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->
       let lhs = codegen_expr expr1 llbuilder in
       let rhs = codegen_expr expr2 llbuilder in
-      begin match bop with 
+      begin match bop with
         | Plus ->
             build_fadd lhs rhs "addtmp" llbuilder
         | Minus ->
@@ -999,7 +1023,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let callee =
         match lookup_function "llvm.gcroot" llm with
           | Some callee -> callee
-          | None -> 
+          | None ->
               raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
       in
       let args2 = [|tmp; const_null i8_ptr_t|] in
@@ -1009,7 +1033,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let callee =
         match lookup_function "subsetphp_concat_function" llm with
           | Some callee -> callee
-          | None -> 
+          | None ->
               raise (Llvm_error (sprintf "unknown function referenced: %s" "subsetphp_concat_function"))
       in
       let args = [|lhs; rhs;|] in
@@ -1040,7 +1064,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let callee =
         match lookup_function "llvm.gcroot" llm with
           | Some callee -> callee
-          | None -> 
+          | None ->
               raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
       in
       let args2 = [|tmp; const_null i8_ptr_t|] in
@@ -1071,7 +1095,7 @@ and call_function (name : string) (args : Typedast.expr array) llbuilder =
   let callee =
     match lookup_function name llm with
       | Some callee -> callee
-      | None -> 
+      | None ->
           raise (Llvm_error (sprintf "unknown function referenced: %s" name))
   in
   let params = params callee in
@@ -1137,7 +1161,7 @@ let _ =
     (* Generate printd external function *)
     let f_param = {param_id = (Pos.none, "x"); param_type = TNumber} in
     let printd = {
-      f_name = (Pos.none, "\\printd"); 
+      f_name = (Pos.none, "\\printd");
       f_params = [f_param];
       f_ret = TNumber;
       f_body = [];
@@ -1147,7 +1171,7 @@ let _ =
     (* Generate prints external function *)
     let f_param = {param_id = (Pos.none, "x"); param_type = TZend_string_ptr} in
     let prints = {
-      f_name = (Pos.none, "\\prints"); 
+      f_name = (Pos.none, "\\prints");
       f_params = [f_param];
       f_ret = TNumber;
       f_body = [];
@@ -1159,7 +1183,7 @@ let _ =
     let f_param2 = {param_id = (Pos.none, "len"); param_type = TInt} in
     let f_param3 = {param_id = (Pos.none, "persistent"); param_type = TInt} in
     let subsetphp_string_init = {
-      f_name = (Pos.none, "\\subsetphp_string_init"); 
+      f_name = (Pos.none, "\\subsetphp_string_init");
       f_params = [f_param1; f_param2; f_param3];
       f_ret = TZend_string_ptr;
       f_body = [];
@@ -1170,7 +1194,7 @@ let _ =
     let f_param1 = {param_id = (Pos.none, "value1"); param_type = TZend_string_ptr} in
     let f_param2 = {param_id = (Pos.none, "value2"); param_type = TZend_string_ptr} in
     let subsetphp_concat_function = {
-      f_name = (Pos.none, "\\subsetphp_concat_function"); 
+      f_name = (Pos.none, "\\subsetphp_concat_function");
       f_params = [f_param1; f_param2];
       f_ret = TZend_string_ptr;
       f_body = [];
@@ -1191,7 +1215,7 @@ let _ =
     (* Function for init gc *)
     let f_param1 = {param_id = (Pos.none, "heapsize"); param_type = TInt} in
     let subsetphp_gc_init = {
-      f_name = (Pos.none, "\\llvm_gc_initialize"); 
+      f_name = (Pos.none, "\\llvm_gc_initialize");
       f_params = [f_param1];
       f_ret = TUnit;
       f_body = [];

@@ -9,6 +9,8 @@ $p = new Point();
 $p->x = 10;  // Infer int for x field, need tvar? not availeble in Typedast because it should be fully typed at that point
 $x = $p->x;
 
+print($x);
+
 //final class Something {
   //public $a;
   //public $str;
