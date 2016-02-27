@@ -741,3 +741,18 @@ $arr = array(10 => 20);  // array<int, int>
 ```
 
 THe point is, use API from the compiler to get type-information. In Vim: At "hover", show type in bar? Look on how Merlin and Hack do it.
+
+Compiler internals
+------------------
+
+Discussion about hierarchy in the type system for promotable types. Int should be promotable to Double, and String to StringBuffer. But not String to Double. How to express that with ADT?
+
+```ml
+type ty = Int | String | Double | StrintBuffer | Promotable of ref ty
+```
+
+> 22:37:10 - mrvn: ollehar: you should divide types into classes first, arithmetic or text for example. Then int and float as members of arithmetic.
+
+> 22:38:23 - mrvn: you could have type 'a arithmetic and `Int arithmetic. Then divide is [< `Int | `Float ] aithemtic -> [< `Int | `Float ] aithemtic -> [`Float] arithmetic
+
+> 23:02:59 - mrvn: If you have "type t = Int : int -> t | Text : string -> t" then you can't limit a function to just one of them. With phantom types you can.
