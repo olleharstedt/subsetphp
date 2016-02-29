@@ -19,8 +19,8 @@ type _ ty =
   | Promotable   : 'a ty * ('a, 'promo) lessThan -> 'promo ty
 
 let promote : type a. a ty -> a ty = function
-  | Promotable (Int, IntToDouble) -> Promotable (Double, IntToDouble)
-  | Promotable (String, StringToStringBuffer) -> Promotable (StringBuffer, StringToStringBuffer)
+  | Promotable (Int, IntToDouble) -> Double
+  | Promotable (String, StringToStringBuffer) -> StringBuffer
   | t -> t
 
 
