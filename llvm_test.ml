@@ -57,8 +57,26 @@ let global_named_values : (string, llvalue) Hashtbl.t = Hashtbl.create 10
 let zero = const_int i32_t 0
 
 let structs : (string, lltype) Hashtbl.t = Hashtbl.create 10
+
 (* Information for the GC ob how to collect structs (pointer offsets) *)
 let structs_gc : (string, struct_) Hashtbl.t = Hashtbl.create 10
+
+(**
+ * Get number of field, where 0 is first, 1 second etc
+ *
+ * @param struct_ struct_
+ * @return int
+ *)
+let get_struct_field_number struct_ field_name =
+  let {struct_name; struct_fields} = struct_ in
+  let i = ref (-1) in
+  let _ = List.find (fun field ->
+    i := !i + 1;
+    let (name, _) = field in
+    name = field_name
+  ) struct_fields
+  in
+  !i
 
 (**
  * Return LLVM type of typed AST type
@@ -138,14 +156,14 @@ let create_new_gcroot_alloca llbuilder ty : llvalue =
 let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
   let alloca = build_alloca ptr_t "tmp" llbuilder in
 
-  let zend_refcounted_size = const_int i64_t 8 in
+  let zend_refcounted_size = const_int i64_t 64 in
 
   (* Add header size *)
   let size = const_bitcast size i64_t in
-  let size = build_add size zend_refcounted_size "size" llbuilder in
+  let add_of_size = build_add size zend_refcounted_size "size" llbuilder in
 
   (* Call custom gc malloc *)
-  let args = [|size|] in
+  let args = [|add_of_size|] in
   let malloc =
     match lookup_function "llvm_gc_allocate" llm with
       | Some callee -> callee
@@ -929,7 +947,9 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       (* Get struct type, cast pointer to this type, then get gep *)
       let struct_ty = Hashtbl.find structs struct_name in
       let cast_stru = build_bitcast stru (pointer_type struct_ty) "tmp2" llbuilder in
-      let gep = build_struct_gep cast_stru 0 "gep" llbuilder in
+      let struct_ = Hashtbl.find structs_gc struct_name in
+      let field_number = get_struct_field_number struct_ field_name in
+      let gep = build_struct_gep cast_stru field_number "gep" llbuilder in
 
       let number_expr = codegen_expr (pos6, (Typedast.Int (pos7, value_expr))) llbuilder in
 
@@ -957,21 +977,16 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         result_ty) ->
 
       let struct_ty = Hashtbl.find structs struct_name in
-      dump_type struct_ty;
-      let struct_field_llvm_ty = llvm_ty_of_ty struct_field_ty in
-      dump_type struct_field_llvm_ty;
-      let alloca = build_alloca struct_field_llvm_ty "tmp" llbuilder in
-      dump_value alloca;
       let stru : llvalue = try Hashtbl.find global_named_values struct_var_name with
         | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" struct_var_name))
       in
-      dump_value stru;
       let cast_stru = build_bitcast stru (pointer_type struct_ty) "tmp2" llbuilder in
 
-      let gep = build_struct_gep cast_stru 0 "gep" llbuilder in
-      dump_value gep;
+      let struct_ = Hashtbl.find structs_gc struct_name in
+      let field_number = get_struct_field_number struct_ struct_field_name in
+
+      let gep = build_struct_gep cast_stru field_number "gep" llbuilder in
       let load = build_load gep "load" llbuilder in
-      dump_value load;
       load
 
   (* Create new struct *)
