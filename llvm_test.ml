@@ -472,8 +472,8 @@ and generate_gc_runtime_type_information llbuilder =
             printf "offset = %d\n" !nr_of_gc_fields;
             nr_of_gc_fields := !nr_of_gc_fields + 1;
         | (field_name, _)  ->
-            (* Not a heap allocation, just increase number of fields *)
-            nr_of_gc_fields := !nr_of_gc_fields + 1;
+            (* Not a heap allocation *)
+            ()
         ) fields;
 
         let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
@@ -921,15 +921,19 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             Typedast.OG_nullthrows, Typedast.TUnit)),
          (pos6, (Typedast.Int (pos7, value_expr))), Typedast.TUnit)) ->
 
-      let the_function = block_parent (insertion_block llbuilder) in
+      (*let the_function = block_parent (insertion_block llbuilder) in*)
       let stru = try Hashtbl.find global_named_values lvar_name with
         | Not_found -> raise (Llvm_error (sprintf "Tried to assign number to struct variable that doesn't exist: %s" lvar_name))
       in
 
+      (* Get struct type, cast pointer to this type, then get gep *)
       let struct_ty = Hashtbl.find structs struct_name in
-      let alloca = build_alloca struct_ty "tmp" llbuilder in
-      let gep = build_struct_gep alloca 0 "gep" llbuilder in
-      ignore(build_store (const_float double_type 10.0) gep llbuilder);
+      let cast_stru = build_bitcast stru (pointer_type struct_ty) "tmp2" llbuilder in
+      let gep = build_struct_gep cast_stru 0 "gep" llbuilder in
+
+      let number_expr = codegen_expr (pos6, (Typedast.Int (pos7, value_expr))) llbuilder in
+
+      ignore(build_store (number_expr) gep llbuilder);
       zero (* Should be unit *)
 
   (* Get int/variable from struct
@@ -962,10 +966,9 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" struct_var_name))
       in
       dump_value stru;
-      let alloca_stru = build_alloca (struct_ty) "alloca_stru" llbuilder in
-      let tmp = build_bitcast alloca_stru (pointer_type struct_ty) "tmp2" llbuilder in
+      let cast_stru = build_bitcast stru (pointer_type struct_ty) "tmp2" llbuilder in
 
-      let gep = build_struct_gep tmp 0 "gep" llbuilder in
+      let gep = build_struct_gep cast_stru 0 "gep" llbuilder in
       dump_value gep;
       let load = build_load gep "load" llbuilder in
       dump_value load;
