@@ -119,6 +119,7 @@ void* llvm_gc_allocate(unsigned int size) {
     nr_of_allocs++;
 
 #ifdef DEBUG
+    printf("size = %d\n", size);
     printf("nr_of_allocs = %d\n", nr_of_allocs);
 #endif
 
@@ -132,7 +133,7 @@ void* llvm_gc_allocate(unsigned int size) {
       exit(1);
     }
 
-    // Set type info
+    // Set type info, using zend_string as base (could be any zend type with gc field)
     zend_string* str = (zend_string*) res;
     str->gc.u.type_info = 0;
     str->gc.refcount = 0;  // Used in mark phase

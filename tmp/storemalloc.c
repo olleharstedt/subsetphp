@@ -19,7 +19,7 @@ How test.php should work, storing x and y in struct.
 define i32 @main() gc "shadow-stack" {
 entry:
   call void @llvm_gc_initialize(i32 100000)
-  %tmp = alloca {double, double}*, align 8
+  %tmp = alloca {double, double}*, align 8 ; should be struct type, not i8*
   %tmp1 = call noalias i8* @llvm_gc_allocate(i64 1024)
   %tmp11 = bitcast i8* %tmp1 to {double, double}* 
   store {double, double}* %tmp11, {double, double}** %tmp, align 8

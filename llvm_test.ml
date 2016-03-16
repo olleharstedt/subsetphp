@@ -154,7 +154,7 @@ let create_new_gcroot_alloca llbuilder ty : llvalue =
  * @return build_call * alloca
  *)
 let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
-  let alloca = build_alloca ptr_t "tmp" llbuilder in
+  let alloca = build_alloca ty "tmp" llbuilder in
 
   let zend_refcounted_size = const_int i64_t 64 in
 
@@ -171,7 +171,8 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
           raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
   in
   let malloc_result = build_call malloc args "tmp" llbuilder in
-  ignore (build_store malloc_result alloca llbuilder);
+  let malloc_result_casted = build_bitcast malloc_result ty "tmp2" llbuilder in
+  ignore (build_store malloc_result_casted alloca llbuilder);
 
   (* Call llvm.gcroot *)
   let tmp = build_bitcast alloca ptr_ptr_t "tmp2" llbuilder in
