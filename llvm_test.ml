@@ -944,13 +944,17 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let stru = try Hashtbl.find global_named_values lvar_name with
         | Not_found -> raise (Llvm_error (sprintf "Tried to assign number to struct variable that doesn't exist: %s" lvar_name))
       in
+      print_endline "here";
+      dump_value stru;
 
       (* Get struct type, cast pointer to this type, then get gep *)
       let struct_ty = Hashtbl.find structs struct_name in
-      let cast_stru = build_bitcast stru (pointer_type struct_ty) "tmp2" llbuilder in
+      dump_type struct_ty;
+      let loaded_stru = build_load stru "loaded_stru" llbuilder in
+      (*let cast_stru = build_bitcast stru (pointer_type struct_ty) "tmp2" llbuilder in*)
       let struct_ = Hashtbl.find structs_gc struct_name in
       let field_number = get_struct_field_number struct_ field_name in
-      let gep = build_struct_gep cast_stru field_number "gep" llbuilder in
+      let gep = build_struct_gep loaded_stru field_number "gep" llbuilder in
 
       let number_expr = codegen_expr (pos6, (Typedast.Int (pos7, value_expr))) llbuilder in
 
@@ -981,12 +985,13 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let stru : llvalue = try Hashtbl.find global_named_values struct_var_name with
         | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" struct_var_name))
       in
-      let cast_stru = build_bitcast stru (pointer_type struct_ty) "tmp2" llbuilder in
+      (*let cast_stru = build_bitcast stru (pointer_type struct_ty) "tmp2" llbuilder in*)
+      let loaded_stru = build_load stru "loaded_stru" llbuilder in
 
       let struct_ = Hashtbl.find structs_gc struct_name in
       let field_number = get_struct_field_number struct_ struct_field_name in
 
-      let gep = build_struct_gep cast_stru field_number "gep" llbuilder in
+      let gep = build_struct_gep loaded_stru field_number "gep" llbuilder in
       let load = build_load gep "load" llbuilder in
       load
 

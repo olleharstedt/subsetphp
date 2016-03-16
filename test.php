@@ -9,6 +9,8 @@ $p = new Point();
 $p->x = 11;
 $p->y = 22;
 
+print($p->y);
+
 //final class Something {
   //public $a;
   //public $str;
