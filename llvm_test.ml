@@ -981,7 +981,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         Typedast.OG_nullthrows,
         result_ty) ->
 
-      let struct_ty = Hashtbl.find structs struct_name in
+      (*let struct_ty = Hashtbl.find structs struct_name in*)
       let stru : llvalue = try Hashtbl.find global_named_values struct_var_name with
         | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" struct_var_name))
       in

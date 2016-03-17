@@ -15,7 +15,18 @@ type ty =
   | TString
   | TString_literal
   | TZend_string_ptr
+
+  (* struct name and field list *)
   | TStruct of string * ty list
+
+  (* Fixed size array, e.g. int[10] or myStruct[10] 
+   * This type is promoted to TDynamicSizeArray if used
+   * with $arr[] = $anotherElement *)
+  | TFixedSizeArray of int * ty
+
+  (* Array where size is known only at runtime *)
+  | TDynamicSizeArray of ty
+
   | TPtr_ptr  (* i8** *)
   | TPtr  (* i8* *)
   | TCaml_value
@@ -27,6 +38,11 @@ type ty =
      * have to see usage before guessing type.
      * "to be resolved" *)
   | TWeak_poly of (ty option) ref
+
+  (* Type that can be promoted. E.g. static array
+   * to dynamic array, or string to string buffer *)
+  | TPromotable of (ty option) ref
+
   | TArrow of ty list * ty  (* function type: e.g. `(int, int) -> int` *)
 
 and id = Pos.t * string
@@ -103,6 +119,8 @@ let rec string_of_ty ty = match ty with
   | TString -> "TString"
   | TString_literal -> "TString_literal"
   | TZend_string_ptr -> "TZend_string_ptr"
+  | TFixedSizeArray (size, ty) -> "TFixedSizeArray " ^ (string_of_int size) ^ ", " ^ (string_of_ty ty) 
+  | TDynamicSizeArray ty -> "TDynamicSizeArray " ^ (string_of_ty ty) 
   | TStruct (name, tys) -> "TStruct " ^ name ^ ": [" ^ (List.fold_left (fun a b -> a ^ string_of_ty b) "" tys) ^ "]"
   | TPtr_ptr -> "TPtr_ptr"
   | TPtr -> "TPtr"
@@ -116,4 +134,10 @@ let rec string_of_ty ty = match ty with
       | Some t ->
           "TWeak_poly " ^ string_of_ty t
       end
+  | TPromotable {contents = t} -> begin match t with
+      | None ->
+          "TPromotable None"
+      | Some t ->
+          "TPromotable " ^ string_of_ty t
+    end
   | TArrow (ty_list, ty) -> failwith "string_of_ty: Not implemented"

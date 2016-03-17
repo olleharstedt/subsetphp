@@ -574,7 +574,7 @@ Arrays
 ------
 
 ```php
-$arr = array(1, 2, 3);  // array<int>
+$arr = [1, 2, 3];  // array<int>
 ```
 
 Can we infer dynamic arrays and static-size arrays? So we will really have `int[]` and `array<int>` as difference implementation representations. And `object[]` or `string[]`, etc. So the operator `[]=` would promote the type to dynamic array. And using the array with keys promotes it to a hashtable.
@@ -584,17 +584,49 @@ $arr = new Array(10);  // new array of size 10
 ```
 
 ```php
-$arr = array();  // Type unknown or unresolved
+$arr = [];  // Type unknown or unresolved
 $arr[] = 10;  // Promote to array<int>, dynamic array
 $arr[] = 'foo';  // Type error
 ```
 
 ```php
-$arr = array(1, 2, 3);  // Fix-size array, int[3]
+$arr = [1, 2, 3];  // Fix-size array, int[3]
 $arr[] = 10;  // Promote to dynamic array, array<int>
 ```
 
 When looping an array, items should be fetched in order of insertion.
+
+Fixed-length arrays can be implemented directly in LLVM. Are basically like tuples.
+
+```llvm
+%0 = [i32 x 3] [1, 2, 3]
+```
+
+or with array of struct:
+
+```llvm
+%0 = [%struct._s x 3] [%s1, %s2, %s3]
+```
+
+Compile-time error if try to access outside of bounds? Even in loops? No.
+
+```php
+$arr = [1, 2, 3];
+$x = $arr[4];  // Can check compile-time? GCC does this at -O2.
+for ($i = 0; $i < 3; $i += 1) {
+  // Run-time check so that $i < length of $arr
+  $x = $arr[$i];
+}
+```
+
+Use C-library for dynamic arrays? Glib. Or struct + malloc?
+
+```llvm
+%struct.dynarr = type [i32, i32, i8*]  ; size, used, and pointer to malloc area
+```
+
+Need to grow array. 
+
 
 Unions
 ------

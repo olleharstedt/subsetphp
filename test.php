@@ -5,9 +5,12 @@ final class Point {
   public $y;
 }
 
-$p = new Point();
-$p->x = 11;
-$p->y = 22;
+for ($i = 0; $i < 1000000; $i += 1) {
+  $p = new Point();
+  $s = 'asd' . 'qwe';
+  $p->x = 11;
+  $p->y = 22;
+}
 
 print($p->y);
 
