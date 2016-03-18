@@ -918,7 +918,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
 
-  (* Assign int to struct 
+  (* Assign int/float to struct 
    * 
    * PHP:
    *   $struct->x = 10;
@@ -939,7 +939,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
              ),
             (pos4, Typedast.Id ((pos5, field_name), Typedast.TNumber)),
             Typedast.OG_nullthrows, Typedast.TUnit)),
-         (pos6, (Typedast.Int (pos7, value_expr))), Typedast.TUnit)) ->
+         (pos6, value_expr), Typedast.TUnit)) ->
 
       (*let the_function = block_parent (insertion_block llbuilder) in*)
       let stru = try Hashtbl.find global_named_values lvar_name with
@@ -957,10 +957,11 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let field_number = get_struct_field_number struct_ field_name in
       let gep = build_struct_gep loaded_stru field_number "gep" llbuilder in
 
-      let number_expr = codegen_expr (pos6, (Typedast.Int (pos7, value_expr))) llbuilder in
+      let number_expr = codegen_expr (pos6, value_expr) llbuilder in
 
       ignore(build_store (number_expr) gep llbuilder);
       zero (* Should be unit *)
+
 
   (* Get int/variable from struct
    *
@@ -1018,9 +1019,14 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       Hashtbl.add global_named_values lvar_name alloca;
       build
 
-  (* Assign whatever to object member variable *)
-  | p, Binop ((Typedast.Eq None), _, _, _) ->
+  (* Assign whatever to object member variable 
+   * OBS: Don't move this above create new struct...
+   *)
+  | p, Binop ((Typedast.Eq None), a, b, TUnit) ->
+      print_endline (show_expr a);
+      print_endline (show_expr b);
       raise (Llvm_not_implemented "Assign to member variable")
+
 
   (* Numerical operations *)
   | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->
@@ -1274,7 +1280,8 @@ let _ =
 
     Llvm_analysis.assert_valid_module llm;
 
-    ignore (Llvm_bitwriter.write_bitcode_file llm "llvm_test.bc");
+    let filename_without_suffix = String.sub filename 0 (String.length filename - 4) in
+    ignore (Llvm_bitwriter.write_bitcode_file llm (filename_without_suffix ^ ".bc"));
 
   (* If error, print line and message etc *)
   end else begin

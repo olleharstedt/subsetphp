@@ -170,6 +170,9 @@ comp: llvm_test runtime2.o semigc
 	clang-3.6 -g -c -m64 llvm_test.s
 	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc2.o runtime2.o -lm -ldl -lncurses
 
+nbody: llvm_test runtime2.o semigc
+	cd benchmarks && make nbody
+
 ll2: runtime2.o semigc
 	cd semigc/ && make all
 	llc llvm_test.ll

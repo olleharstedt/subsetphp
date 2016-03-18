@@ -2,17 +2,12 @@
 
 final class Point {
   public $x;
-  public $y;
 }
 
-for ($i = 0; $i < 1000000; $i += 1) {
-  $p = new Point();
-  $s = 'asd' . 'qwe';
-  $p->x = 11;
-  $p->y = 22;
-}
-
-print($p->y);
+$y = 10;
+$p = new Point();
+$p->x = 10;
+print($p->x);
 
 //final class Something {
   //public $a;

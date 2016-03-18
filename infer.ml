@@ -714,6 +714,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   (* Unary minus *)
   | p, Unop (Uminus, (pos1, (Float (pos2, pstring)))) ->
       (p, Typedast.Float (pos2, "-" ^ pstring)), env, TNumber
+  | p, Unop (Uminus, (pos1, (Int (pos2, pstring)))) ->
+      (p, Typedast.Float (pos2, "-" ^ pstring)), env, TNumber
 
   (* > *)
   | p, Binop (Gt, lexpr, rexpr) ->

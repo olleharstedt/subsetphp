@@ -1,10 +1,8 @@
-Type-inferred strict subset of PHP with LLVM-bindings possibly.
+Type-inferred strict subset of PHP with LLVM-bindings.
 
 Because Hacklang is not strict or fast enough.
 
-Because maybe you can't (or don't want to) commit to another architecture.
-
-_Disclaimer: Nothing is implemented yet._
+_Disclaimer: Almost nothing is implemented yet._
 
 Version goals
 -------------
