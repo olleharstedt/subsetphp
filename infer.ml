@@ -711,6 +711,10 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   | p, Float (pos, pstring) ->
       (p, Typedast.Float (pos, pstring)), env, TNumber
 
+  (* Unary minus *)
+  | p, Unop (Uminus, (pos1, (Float (pos2, pstring)))) ->
+      (p, Typedast.Float (pos2, "-" ^ pstring)), env, TNumber
+
   (* > *)
   | p, Binop (Gt, lexpr, rexpr) ->
       let (typed_lexpr, _, lexpr_ty) = infer_expr env (level + 1) lexpr in
@@ -1069,6 +1073,17 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
       (p, Typedast.Obj_get (typed_lvar, typed_field, Typedast.OG_nullthrows, typedast_field_ty)), env, field_ty
 
+  (* Assign fixed sized array to a variable *)
+      (*
+  |
+       (p,
+        Ast.Binop ((Ast.Eq None), (pos1, (Ast.Lvar (pos2, lvar_name))),
+          (pos2,
+           (Ast.Array
+              [(Ast.AFvalue (pos2, (Ast.Int (pos3, "1"))));
+               (Ast.AFvalue (pos4, (Ast.Int (pos5 "2"))));
+               (Ast.AFvalue (pos6, (Ast.Int (pos7, "3"))))]))))
+  *)
   | expr -> raise (Not_implemented (sprintf "infer_exprs: %s" (show_expr expr)))
 
 (**
