@@ -799,7 +799,8 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       ignore(build_store result alloca llbuilder);
       result
 
-  | p, Int (pos, i) ->
+  | p, Int (pos, i)
+  | p, Float (pos, i) ->
       let f = float_of_string i in
       const_float double_type f;
 
