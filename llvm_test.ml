@@ -1031,6 +1031,10 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             build_fadd lhs rhs "addtmp" llbuilder
         | Minus ->
             build_fsub lhs rhs "subtmp" llbuilder
+        | Star ->
+            build_fmul lhs rhs "multmp" llbuilder
+        | Slash ->
+            build_fdiv lhs rhs "multmp" llbuilder
         | bop -> raise (Llvm_not_implemented (show_bop bop))
       end;
 
