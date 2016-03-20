@@ -110,7 +110,6 @@ module Env = struct
   let get_functions env : env =
     let new_map = StringMap.filter (fun key value ->
       match value with
-      | TStruct _
       | TArrow _ -> true
       | _ -> false
     ) env.map
@@ -531,16 +530,6 @@ and create_typed_params env (f_params : Ast.fun_param list) =
     match params with
       | [] ->
           typed_params
-      | {Ast.param_id = (pos, name); Ast.param_hint = Some (pos2, (Ast.Happly ((pos3, class_name), [])))} :: params ->
-          (* Check if class name exists in scope *)
-          let class_ty = try Env.lookup env class_name with
-            | Not_found -> failwith ("create_typed_params: found no class with name " ^ class_name)
-          in
-          let typed_param = {
-            param_id = (pos, name);
-            param_type = ty_of_ty class_ty;
-          } in
-          aux params (typed_params @ [typed_param])
       | {Ast.param_id = (pos, name)} :: params ->
           printf "name = %s" name;
           let already_exists = try ignore (Env.lookup env name); true with
@@ -573,33 +562,11 @@ and create_typed_params env (f_params : Ast.fun_param list) =
 and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
 
   let open Env in
-  let param_list : (string * string option) list= List.map (fun param -> 
-    (* Name of variable *)
-    let name = match param.param_id with
-    | _, name -> 
-        name
-    in
-    (* Type-hine *)
-    let hint = match param.param_hint with
-    | None -> None
-    | Some (pos, Ast.Happly ((pos2, hint_string), [])) -> 
-        Some hint_string
-    | Some _ ->
-        raise (Infer_exception "infer_fun: Unsupported type hint")
-    in
-    name, hint
+  (*let param_ty_list = List.map (fun _ -> new_var level) param_list in*)
+  let param_list = List.map (fun param -> match param.param_id with
+    | _, name -> name
   ) fun_.f_params in
-  let param_ty_list = List.map (fun (param_name, param_hint) -> 
-    match param_hint with
-    (* No hint, so we need a new inferred variable *)
-    | None ->
-        new_var level
-    | Some hint ->
-        let object_ty = try Env.lookup env hint with
-          | Not_found -> raise (Infer_exception (sprintf "infer_fun: Found no class with name %s" hint))
-        in
-        object_ty
-  ) param_list in
+  let param_ty_list = List.map (fun _ -> new_var level) param_list in
 
   (* New scope for function *)
   (* TODO: Global variables? Functions? *)
@@ -607,9 +574,7 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
   let new_env = Env.merge env empty_env in
 
   let fn_env = List.fold_left2
-    (fun env (param_name, param_hint) param_ty -> 
-      Env.extend env param_name param_ty
-    )
+    (fun env param_name param_ty -> Env.extend env param_name param_ty)
     new_env param_list param_ty_list
   in
   let body_expr = fun_.f_body in
@@ -634,6 +599,7 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
 
 (**
  * Infer class
+ *
  * Class can be struct
  *
  * @param env
@@ -857,7 +823,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (* Get class name *)
       let class_name = match object_ty with
         | TStruct (struct_name, fields) -> struct_name
-        | _ -> raise (Infer_exception "Unknown object type: object_ty: Found no fields")
+        | _ -> failwith "Unknown object type: Found no fields"
       in
       let class_name = String.sub class_name 1 (String.length class_name - 1) in  (* Strip leading \ (namespace thing) *)
 
@@ -867,7 +833,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
       let object_fields = begin match typedast_object_ty with
         | Typedast.Struct {Typedast.struct_fields} -> struct_fields
-        | _ -> raise (Infer_exception "Unknown object type: typedast_object_ty: Found no fields")
+        | _ -> failwith "Unknown object type: Found no fields"
       end in
 
       (* Get the field type. Abort if it doesn't exist for this object *)
@@ -1057,6 +1023,11 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       ), env, object_ty
   
   (* Using field in object in expression *) 
+      (*
+    (<opaque>,
+            Ast.Obj_get ((<opaque>, (Ast.Lvar (<opaque>, "$a"))),
+              (<opaque>, (Ast.Id (<opaque>, "x"))), Ast.OG_nullthrows))
+*)
   | p, Ast.Obj_get ((pos1, (Ast.Lvar (pos2, obj_name))), (pos3, (Ast.Id (pos4, field_name))), Ast.OG_nullthrows) ->
       (* What type has var_name? What type has field_name? Return that type *)
 
@@ -1068,7 +1039,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (* Get class name *)
       let class_name = match object_ty with
         | TStruct (struct_name, fields) -> struct_name
-        | _ -> raise (Infer_exception "Unknown object type: Obj_get: object_ty: Found no fields")
+        | _ -> failwith "Unknown object type: Found no fields"
       in
       let class_name = String.sub class_name 1 (String.length class_name - 1) in  (* Strip leading \ (namespace thing) *)
 
@@ -1078,7 +1049,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
       let object_fields = begin match typedast_object_ty with
         | Typedast.Struct {Typedast.struct_fields} -> struct_fields
-        | _ -> raise (Infer_exception "Unknown object type: Obj_get: typedast_field_ty: Found no fields")
+        | _ -> failwith "Unknown object type: Found no fields"
       end in
 
       (* Get the field type. Abort if it doesn't exist for this object *)
