@@ -111,6 +111,14 @@ let llvm_ty_of_ty_fun ty = match ty with
   | TCaml_value -> caml_value_ptr_type
   | TUnit -> void_t
   | Typedast.TInt64 -> i64_t
+  (*Fatal error: exception Llvm_test.Llvm_not_implemented("llvm_ty_of_ty_fun: Typedast.TStruct (\"Point\",\n  [(Typedast.TWeak_poly ref ((Some Typedast.TNumber)))])")*)
+  | Typedast.TStruct (class_name, fields) ->
+      let class_ty = try Hashtbl.find structs class_name with
+          | Not_found -> raise (Llvm_error (sprintf "llvm_ty_of_ty_fun: Class %s was not found" class_name))
+      in
+      dump_type class_ty;
+      class_ty  (* Pointer instead? *)
+
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty_fun: %s" (show_ty ty)))
 (** 
  * Create an alloca instruction in the entry block of the function. This
@@ -198,6 +206,9 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
 let codegen_proto (fun_ : fun_) =
   match fun_ with
   | {f_name = (f_name_pos, name); f_params; f_ret} -> begin
+
+      print_endline ("codegen_proto " ^ name);
+
       (* Make the function type: double(double,double) etc. *)
       let args = List.map (fun param -> match param with {param_id; param_type} -> param_type) f_params in
       let args = Array.of_list args in
@@ -205,6 +216,7 @@ let codegen_proto (fun_ : fun_) =
           llvm_ty_of_ty_fun arg_type
       ) args in
       let ft = function_type (llvm_ty_of_ty_fun f_ret) llvm_args in
+      dump_type ft;
       let f = match lookup_function name llm with
         | None ->
             let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
@@ -235,6 +247,7 @@ let codegen_proto (fun_ : fun_) =
         set_value_name n a;
         Hashtbl.add global_named_values n a;
         ) (params f);
+      print_endline ("codegen_proto end " ^ name);
       f
     end
 
@@ -289,11 +302,14 @@ let create_argument_allocas the_function fun_ llbuilder =
  *)
 let rec codegen_fun (fun_ : fun_) the_fpm =
 
+  print_endline "codegen_fun";
+
   (* TODO: This means all function must come before "main" script code? *)
   Hashtbl.clear global_named_values;
 
   let the_function = codegen_proto fun_ in
   let llbuilder = builder_at_end llctx (entry_block the_function) in
+  print_endline "here";
 
   (* If this is an operator, install it. *)
   (*
@@ -324,6 +340,7 @@ let rec codegen_fun (fun_ : fun_) the_fpm =
     (* TODO: Don't do this here, but in the module, for better error messages. *)
     (*let _ = PassManager.run_function the_function the_fpm in*)
 
+    print_endline "codegen_fun end";
     the_function
   with e ->
     delete_function the_function;
@@ -358,18 +375,7 @@ and codegen_program program =
 
   ignore (PassManager.initialize the_fpm);
 
-  (** Generate functions *)
-  let rec aux_fun program = match program with
-    | [] ->
-        ()
-    | Fun fun_ :: tail ->
-        let _ = codegen_fun fun_ the_fpm in
-        aux_fun tail
-    | somethingelse :: tail ->
-        aux_fun tail
-  in
-  aux_fun program;
-
+  (** Generate classes *)
   let rec aux_class program = match program with
     | [] ->
         ()
@@ -385,6 +391,18 @@ and codegen_program program =
         aux_class tail
   in
   aux_class program;
+
+  (** Generate functions *)
+  let rec aux_fun program = match program with
+    | [] ->
+        ()
+    | Fun fun_ :: tail ->
+        let _ = codegen_fun fun_ the_fpm in
+        aux_fun tail
+    | somethingelse :: tail ->
+        aux_fun tail
+  in
+  aux_fun program;
 
   (* Better clear this... *)
   Hashtbl.clear global_named_values;
@@ -559,6 +577,7 @@ and codegen_block block llbuilder : llvalue =
  * @return llvalue
  *)
 and codegen_struct struct_ llbuilder : unit =
+  print_endline "codegen_struct";
   match struct_ with
   | {struct_name = name; struct_fields = fields} ->
       let fields = List.map (fun field ->

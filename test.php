@@ -1,13 +1,10 @@
 <?php
 
-final class Point {
-  public $x;
+function foo($a) {
+  return $a + 10;
 }
 
-$y = 10;
-$p = new Point();
-$p->x = 10;
-print($p->x);
+print('hej');
 
 //final class Something {
   //public $a;
