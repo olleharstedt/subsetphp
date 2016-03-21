@@ -745,8 +745,8 @@ and codegen_stmt (stmt : stmt ) llbuilder : llvalue =
 
   | _ -> raise (Llvm_not_implemented (sprintf "codegen_stmt: %s" (show_stmt stmt)))
 
-  (**
-   * Generate LLVM IR for expr
+(**
+ * Generate LLVM IR for expr
  *
  * @param expr Typedast.expr
  * @param llbuilder
@@ -808,6 +808,10 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   | p, Float (pos, i) ->
       let f = float_of_string i in
       const_float double_type f;
+
+  | p, Unop (Uminus expr, TNumber) ->
+      let expr_code = codegen_expr expr llbuilder in
+      build_fneg expr_code "neg" llbuilder
 
   (* < *)
   | p, Binop (Lt, lexpr, rexpr, TBoolean) ->
