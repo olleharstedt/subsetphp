@@ -887,6 +887,55 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
 
+  (* Create new struct *)
+  | (p,
+       Typedast.Binop ((Typedast.Eq None),
+         (pos1,
+          Typedast.Lvar ((pos2, lvar_name), lvar_type
+            )
+          ),
+         (pos3,
+          Typedast.New (
+            (pos4,
+             Typedast.Id ((pos5, struct_type_name), struct_type
+               )
+             ),
+            [], [], Typedast.TUnknown)), Typedast.TUnit)) ->
+      let ty = try Hashtbl.find structs struct_type_name with
+      | Not_found ->
+          failwith ("Could not find any struct type " ^ struct_type_name ^ ": " ^ Infer.get_pos_msg p)
+      in
+      let build, alloca = create_new_gcroot_malloc llbuilder (pointer_type ty) (size_of ty) in
+      Hashtbl.add global_named_values lvar_name alloca;
+      build
+
+  (* Assign struct to variable *)
+  (* TODO: Code-duplication with string assign below *)
+  | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TStruct (struct_name, struct_fields))), value_expr, binop_ty) ->
+      let the_function = block_parent (insertion_block llbuilder) in
+      let variable = try Hashtbl.find global_named_values lvar_name with
+        | Not_found ->
+            (* If variable is not found in this scope, create a new one *)
+            let struct_ty = Hashtbl.find structs struct_name in
+            let builder = builder_at llctx (instr_begin (entry_block the_function)) in
+            let alloca = build_alloca (pointer_type struct_ty) lvar_name builder in
+            let tmp = build_bitcast alloca ptr_ptr_t "tmp" builder in
+            let callee =
+              match lookup_function "llvm.gcroot" llm with
+                | Some callee -> callee
+                | None ->
+                    raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+            in
+            let args = [|tmp; const_null i8_ptr_t|] in
+            ignore (build_call callee args "" llbuilder);
+
+            Hashtbl.add global_named_values lvar_name alloca;
+            alloca
+      in
+      let value_expr_code = codegen_expr value_expr llbuilder in
+      ignore (build_store value_expr_code variable llbuilder);
+      value_expr_code
+
   (* Assign string to variable *)
   | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TString)), value_expr, binop_ty) ->
       let the_function = block_parent (insertion_block llbuilder) in
@@ -894,8 +943,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         | Not_found ->
             (* If variable is not found in this scope, create a new one *)
             let builder = builder_at llctx (instr_begin (entry_block the_function)) in
-            (*let alloca = build_alloca i8_ptr_t lvar_name builder in*)
-            (*let alloca = build_alloca caml_value_ptr_type lvar_name builder in*)
             let alloca = build_alloca zend_string_ptr_type lvar_name builder in
             let tmp = build_bitcast alloca ptr_ptr_t "tmp" builder in
             let callee =
@@ -906,24 +953,11 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             in
             let args = [|tmp; const_null i8_ptr_t|] in
             ignore (build_call callee args "" llbuilder);
-            (*call_function "llvm.gcroot" args builder;*)
-            (* call llvm.gcroot *)
-
-            (*
-            let init_val =  const_int i8_t 0 in
-            ignore (build_store init_val alloca llbuilder);
-            *)
 
             Hashtbl.add global_named_values lvar_name alloca;
             alloca
       in
       let value_expr_code = codegen_expr value_expr llbuilder in
-      (*
-      print_endline (string_of_lltype (type_of value_expr_code));
-      print_endline (string_of_lltype (type_of value_expr_code));
-      *)
-      (* GEP = get element pointer *)
-      (*let ptr = build_in_bounds_gep value_expr_code [|zero|] "" llbuilder in*)
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
 
@@ -1005,28 +1039,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let gep = build_struct_gep loaded_stru field_number "gep" llbuilder in
       let load = build_load gep "load" llbuilder in
       load
-
-  (* Create new struct *)
-  | (p,
-       Typedast.Binop ((Typedast.Eq None),
-         (pos1,
-          Typedast.Lvar ((pos2, lvar_name), lvar_type
-            )
-          ),
-         (pos3,
-          Typedast.New (
-            (pos4,
-             Typedast.Id ((pos5, struct_type_name), struct_type
-               )
-             ),
-            [], [], Typedast.TUnknown)), Typedast.TUnit)) ->
-      let ty = try Hashtbl.find structs struct_type_name with
-      | Not_found ->
-          failwith ("Could not find any struct type " ^ struct_type_name ^ ": " ^ Infer.get_pos_msg p)
-      in
-      let build, alloca = create_new_gcroot_malloc llbuilder (pointer_type ty) (size_of ty) in
-      Hashtbl.add global_named_values lvar_name alloca;
-      build
 
   (* Assign whatever to object member variable 
    * OBS: Don't move this above create new struct...
