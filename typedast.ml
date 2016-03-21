@@ -76,10 +76,12 @@ and expr_ =
   | Int of pstring
   | Float of pstring
   | Binop of bop * expr * expr * ty
+  | Unop of unop * ty
   | Call of expr * expr list * expr list
   | New of expr * expr list * expr list * ty
   | Obj_get of expr * expr * og_null_flavor * ty
 
+(* Binary operators *)
 and bop =
 | Plus
 | Minus | Star | Slash | Eqeq
@@ -89,6 +91,10 @@ and bop =
 | Lte | Gt | Gte | Dot | Amp | Bar | Ltlt
 | Gtgt | Percent | Xor
 | Eq of bop option
+
+(* Unary operators *)
+and unop =
+  Uminus of expr
 
 and fun_param = {
   param_id : id;

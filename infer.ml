@@ -750,6 +750,12 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (p, Typedast.Float (pos2, "-" ^ pstring)), env, TNumber
   | p, Unop (Uminus, (pos1, (Int (pos2, pstring)))) ->
       (p, Typedast.Float (pos2, "-" ^ pstring)), env, TNumber
+  | p, Unop (Uminus, expr) ->
+
+      let (typed_expr, env, e_ty) = infer_expr env level expr in
+      unify TNumber e_ty;
+
+      (p, Typedast.Unop (Typedast.Uminus typed_expr, Typedast.TNumber)), env, TNumber
 
   (* > *)
   | p, Binop (Gt, lexpr, rexpr) ->
