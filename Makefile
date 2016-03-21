@@ -165,10 +165,10 @@ llvm_test: runtime2.o subsetphp typedast.cmx llvm_test.ml
 
 comp: llvm_test runtime2.o semigc
 	./llvm_test
-	llvm-dis llvm_test.bc
-	llc llvm_test.bc
-	clang-3.6 -g -c -m64 llvm_test.s
-	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o llvm_test.o semigc/alloc2.o runtime2.o -lm -ldl -lncurses
+	llvm-dis test.bc
+	llc test.bc
+	clang-3.6 -g -c -m64 test.s
+	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o ocaml/byterun/*.o test.o semigc/alloc2.o runtime2.o -lm -ldl -lncurses
 
 nbody: llvm_test runtime2.o semigc
 	cd benchmarks && make nbody

@@ -117,7 +117,7 @@ let llvm_ty_of_ty_fun ty = match ty with
           | Not_found -> raise (Llvm_error (sprintf "llvm_ty_of_ty_fun: Class %s was not found" class_name))
       in
       dump_type class_ty;
-      class_ty  (* Pointer instead? *)
+      pointer_type class_ty  (* Pointer instead? *)
 
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty_fun: %s" (show_ty ty)))
 (** 
@@ -204,11 +204,8 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
  * @return llvalue
  *)
 let codegen_proto (fun_ : fun_) =
-  print_endline "codegen_proto";
   match fun_ with
   | {f_name = (f_name_pos, name); f_params; f_ret} -> begin
-
-      print_endline ("codegen_proto " ^ name);
 
       (* Make the function type: double(double,double) etc. *)
       let args = List.map (fun param -> match param with {param_id; param_type} -> param_type) f_params in

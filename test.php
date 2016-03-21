@@ -5,14 +5,13 @@ final class Point {
 }
 
 $p = new Point();
-$p->x = 10;
+$p->x = 12;
 
 function foo(Point $p) {
-  
   return $p->x;
 }
 
-print(20);
+print(foo($p));
 
 //final class Something {
   //public $a;

@@ -62,4 +62,7 @@ $sun = new Body();
 $sun->mass = $SOLAR_MASS;
 
 function offsetMomentum(Body $body, $px, $py, $pz) {
+  $body->vx = -$px / $SOLAR_MASS;
+  $body->vy = -$py / $SOLAR_MASS;
+  $body->vz = -$pz / $SOLAR_MASS;
 }
