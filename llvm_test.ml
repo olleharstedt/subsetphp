@@ -196,6 +196,7 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
  * @return llvalue
  *)
 let codegen_proto (fun_ : fun_) =
+  print_endline "codegen_proto";
   match fun_ with
   | {f_name = (f_name_pos, name); f_params; f_ret} -> begin
       (* Make the function type: double(double,double) etc. *)
@@ -235,6 +236,7 @@ let codegen_proto (fun_ : fun_) =
         set_value_name n a;
         Hashtbl.add global_named_values n a;
         ) (params f);
+      print_endline "codegen_proto end";
       f
     end
 
@@ -289,24 +291,15 @@ let create_argument_allocas the_function fun_ llbuilder =
  *)
 let rec codegen_fun (fun_ : fun_) the_fpm =
 
+  print_endline "codegen_fun";
   (* TODO: This means all function must come before "main" script code? *)
   Hashtbl.clear global_named_values;
 
   let the_function = codegen_proto fun_ in
-  let llbuilder = builder_at_end llctx (entry_block the_function) in
-
-  (* If this is an operator, install it. *)
-  (*
-  begin match proto with
-  | Ast.BinOpPrototype (name, args, prec) ->
-  let op = name.[String.length name - 1] in
-  Hashtbl.add Parser.binop_precedence op prec;
-  | _ -> ()
-  end;
-  *)
 
   (* Create a new basic block to start insertion into. *)
   let bb = append_block llctx "entry" the_function in
+  let llbuilder = builder_at_end llctx (entry_block the_function) in
   position_at_end bb llbuilder;
 
   try
