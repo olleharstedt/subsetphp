@@ -965,6 +965,9 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
             printf "fn_ty = %s\n" (show_ty ty);
             (match ty with
             | TArrow (args, return_ty) ->
+                if List.length args != List.length arg_list then begin
+                  raise (Infer_exception (sprintf "Not the right amount of arguments for function %s at %s " fn_name (get_pos_msg p)))
+                end;
                 List.iter2
                   (fun param_ty arg_expr ->
                     let (typed_arg_expr, env, ty) = infer_expr env level arg_expr in
