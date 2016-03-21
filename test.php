@@ -4,10 +4,15 @@ final class Point {
   public $x;
 }
 
-$y = 10;
 $p = new Point();
 $p->x = 10;
-print($p->x);
+
+function foo(Point $p) {
+  
+  return $p->x;
+}
+
+print(20);
 
 //final class Something {
   //public $a;
