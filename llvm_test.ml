@@ -1291,7 +1291,17 @@ let _ =
     } in
     ignore (codegen_proto llvm_gc_allocate);
 
-    ignore (codegen_program program);
+    try
+      ignore (codegen_program program);
+    with
+      | Llvm_not_implemented msg ->
+          begin
+            print_endline "\nFATAL ERROR:";
+            print_endline "Llvm_not_implemented:";
+            print_endline (msg ^ "\n");
+            exit 0
+          end
+    ;
 
     (*dump_module llm;*)
 
