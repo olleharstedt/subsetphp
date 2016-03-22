@@ -36,6 +36,7 @@ type ty =
   | TApp of ty * ty list              (* type application: `list[int]` *)
   | TArrow of ty list * ty            (* function type: e.g. `(int, int) -> int` *)
   | TVar of tvar ref                  (* type variable *)
+  | TFixedSizeArray of int * ty
   | TNumber
   | TString
   | TStruct of string * (string * ty) list                (* class name, field list *)
@@ -173,6 +174,7 @@ let rec ty_of_ty typ =
         | _ -> Typedast.TUnknown
       end
   | TConst _ | TApp _ -> failwith "ty_of_ty: Has no correspondance in Typedast"
+  | TFixedSizeArray (length, ty) -> Typedast.TFixedSizeArray (length, ty_of_ty ty)
   | TNumber -> Typedast.TNumber
   | TString -> Typedast.TString
   | TBoolean -> Typedast.TBoolean
@@ -229,7 +231,7 @@ let expr_of_expr_ expr =
   | (pos, expr_) -> expr_
 
 (**
- * ?
+ * @todo What does this do?
  *)
 let occurs_check_adjust_levels tvar_id tvar_level ty =
   let rec f = function
@@ -250,6 +252,7 @@ let occurs_check_adjust_levels tvar_id tvar_level ty =
         List.iter f param_ty_list ;
         f return_ty
     | TNumber | TString | TStruct _ | TBoolean | TUnit | TConst _ | TUnresolved-> ()
+    | TFixedSizeArray _ -> ()
   in
   f ty
 
@@ -281,7 +284,9 @@ let rec unify ty1 ty2 =
         print_endline bt;
         raise (Unify_error (("Cannot unify types " ^ show_ty ty1 ^ " and " ^ show_ty ty2), ty1, ty2))
 
-(** TODO: What does this do? What is level? *)
+(** 
+ * @todo: What does this do? What is level? 
+ *)
 let rec generalize level = function
   | TVar {contents = Unbound(id, other_level)} when other_level > level ->
       TVar (ref (Generic id))
@@ -290,15 +295,22 @@ let rec generalize level = function
   | TArrow(param_ty_list, return_ty) ->
       TArrow(List.map (generalize level) param_ty_list, generalize level return_ty)
   | TVar {contents = Link ty} -> generalize level ty
-  | TVar {contents = Generic _} | TVar {contents = Unbound _} | TString | TStruct _ | TNumber | TBoolean | TUnit | TUnresolved | TConst _ as ty -> ty
+  | TVar {contents = Generic _} | TVar {contents = Unbound _} 
+  | TString | TStruct _ | TNumber | TBoolean | TUnit | TUnresolved 
+  | TFixedSizeArray _
+  | TConst _ as ty -> ty
 
   (*| ty -> failwith (sprintf "generalize error: %s" (show_ty ty))*)
 
-
+(**
+ * @todo instantiate what? type variable?
+ *)
 let instantiate level ty =
   let id_var_map = Hashtbl.create 10 in
   let rec f ty = match ty with
-    | TNumber | TString | TStruct _ | TBoolean | TUnit | TConst _ | TUnresolved -> ty
+    | TNumber | TString | TStruct _ | TBoolean | TUnit 
+    | TFixedSizeArray _
+    | TConst _ | TUnresolved -> ty
     | TVar {contents = Link ty} -> f ty
     | TVar {contents = Generic id} ->
         begin
@@ -744,6 +756,49 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (p, Typedast.Int (pos, pstring)), env, TNumber
   | p, Float (pos, pstring) ->
       (p, Typedast.Float (pos, pstring)), env, TNumber
+  | p, Array array_values ->
+
+      (* Check for empty list and abort *)
+      let length = List.length array_values in
+      if length = 0 then
+        raise (Infer_exception (sprintf "No support for empty list yet at %s" (get_pos_msg p)));
+
+      let first_element = List.nth array_values 0 in
+      let first_element_ty = match first_element with
+        | Ast.AFvalue (pos, first_element_ty) -> 
+            let _, _, ty = infer_expr env level (p, first_element_ty) in
+            ty
+        | Ast.AFkvalue _ -> failwith "What is AFkvalue?"
+      in
+
+      (* Make sure all array values have same type *)
+      let have_same_type = List.for_all (fun el ->
+        match el, first_element_ty with
+        (* TODO: Have to manually insert what types to support - any other way? *)
+        | Ast.AFvalue (pos, Ast.Int _), TNumber -> true
+        | _ -> false
+      ) array_values in
+
+      (* Abort if types differ *)
+      if not have_same_type then
+        raise (Infer_exception (sprintf "Values in an array must have same type at %s" (get_pos_msg p)));
+
+      let inferred_values = List.map (fun el ->
+        match el with
+        | AFvalue expr -> 
+            let result_expr, env, ty = infer_expr env level expr in
+            Typedast.AFvalue result_expr
+        | AFkvalue _ -> failwith "What is indeed AFkvalue?"
+      ) array_values
+      in
+
+      (*let (inferred_array, env, inferred_ty) = infer_expr env level (pos3, Ast.Array array_values) in*)
+
+      let typed_ty = ty_of_ty first_element_ty in
+      let array_ty = Typedast.TFixedSizeArray (length, typed_ty) in
+
+      (p, Typedast.Array (inferred_values, array_ty)), env, TFixedSizeArray (length, first_element_ty)
+      (*inferred_values, env, TNumber*)
 
   (* Unary minus *)
   | p, Unop (Uminus, (pos1, (Float (pos2, pstring)))) ->
@@ -1115,15 +1170,16 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
   (* Assign fixed sized array to a variable *)
       (*
-  |
-       (p,
-        Ast.Binop ((Ast.Eq None), (pos1, (Ast.Lvar (pos2, lvar_name))),
-          (pos2,
-           (Ast.Array
-              [(Ast.AFvalue (pos2, (Ast.Int (pos3, "1"))));
-               (Ast.AFvalue (pos4, (Ast.Int (pos5 "2"))));
-               (Ast.AFvalue (pos6, (Ast.Int (pos7, "3"))))]))))
-  *)
+  | p, Ast.Binop 
+        ((Ast.Eq None), 
+        (pos1, (Ast.Lvar (pos2, lvar_name))),
+        (pos3, (Ast.Array array_values))
+      ) ->
+        *)
+              (*[(Ast.AFvalue (pos2, (Ast.Int (pos3, "1"))));
+               (Ast.AFvalue (pos4, (Ast.Int (pos5, "2"))));
+               (Ast.AFvalue (pos6, (Ast.Int (pos7, "3"))))]*)
+              
   | expr -> raise (Not_implemented (sprintf "infer_exprs: %s" (show_expr expr)))
 
 (**

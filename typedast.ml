@@ -67,6 +67,7 @@ and block = stmt list
 
 and expr = Pos.t * expr_
 and expr_ =
+  | Array of afield list * ty
   | True
   | False
   | Id of id * ty
@@ -80,6 +81,9 @@ and expr_ =
   | Call of expr * expr list * expr list
   | New of expr * expr list * expr list * ty
   | Obj_get of expr * expr * og_null_flavor * ty
+
+and afield =
+  | AFvalue of expr
 
 (* Binary operators *)
 and bop =

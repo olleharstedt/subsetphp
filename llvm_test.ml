@@ -111,7 +111,6 @@ let llvm_ty_of_ty_fun ty = match ty with
   | TCaml_value -> caml_value_ptr_type
   | TUnit -> void_t
   | Typedast.TInt64 -> i64_t
-  (*Fatal error: exception Llvm_test.Llvm_not_implemented("llvm_ty_of_ty_fun: Typedast.TStruct (\"Point\",\n  [(Typedast.TWeak_poly ref ((Some Typedast.TNumber)))])")*)
   | Typedast.TStruct (class_name, fields) ->
       let class_ty = try Hashtbl.find structs class_name with
           | Not_found -> raise (Llvm_error (sprintf "llvm_ty_of_ty_fun: Class %s was not found" class_name))
@@ -1044,10 +1043,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
    * OBS: Don't move this above create new struct...
    *)
   | p, Binop ((Typedast.Eq None), a, b, TUnit) ->
-      print_endline (show_expr a);
-      print_endline (show_expr b);
-      raise (Llvm_not_implemented "Assign to member variable")
-
+      raise (Llvm_not_implemented (sprintf "Assign to member variable: %s to %s" (show_expr b) (show_expr a)))
 
   (* Numerical operations *)
   | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->

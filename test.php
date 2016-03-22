@@ -1,17 +1,6 @@
 <?php
 
-final class Point {
-  public $x;
-}
-
-$p = new Point();
-$p->x = 12;
-
-function foo(Point $p) {
-  return $p->x;
-}
-
-print(foo($p));
+$a = [1, 2, 3];
 
 //final class Something {
   //public $a;

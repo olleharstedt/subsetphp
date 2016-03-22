@@ -72,4 +72,5 @@ function offsetMomentum(Constants $constants, Body $body, $px, $py, $pz) {
   $body->vx = -$px / $constants->SOLAR_MASS;
   $body->vy = -$py / $constants->SOLAR_MASS;
   $body->vz = -$pz / $constants->SOLAR_MASS;
+  return;
 }
