@@ -1042,8 +1042,8 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   (* Assign whatever to object member variable 
    * OBS: Don't move this above create new struct...
    *)
-  | p, Binop ((Typedast.Eq None), a, b, TUnit) ->
-      raise (Llvm_not_implemented (sprintf "Assign to member variable: %s to %s" (show_expr b) (show_expr a)))
+  | p, Binop ((Typedast.Eq None), (pos1, Typedast.Obj_get (a, c, d, e)), b, TUnit) ->
+      raise (Llvm_not_implemented (sprintf "Assign to member variable: %s to %s" (show_expr b) (show_expr (pos1, Typedast.Obj_get (a, c, d, e)))))
 
   (* Numerical operations *)
   | p, Binop (bop, expr1, expr2, binop_ty) when is_numerical_op bop ->
@@ -1293,6 +1293,13 @@ let _ =
 
     try
       ignore (codegen_program program);
+
+      Llvm_analysis.assert_valid_module llm;
+      (*dump_module llm;*)
+
+      let filename_without_suffix = String.sub filename 0 (String.length filename - 4) in
+      ignore (Llvm_bitwriter.write_bitcode_file llm (filename_without_suffix ^ ".bc"));
+
     with
       | Llvm_not_implemented msg ->
           begin
@@ -1302,13 +1309,6 @@ let _ =
             exit 0
           end
     ;
-
-    (*dump_module llm;*)
-
-    Llvm_analysis.assert_valid_module llm;
-
-    let filename_without_suffix = String.sub filename 0 (String.length filename - 4) in
-    ignore (Llvm_bitwriter.write_bitcode_file llm (filename_without_suffix ^ ".bc"));
 
   (* If error, print line and message etc *)
   end else begin
