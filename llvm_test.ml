@@ -808,6 +808,13 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let f = float_of_string i in
       const_float double_type f;
 
+  | p, Typedast.Array (array_values, Typedast.TFixedSizeArray (array_length, the_array_type)) ->
+      let llvm_array_type = array_type (llvm_ty_of_ty the_array_type) array_length in
+      (* An array alloca is released when function returns ("stack allocation") *)
+      (* Need to use malloc and gc *)
+      build_array_alloca llvm_array_type (const_int i32_t array_length) "arr" llbuilder
+      (*build_alloca llvm_array_type "arr" llbuilder*)
+
   | p, Unop (Uminus expr, TNumber) ->
       let expr_code = codegen_expr expr llbuilder in
       build_fneg expr_code "neg" llbuilder
@@ -959,6 +966,50 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let value_expr_code = codegen_expr value_expr llbuilder in
       ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
+
+  (** 
+   * Assign array to variable 
+   *
+   * $arr = [1, 2, 3]
+   *)
+  | p, Typedast.Binop ((Typedast.Eq None),
+    (lhs_pos, Typedast.Lvar ((lvar_pos, lvar_name), Typedast.TFixedSizeArray (array_length, the_array_type))),
+    (value_expr),
+    (*
+      [(Typedast.AFvalue (<opaque>, (Typedast.Int (<opaque>, "1"))));
+       (Typedast.AFvalue (<opaque>, (Typedast.Int (<opaque>, "2"))));
+       (Typedast.AFvalue (<opaque>, (Typedast.Int (<opaque>, "3"))))],
+       *)
+      Typedast.TUnit)
+     ->
+      let the_function = block_parent (insertion_block llbuilder) in
+      let variable = try Hashtbl.find global_named_values lvar_name with
+        | Not_found ->
+            (* If variable is not found in this scope, create a new one *)
+            let builder = builder_at llctx (instr_begin (entry_block the_function)) in
+            let llvm_array_type = array_type (llvm_ty_of_ty the_array_type) array_length in
+            let llvm_length = const_int i32_t array_length in
+            let alloca = build_alloca (pointer_type llvm_array_type) lvar_name builder in
+            dump_value alloca;
+            let tmp = build_bitcast alloca ptr_ptr_t "tmp" builder in
+            let callee =
+              match lookup_function "llvm.gcroot" llm with
+                | Some callee -> callee
+                | None ->
+                    raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+            in
+            let args = [|tmp; const_null i8_ptr_t|] in
+            ignore (build_call callee args "" llbuilder);
+
+            Hashtbl.add global_named_values lvar_name alloca;
+            alloca
+      in
+      let value_expr_code = codegen_expr value_expr llbuilder in
+      dump_value value_expr_code;
+      let store_expr = build_store value_expr_code variable llbuilder in
+      dump_value store_expr;
+      value_expr_code
+
 
   (* Assign int/float to struct 
    * 
@@ -1310,7 +1361,7 @@ let _ =
           end
     ;
 
-  (* If error, print line and message etc *)
+  (* If parse error, print line and message etc *)
   end else begin
     let pos, msg = match parser_return.error with
       | None ->
