@@ -1,6 +1,7 @@
 <?php
 
-$a = [1, 2, 3];
+$a = '123';
+print($a);
 
 //final class Something {
   //public $a;

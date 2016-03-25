@@ -1,9 +1,0 @@
-# Makefile for Zend strings
-# Experimental
-# @since 2015-09-02
-
-all: test
-
-# Compile from 
-test: test_string.c
-	gcc -g -I . -I ../ -I ../TSRM *.o test_string.c -o test -lm -ldl
