@@ -165,8 +165,8 @@ llvm_test: runtime2.o subsetphp typedast.cmx llvm_test.ml
 
 comp: llvm_test runtime2.o semigc
 	./llvm_test
-	llvm-dis test.bc
-	llc test.bc
+	llvm-dis-3.6 test.bc
+	llc-3.6 test.bc
 	clang-3.6 -g -c -m64 test.s
 	clang-3.6 -g -I php-src/Zend -o test php-src/Zend/*.o test.o semigc/alloc2.o runtime2.o -lm -ldl -lncurses
 
