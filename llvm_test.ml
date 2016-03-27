@@ -157,12 +157,13 @@ let create_new_gcroot_alloca llbuilder ty : llvalue =
  *
  * @param llbuilder
  * @param ty lltype Pointer type, probably
- * @param size int
+ * @param size llvalue?
  * @return build_call * alloca
  *)
 let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
   let alloca = build_alloca ty "tmp" llbuilder in
 
+  (* Zend header - TODO: Correct size? *)
   let zend_refcounted_size = const_int i64_t 64 in
 
   (* Add header size *)
@@ -808,12 +809,68 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let f = float_of_string i in
       const_float double_type f;
 
-  | p, Typedast.Array (array_values, Typedast.TFixedSizeArray (array_length, the_array_type)) ->
+  (* TODO: Not used? *)
+  | p, Array (array_values, TFixedSizeArray (array_length, the_array_type)) ->
       let llvm_array_type = array_type (llvm_ty_of_ty the_array_type) array_length in
       (* An array alloca is released when function returns ("stack allocation") *)
       (* Need to use malloc and gc *)
-      build_array_alloca llvm_array_type (const_int i32_t array_length) "arr" llbuilder
+
+      (*build_array_alloca llvm_array_type (const_int i32_t array_length) "arr" llbuilder*)
+
       (*build_alloca llvm_array_type "arr" llbuilder*)
+      print_endline "type:";
+      dump_type (pointer_type llvm_array_type);
+      let build, alloca = create_new_gcroot_malloc llbuilder (pointer_type llvm_array_type) (size_of llvm_array_type) in
+      print_endline "build:";
+      dump_value build;
+      print_endline "alloca:";
+      dump_value alloca;
+      alloca
+
+  (* Like $array[1] *)
+  | p, ArrayFixedSize_get (
+        (pos1, Lvar ((pos2, array_var_name), var_type)),
+        (pos3, Number index),
+        element_type) ->
+
+      print_endline "ArrayFixedSize_get";
+
+      (*let struct_ty = Hashtbl.find structs struct_name in*)
+      let arr : llvalue = try Hashtbl.find global_named_values array_var_name with
+        | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" array_var_name))
+      in
+      let loaded_array = build_load arr "loaded_arr" llbuilder in
+
+      let index = int_of_float index in
+
+      let gep = build_struct_gep loaded_array index "gep" llbuilder in
+      let load = build_load gep "load" llbuilder in
+      load
+
+  (* Like $array[$i] *)
+  | p, ArrayFixedSize_get (
+        (pos1, Lvar ((pos2, array_var_name), var_type)),
+        (pos3, Lvar ((pos4, lvar_name), TNumber)),
+        element_type) ->
+
+      print_endline "ArrayFixedSize_get $array[$i]";
+
+      (*let struct_ty = Hashtbl.find structs struct_name in*)
+      let arr : llvalue = try Hashtbl.find global_named_values array_var_name with
+        | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" array_var_name))
+      in
+      let loaded_array = build_load arr "loaded_arr" llbuilder in
+      dump_value loaded_array;
+
+      let index_expr = codegen_expr (pos3, Lvar ((pos4, lvar_name), TNumber)) llbuilder in
+      dump_value index_expr;
+      let sext = build_fptoui index_expr i32_t "index" llbuilder in
+      dump_value sext;
+
+      let gep = build_gep loaded_array [|zero; sext|] "gep" llbuilder in
+      dump_value gep;
+      let load = build_load gep "load" llbuilder in
+      load
 
   | p, Unop (Uminus expr, TNumber) ->
       let expr_code = codegen_expr expr llbuilder in
@@ -878,6 +935,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
 
   (* Assign number to variable *)
   | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TNumber)), value_expr, binop_ty) ->
+      printf "assign number to variable %s\n" lvar_name;
       let the_function = block_parent (insertion_block llbuilder) in
       let variable = try Hashtbl.find global_named_values lvar_name with
         | Not_found ->
@@ -890,23 +948,23 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             alloca
             in
       let value_expr_code = codegen_expr value_expr llbuilder in
-      ignore (build_store value_expr_code variable llbuilder);
+      dump_value value_expr_code;
+      let store = (build_store value_expr_code variable llbuilder) in
+      dump_value store;
       value_expr_code
 
-  (* Create new struct *)
+  (* Create new struct, like $p = new Point() *)
   | (p,
-       Typedast.Binop ((Typedast.Eq None),
-         (pos1,
-          Typedast.Lvar ((pos2, lvar_name), lvar_type
-            )
-          ),
+       Binop ((Eq None),
+         (pos1, Lvar ((pos2, lvar_name), lvar_type)),
          (pos3,
-          Typedast.New (
+          New (
             (pos4,
-             Typedast.Id ((pos5, struct_type_name), struct_type
+             Id ((pos5, struct_type_name), struct_type
                )
              ),
-            [], [], Typedast.TUnknown)), Typedast.TUnit)) ->
+            [], [], TUnknown)), TUnit)) ->
+      print_endline "create new struct";
       let ty = try Hashtbl.find structs struct_type_name with
       | Not_found ->
           failwith ("Could not find any struct type " ^ struct_type_name ^ ": " ^ Infer.get_pos_msg p)
@@ -915,9 +973,36 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       Hashtbl.add global_named_values lvar_name alloca;
       build
 
-  (* Assign struct to variable *)
+  (* Create new array, like $arr = [1, 2, 3] *)
+  | p,
+       Binop ((Eq None),
+         (pos2,
+          Lvar ((pos3, var_name), var_type)),
+         (pos4,
+          Array (array_fields,
+            TFixedSizeArray (arr_length, arr_elem_type))), TUnit) ->
+              
+      print_endline "create new array";
+      let llvm_array_type = array_type (llvm_ty_of_ty arr_elem_type) arr_length in
+      let build, alloca = create_new_gcroot_malloc llbuilder (pointer_type llvm_array_type) (size_of llvm_array_type) in
+      Hashtbl.add global_named_values var_name alloca;
+
+      (* Loop through fields and store them in array *)
+      let loaded_array = build_load alloca "loaded_arr" llbuilder in
+      for i = 0 to arr_length - 1 do
+        match (List.nth array_fields i) with
+        | AFvalue expr ->
+            let exp = codegen_expr expr llbuilder in
+            let gep = build_struct_gep loaded_array i "gep" llbuilder in
+            ignore (build_store exp gep llbuilder);
+      done;
+
+      build
+
+  (* Assign struct to variable, like $b = $point *)
   (* TODO: Code-duplication with string assign below *)
   | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TStruct (struct_name, struct_fields))), value_expr, binop_ty) ->
+      print_endline "assign struct to variable";
       let the_function = block_parent (insertion_block llbuilder) in
       let variable = try Hashtbl.find global_named_values lvar_name with
         | Not_found ->
@@ -975,20 +1060,16 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
   | p, Typedast.Binop ((Typedast.Eq None),
     (lhs_pos, Typedast.Lvar ((lvar_pos, lvar_name), Typedast.TFixedSizeArray (array_length, the_array_type))),
     (value_expr),
-    (*
-      [(Typedast.AFvalue (<opaque>, (Typedast.Int (<opaque>, "1"))));
-       (Typedast.AFvalue (<opaque>, (Typedast.Int (<opaque>, "2"))));
-       (Typedast.AFvalue (<opaque>, (Typedast.Int (<opaque>, "3"))))],
-       *)
       Typedast.TUnit)
      ->
+       print_endline "assign array to variable";
       let the_function = block_parent (insertion_block llbuilder) in
       let variable = try Hashtbl.find global_named_values lvar_name with
         | Not_found ->
             (* If variable is not found in this scope, create a new one *)
             let builder = builder_at llctx (instr_begin (entry_block the_function)) in
             let llvm_array_type = array_type (llvm_ty_of_ty the_array_type) array_length in
-            let llvm_length = const_int i32_t array_length in
+            (*let llvm_length = const_int i32_t array_length in*)
             let alloca = build_alloca (pointer_type llvm_array_type) lvar_name builder in
             dump_value alloca;
             let tmp = build_bitcast alloca ptr_ptr_t "tmp" builder in
@@ -1009,7 +1090,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let store_expr = build_store value_expr_code variable llbuilder in
       dump_value store_expr;
       value_expr_code
-
 
   (* Assign int/float to struct 
    * 
@@ -1091,7 +1171,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       load
 
   (* Assign whatever to object member variable 
-   * OBS: Don't move this above create new struct...
+   * OBS: Don't move this above create new struct. The pattern-matching is to generous.
    *)
   | p, Binop ((Typedast.Eq None), (pos1, Typedast.Obj_get (a, c, d, e)), b, TUnit) ->
       raise (Llvm_not_implemented (sprintf "Assign to member variable: %s to %s" (show_expr b) (show_expr (pos1, Typedast.Obj_get (a, c, d, e)))))
@@ -1159,7 +1239,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
 
   (* Function call that return string, and result must be stored in intermediate gcroot variable *)
   | p, Call ((pos, Id ((_, callee_name), TString)), args, unknown) ->
-  (* (p, Call ((pos, Id ((_, name),  .TUnit)),  [(<opaque>, Typedast.Lvar ((<opaque>, \"$i\"), Typedast.TNumber))], [\n   ]))") *)
 
       (* Create temporary variable to store string in *)
       let alloca = build_alloca (zend_string_ptr_type) "tmp" llbuilder in

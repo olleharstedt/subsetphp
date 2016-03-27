@@ -3,6 +3,8 @@
 
 int main(void) {
   int arr[3] = {1, 2, 3};
+  int i = 1;
+  int j = arr[i];
   return 0;
 }
 

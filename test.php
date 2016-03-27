@@ -1,7 +1,10 @@
 <?php
 
-$a = '123';
-print($a);
+$a = [1, 2, 3];
+$i = 54;
+$x = $a[$i];
+print($i);
+print($x);
 
 //final class Something {
   //public $a;

@@ -21,7 +21,8 @@ type ty =
 
   (* Fixed size array, e.g. int[10] or myStruct[10] 
    * This type is promoted to TDynamicSizeArray if used
-   * with $arr[] = $anotherElement *)
+   * with $arr[] = $anotherElement 
+   * Basically a tuple. *)
   | TFixedSizeArray of int * ty
 
   (* Array where size is known only at runtime *)
@@ -68,6 +69,7 @@ and block = stmt list
 and expr = Pos.t * expr_
 and expr_ =
   | Array of afield list * ty
+  | ArrayFixedSize_get of expr * expr * ty  (* lvar, index, ty of return *)
   | True
   | False
   | Id of id * ty

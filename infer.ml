@@ -37,6 +37,7 @@ type ty =
   | TArrow of ty list * ty            (* function type: e.g. `(int, int) -> int` *)
   | TVar of tvar ref                  (* type variable *)
   | TFixedSizeArray of int * ty
+  | TDynamicSizeArray of ty
   | TNumber
   | TString
   | TStruct of string * (string * ty) list                (* class name, field list *)
@@ -164,7 +165,7 @@ let typed_classes : (string, Typedast.def) Hashtbl.t = Hashtbl.create 10
  * @param ty
  * @return Typedast.ty
  *)
-let rec ty_of_ty typ =
+let rec ty_of_ty (typ : ty) : Typedast.ty =
   match typ with
   | TVar tvar_ref ->
       let tvar = !tvar_ref in
@@ -175,6 +176,7 @@ let rec ty_of_ty typ =
       end
   | TConst _ | TApp _ -> failwith "ty_of_ty: Has no correspondance in Typedast"
   | TFixedSizeArray (length, ty) -> Typedast.TFixedSizeArray (length, ty_of_ty ty)
+  | TDynamicSizeArray ty -> Typedast.TDynamicSizeArray (ty_of_ty ty)
   | TNumber -> Typedast.TNumber
   | TString -> Typedast.TString
   | TBoolean -> Typedast.TBoolean
@@ -252,7 +254,7 @@ let occurs_check_adjust_levels tvar_id tvar_level ty =
         List.iter f param_ty_list ;
         f return_ty
     | TNumber | TString | TStruct _ | TBoolean | TUnit | TConst _ | TUnresolved-> ()
-    | TFixedSizeArray _ -> ()
+    | TFixedSizeArray _ | TDynamicSizeArray _ -> ()
   in
   f ty
 
@@ -298,6 +300,7 @@ let rec generalize level = function
   | TVar {contents = Generic _} | TVar {contents = Unbound _} 
   | TString | TStruct _ | TNumber | TBoolean | TUnit | TUnresolved 
   | TFixedSizeArray _
+  | TDynamicSizeArray _
   | TConst _ as ty -> ty
 
   (*| ty -> failwith (sprintf "generalize error: %s" (show_ty ty))*)
@@ -310,6 +313,7 @@ let instantiate level ty =
   let rec f ty = match ty with
     | TNumber | TString | TStruct _ | TBoolean | TUnit 
     | TFixedSizeArray _
+    | TDynamicSizeArray _
     | TConst _ | TUnresolved -> ty
     | TVar {contents = Link ty} -> f ty
     | TVar {contents = Generic id} ->
@@ -756,6 +760,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (p, Typedast.Int (pos, pstring)), env, TNumber
   | p, Float (pos, pstring) ->
       (p, Typedast.Float (pos, pstring)), env, TNumber
+
+  (* Array, like [1, 2, 3] *)
   | p, Array array_values ->
 
       (* Check for empty list and abort *)
@@ -799,6 +805,50 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
 
       (p, Typedast.Array (inferred_values, array_ty)), env, TFixedSizeArray (length, first_element_ty)
       (*inferred_values, env, TNumber*)
+
+  (* Like $a[1] *)
+  | p, Array_get ((pos1, (Lvar (pos2, array_var_name))), (Some (pos3, (Int (pos4, index_string))))) ->
+
+      (* Check so array is fixed size *)
+      let array_type = try Env.lookup env array_var_name with
+        | Not_found -> raise (Infer_exception (sprintf "Tried to get from array, but array is not defined: %s" (get_pos_msg p)))
+      in
+
+      (* array_type can be, e.g., TFixedSizeArray (3, TNumber) *)
+      begin match array_type with
+        | TFixedSizeArray (array_length, element_type) ->
+            let index = int_of_string index_string in
+
+            (* With fixed-size array (tuple) we can check out-of-bound *)
+            if index + 1 > array_length then
+              raise (Infer_exception (sprintf "Array index out of bound: %s" (get_pos_msg p)));
+
+            let typed_lvar, env, level = infer_expr env level (pos1, (Lvar (pos2, array_var_name))) in
+            
+            (p, Typedast.ArrayFixedSize_get (typed_lvar, (pos3, Typedast.Number (float_of_int index)), ty_of_ty element_type)), env, element_type
+
+        | TDynamicSizeArray _ ->
+            raise (Not_implemented (sprintf "Dynamicall sized arrays not not yet implemented: %s" (get_pos_msg p)))
+        | _ -> assert false
+      end;
+
+  (* Like $a[$i] *)
+  | p, Array_get ((pos1, (Lvar (pos2, array_var_name))), (Some index_expr)) ->
+
+      (* Check so array is fixed size *)
+      let array_type = try Env.lookup env array_var_name with
+        | Not_found -> raise (Infer_exception (sprintf "Tried to get from array, but array is not defined: %s" (get_pos_msg p)))
+      in
+      (* array_type can be, e.g., TFixedSizeArray (3, TNumber) *)
+      begin match array_type with
+        | TFixedSizeArray (array_length, element_type) ->
+            let index_typed_expr, env, ty = infer_expr env level index_expr in
+            let typed_lvar, env, ty = infer_expr env level (pos1, (Lvar (pos2, array_var_name))) in
+            (p, Typedast.ArrayFixedSize_get (typed_lvar, index_typed_expr, ty_of_ty element_type)), env, element_type
+        | TDynamicSizeArray _ ->
+            raise (Not_implemented (sprintf "Dynamicall sized arrays not not yet implemented: %s" (get_pos_msg p)))
+        | _ -> assert false
+      end;
 
   (* Unary minus *)
   | p, Unop (Uminus, (pos1, (Float (pos2, pstring)))) ->
