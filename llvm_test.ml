@@ -1288,7 +1288,7 @@ and call_function (name : string) (args : Typedast.expr array) llbuilder =
     raise (Llvm_error "incorrect # arguments passed");
 
   let args = Array.map (fun arg -> codegen_expr arg llbuilder) args in
-  build_call callee args name llbuilder
+  build_call callee args "" llbuilder
 
 let _ =
   (*
@@ -1366,6 +1366,16 @@ let _ =
       f_body = [];
     } in
     ignore (codegen_proto prints);
+
+    (* sqrt *)
+    let f_param = {param_id = (Pos.none, "x"); param_type = TNumber} in
+    let sqrt = {
+      f_name = (Pos.none, "\\sqrt");
+      f_params = [f_param];
+      f_ret = TNumber;
+      f_body = [];
+    } in
+    ignore (codegen_proto sqrt);
 
     (* Generate subsetphp_string_init external function *)
     let f_param1 = {param_id = (Pos.none, "str"); param_type = TString_literal} in

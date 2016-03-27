@@ -159,6 +159,47 @@ end
  *)
 let typed_classes : (string, Typedast.def) Hashtbl.t = Hashtbl.create 10
 
+(** Built-in function type *)
+type builtin_function = {
+  builtin_name : string;
+  builtin_args : fun_param list;
+  builtin_ty : ty;
+}
+
+(**
+ * List of built-in functions
+ *)
+let builtin_functions = [
+  (* sqrt *)
+  {
+    builtin_name = "sqrt";
+    builtin_args = [{
+      param_hint = None;
+      param_is_reference = false;
+      param_is_variadic = false;
+      param_id = (Pos.none, "x");
+      param_expr = None;
+      param_modifier = None;
+      param_user_attributes = [];
+    }];
+    builtin_ty = TArrow ([TNumber], TNumber);
+  }
+]
+
+(**
+ * Return true if function_name is a PHP library function, like
+ * var_dump, sqrt, etc.
+ *
+ * Limited support.
+ *
+ * @param function_name string
+ * @return bool
+ *)
+let is_builtin_function function_name =
+  List.exists (fun el ->
+    el.builtin_name = function_name
+  ) builtin_functions
+
 (**
  * Map from ty to Typedast.ty
  *
@@ -856,7 +897,9 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
             (p, Typedast.ArrayFixedSize_get (typed_lvar, index_typed_expr, ty_of_ty element_type)), env, element_type
         | TDynamicSizeArray _ ->
             raise (Not_implemented (sprintf "Dynamicall sized arrays not not yet implemented: %s" (get_pos_msg p)))
-        | _ -> assert false
+        | what -> 
+            print_endline (show_ty what);
+            assert false
       end;
 
   (* Unary minus *)
@@ -942,7 +985,8 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
 
       (* Abort if right-hand is unit *)
-      if value_ty = TUnit then failwith "Right-hand can't evaluate to void";
+      if value_ty = TUnit then 
+        raise (Infer_exception (sprintf "Right-hand can't evaluate to void: %s" (get_pos_msg p)));
 
       let generalized_ty = generalize level value_ty in
       let already_exists = try ignore (Env.lookup env var_name); true with
@@ -1055,6 +1099,50 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       in
       (p, Typedast.Lvar ((pos, var_name), ty_of_ty var_type)), env, var_type
 
+  (** Built-in functions like sqrt, abs, ... *)
+  | p, Call (
+      (pos1, Id (pos_fn, function_name)), 
+      params,
+      dontknow) when is_builtin_function function_name ->
+
+      (* Check so that params are correct *)
+      let fn_ty = Some (List.find (fun fn -> fn.builtin_name = function_name) builtin_functions) in
+      let return_ty = (match fn_ty with
+        | Some builtin_function ->
+            (match builtin_function.builtin_ty with
+            | TArrow (args, return_ty) ->
+                if List.length args != List.length params then begin
+                  raise (Infer_exception (sprintf "Not the right amount of arguments for function %s at %s " function_name (get_pos_msg p)))
+                end;
+                List.iter2
+                  (fun param_ty arg_expr ->
+                    let (typed_arg_expr, env, ty) = infer_expr env level arg_expr in
+                    unify param_ty ty
+                  )
+                  args params
+                ;
+                return_ty
+            | _ ->
+                failwith "Not a function?"
+            )
+        | None ->
+            (* Infer function type here
+             * How much can we infer from a function usage in PHP? Lack of syntax for optional argument
+             * screw things up
+             *)
+            raise (Infer_exception (sprintf "not implemented: infer function type before definition: %s" function_name))
+      ) in
+
+      let get_typed_expr = (fun expr ->
+          let (typed_expr, env, ty) = infer_expr env level expr in
+          typed_expr
+      ) in
+      let typed_dontknow = List.map get_typed_expr dontknow in
+      let typed_params = List.map get_typed_expr params in
+      (p, Typedast.Call ((pos1, Typedast.Id ((pos_fn, function_name), ty_of_ty return_ty)), typed_params, typed_dontknow)), 
+        env,
+        return_ty
+
   (** Hard-code support for overloaded print *)
 
   (* Print for number *)
@@ -1116,7 +1204,6 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let fn_ty = try Some (Env.lookup env fn_name) with | Not_found -> None in
       let return_ty = (match fn_ty with
         | Some ty ->
-            printf "fn_ty = %s\n" (show_ty ty);
             (match ty with
             | TArrow (args, return_ty) ->
                 if List.length args != List.length arg_list then begin
@@ -1138,7 +1225,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
              * How much can we infer from a function usage in PHP? Lack of syntax for optional argument
              * screw things up
              *)
-            failwith (sprintf "not implemented: infer function type before definition: %s" fn_name)
+            raise (Infer_exception (sprintf "not implemented: infer function type before definition: %s" fn_name))
       ) in
       (* Function to get typed expression *)
       let get_typed_expr = (fun expr ->

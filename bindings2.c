@@ -8,6 +8,7 @@
 #include "php-src/Zend/zend.h"
 #include <zend_types.h>
 #include <zend_string.h>
+#include <math.h>
 
 #include "bindings2.h"
 #include "semigc/alloc.h"
@@ -22,6 +23,10 @@ extern double printd(double x) {
 extern double prints(zend_string* str) {
   printf("%s\n", str->val);
   return 0;
+}
+
+extern double sqrt(double x) {
+  return sqrt(x);
 }
 
 /**

@@ -68,9 +68,44 @@ $neptune->mass = 5.15138902046611451e-05 * $constants->SOLAR_MASS;
 $sun = new Body();
 $sun->mass = $constants->SOLAR_MASS;
 
+$bodies = [
+  $sun,
+  $jupiter,
+  $saturn,
+  $uranus,
+  $neptune
+];
+$nrOfBodies = 5;  // Might want to implement count()...
+
 function offsetMomentum(Constants $constants, Body $body, $px, $py, $pz) {
   $body->vx = -$px / $constants->SOLAR_MASS;
   $body->vy = -$py / $constants->SOLAR_MASS;
   $body->vz = -$pz / $constants->SOLAR_MASS;
+  return;
+}
+
+function advance($bodies, $nrOfBodies, $dt) {
+
+  for ($i = 0; $i < $nrOfBodies; $i += 1) {
+    $body = $bodies[$i];
+    for ($j = $i + 1; $j < $nrOfBodies; $j += 1) {
+      $dx = $body->x - $bodies[$j]->x;
+      $dy = $body->y - $bodies[$j]->y;
+      $dz = $body->z - $bodies[$j]->z;
+
+      $dSquared = $dx * $dx + $dy * $dy + $dz * $dz;
+      $distance = sqrt($dSquared);
+      $mag = $dt / ($dSquared * $distance);
+
+      $body->vx -= $dx * $bodies[j]->mass * $mag;
+      $body->vy -= $dy * $bodies[j]->mass * $mag;
+      $body->vz -= $dz * $bodies[j]->mass * $mag;
+
+      $bodies[j]->vx += $dx * $body->mass * $mag;
+      $bodies[j]->vy += $dy * $body->mass * $mag;
+      $bodies[j]->vz += $dz * $body->mass * $mag;
+    }
+  }
+
   return;
 }

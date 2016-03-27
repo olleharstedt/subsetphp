@@ -1,16 +1,13 @@
 <?php
 
-final class Point {
-  public $x;
+
+function foo() {
+  return 10;
 }
 
-for ($i = 0; $i < 1000; $i += 1) {
-  $p = new Point();
-  $p->x = 10;
+$x = sqrt(16);
 
-  $a = [$p];
-  $p2 = $a[0];
-}
+print($x);
 
 //final class Something {
   //public $a;
