@@ -1,10 +1,16 @@
 <?php
 
-$a = [1, 2, 3];
-$i = 54;
-$x = $a[$i];
-print($i);
-print($x);
+final class Point {
+  public $x;
+}
+
+for ($i = 0; $i < 1000; $i += 1) {
+  $p = new Point();
+  $p->x = 10;
+
+  $a = [$p];
+  $p2 = $a[0];
+}
 
 //final class Something {
   //public $a;

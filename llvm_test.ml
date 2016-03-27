@@ -91,8 +91,13 @@ let llvm_ty_of_ty ty = match ty with
   | TString -> i8_ptr_t
   | TZend_string_ptr -> zend_string_ptr_type
   | TUnit -> void_t
-  | Typedast.TWeak_poly {contents = ((Some Typedast.TNumber))} -> double_type
-  | Typedast.TWeak_poly {contents = ((Some Typedast.TString))} -> zend_string_ptr_type
+  | TWeak_poly {contents = ((Some TNumber))} -> double_type
+  | TWeak_poly {contents = ((Some TString))} -> zend_string_ptr_type
+  | TStruct (class_name, _) -> 
+      let class_ty = try Hashtbl.find structs class_name with
+          | Not_found -> raise (Llvm_error (sprintf "llvm_ty_of_ty_fun: Class %s was not found" class_name))
+      in
+      pointer_type class_ty  (* Pointer instead? *)
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
 
 (**
@@ -110,8 +115,8 @@ let llvm_ty_of_ty_fun ty = match ty with
   | TZend_string_ptr -> zend_string_ptr_type
   | TCaml_value -> caml_value_ptr_type
   | TUnit -> void_t
-  | Typedast.TInt64 -> i64_t
-  | Typedast.TStruct (class_name, fields) ->
+  | TInt64 -> i64_t
+  | TStruct (class_name, fields) ->
       let class_ty = try Hashtbl.find structs class_name with
           | Not_found -> raise (Llvm_error (sprintf "llvm_ty_of_ty_fun: Class %s was not found" class_name))
       in
@@ -860,15 +865,11 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" array_var_name))
       in
       let loaded_array = build_load arr "loaded_arr" llbuilder in
-      dump_value loaded_array;
 
       let index_expr = codegen_expr (pos3, Lvar ((pos4, lvar_name), TNumber)) llbuilder in
-      dump_value index_expr;
-      let sext = build_fptoui index_expr i32_t "index" llbuilder in
-      dump_value sext;
+      let index = build_fptoui index_expr i32_t "index" llbuilder in
 
-      let gep = build_gep loaded_array [|zero; sext|] "gep" llbuilder in
-      dump_value gep;
+      let gep = build_gep loaded_array [|zero; index|] "gep" llbuilder in
       let load = build_load gep "load" llbuilder in
       load
 

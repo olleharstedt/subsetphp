@@ -777,11 +777,20 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
         | Ast.AFkvalue _ -> failwith "What is AFkvalue?"
       in
 
+      print_endline (show_ty first_element_ty);
+
       (* Make sure all array values have same type *)
       let have_same_type = List.for_all (fun el ->
+        print_endline (show_afield el);
         match el, first_element_ty with
         (* TODO: Have to manually insert what types to support - any other way? *)
         | Ast.AFvalue (pos, Ast.Int _), TNumber -> true
+        | Ast.AFvalue (pos, Ast.Lvar (_, var_name)), TStruct (struct_name, struct_fields) ->
+            let var_type = Env.lookup env var_name in
+            begin match var_type with
+              | TStruct (struct_name2, _) -> struct_name = struct_name2
+              | _ -> assert false
+            end
         | _ -> false
       ) array_values in
 
