@@ -898,8 +898,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
         | TDynamicSizeArray _ ->
             raise (Not_implemented (sprintf "Dynamicall sized arrays not not yet implemented: %s" (get_pos_msg p)))
         | what -> 
-            print_endline (show_ty what);
-            assert false
+            raise (Infer_exception (sprintf "Don't know what array type it is at %s" (get_pos_msg p)));
       end;
 
   (* Unary minus *)

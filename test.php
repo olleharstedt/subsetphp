@@ -5,7 +5,9 @@ function foo() {
   return 10;
 }
 
-$x = sqrt(16);
+{
+  $x = sqrt(16);
+}
 
 print($x);
 

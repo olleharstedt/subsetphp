@@ -94,22 +94,26 @@ function advance($bodies /* Can't type-infer array of structs? */, $nrOfBodies, 
 
   for ($i = 0; $i < $nrOfBodies; $i += 1) {
     $body = $bodies[$i];
-    for ($j = $i + 1; $j < $nrOfBodies; $j += 1) {
-      $dx = $body->x - $bodies[$j]->x;
-      $dy = $body->y - $bodies[$j]->y;
-      $dz = $body->z - $bodies[$j]->z;
+    if ($body instanceof Body) {
+      for ($j = $i + 1; $j < $nrOfBodies; $j += 1) {
+        $dx = $body->x - $bodies[$j]->x;
+        $dy = $body->y - $bodies[$j]->y;
+        $dz = $body->z - $bodies[$j]->z;
 
-      $dSquared = $dx * $dx + $dy * $dy + $dz * $dz;
-      $distance = sqrt($dSquared);
-      $mag = $dt / ($dSquared * $distance);
+        $dSquared = $dx * $dx + $dy * $dy + $dz * $dz;
+        $distance = sqrt($dSquared);
+        $mag = $dt / ($dSquared * $distance);
 
-      $body->vx -= $dx * $bodies[j]->mass * $mag;
-      $body->vy -= $dy * $bodies[j]->mass * $mag;
-      $body->vz -= $dz * $bodies[j]->mass * $mag;
+        $body->vx -= $dx * $bodies[j]->mass * $mag;
+        $body->vy -= $dy * $bodies[j]->mass * $mag;
+        $body->vz -= $dz * $bodies[j]->mass * $mag;
 
-      $bodies[j]->vx += $dx * $body->mass * $mag;
-      $bodies[j]->vy += $dy * $body->mass * $mag;
-      $bodies[j]->vz += $dz * $body->mass * $mag;
+        $bodies[j]->vx += $dx * $body->mass * $mag;
+        $bodies[j]->vy += $dy * $body->mass * $mag;
+        $bodies[j]->vz += $dz * $body->mass * $mag;
+      }
+    }
+    elseif ($body instanceof Point) {
     }
   }
 

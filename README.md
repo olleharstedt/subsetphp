@@ -640,7 +640,9 @@ $points[0]->x = 10;
 $points[1]->y = 20;
 ```
 
-it could be any class with variables x and y. Even harder with interfaces. So much check with docs, or `instanceof`?
+it could be any class with variables x and y. Even harder with interfaces. So much check with docs, or `instanceof`? No, use static duck-typing like in OCaml, but without type-hints. Construct an object "contract"/minimal requirement of methods and member variables. Will this work with LLVM gep? Only if class name is stored runtime.
+
+Also, can't infer if it's fix-size or dynamic-size array - just assume fixed-size until otherwise/if it's not changed in the function? But do we know the length?
 
 Unions
 ------
