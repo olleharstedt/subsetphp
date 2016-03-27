@@ -625,6 +625,22 @@ Use C-library for dynamic arrays? Glib. Or struct + malloc?
 
 Need to grow array. 
 
+Can't infer array of objects:
+
+```php
+function sumPoints(array $points) {
+  // Do stuff with points
+}
+```
+
+No idea what the array is array _of_. Can't infer from usage because of object hierarchy. If it's used like
+
+```php
+$points[0]->x = 10;
+$points[1]->y = 20;
+```
+
+it could be any class with variables x and y. Even harder with interfaces. So much check with docs, or `instanceof`?
 
 Unions
 ------

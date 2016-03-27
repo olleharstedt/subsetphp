@@ -84,7 +84,13 @@ function offsetMomentum(Constants $constants, Body $body, $px, $py, $pz) {
   return;
 }
 
-function advance($bodies, $nrOfBodies, $dt) {
+/**
+ * @param Body[] $bodies
+ * @param int $nrOfBodies
+ * @param double $dt
+ * @return void
+ */
+function advance($bodies /* Can't type-infer array of structs? */, $nrOfBodies, $dt) {
 
   for ($i = 0; $i < $nrOfBodies; $i += 1) {
     $body = $bodies[$i];
