@@ -72,7 +72,7 @@ $bodies = [
   $neptune
 ];
 
-$nrOfBodies = 5;
+$nrOfBodies = 5;  // Might want to implement count()...
 
 $px = 0;
 $py = 0;
@@ -91,6 +91,7 @@ $sun->vy = -$py / $SOLAR_MASS;
 $sun->vz = -$pz / $SOLAR_MASS;
 
 // Energy
+// TODO: Put in function
 $e = 0.0;
 for ($i = 0; $i < $nrOfBodies; $i += 1) {
   $iBody = $bodies[$i];
@@ -100,7 +101,7 @@ for ($i = 0; $i < $nrOfBodies; $i += 1) {
       + $iBody->vz * $iBody->vz );
 
   $start = $i + 1;
-  if ($start < $nrOfBodies) {
+  if ($start < $nrOfBodies) {  // TODO: Fix for bug
     for ($j = $start; $j < $nrOfBodies; $j += 1) {
       $jBody = $bodies[$j];
       $dx = $iBody->x - $jBody->x;
@@ -113,15 +114,17 @@ for ($i = 0; $i < $nrOfBodies; $i += 1) {
   }
 }
 
+// TODO: Add printf?
 print($e);
 
 // Advance n times
+// TODO: Put in function
 $dt = 0.01;
 for ($k = 0; $k < $n; $k += 1) {
   for ($i = 0; $i < $nrOfBodies; $i += 1) {
     $iBody = $bodies[$i];
     $start = $i + 1;
-    if ($start < $nrOfBodies) {
+    if ($start < $nrOfBodies) {  // TODO: Fix for bug
       for ($j = $start; $j < $nrOfBodies; $j += 1) {
         $jBody = $bodies[$j];
         $dx = $iBody->x - $jBody->x;
@@ -145,6 +148,7 @@ for ($k = 0; $k < $n; $k += 1) {
 
   for ($i = 0; $i < $nrOfBodies; $i += 1) {
     $iBody = $bodies[$i];
+    // TODO: Should support $iBody-> += ...
     $iBody->x = $iBody->x + ($dt * $iBody->vx);
     $iBody->y = $iBody->y + ($dt * $iBody->vy);
     $iBody->z = $iBody->z + ($dt * $iBody->vz);
@@ -152,6 +156,7 @@ for ($k = 0; $k < $n; $k += 1) {
 }
 
 // Energy
+// TODO: Put in function
 $e = 0.0;
 for ($i = 0; $i < $nrOfBodies; $i += 1) {
   $iBody = $bodies[$i];
@@ -161,7 +166,7 @@ for ($i = 0; $i < $nrOfBodies; $i += 1) {
       + $iBody->vz * $iBody->vz );
 
   $start = $i + 1;
-  if ($start < $nrOfBodies) {
+  if ($start < $nrOfBodies) {  // TODO: Fix for bug
     for ($j = $start; $j < $nrOfBodies; $j += 1) {
       $jBody = $bodies[$j];
       $dx = $iBody->x - $jBody->x;
