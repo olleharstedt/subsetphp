@@ -530,7 +530,10 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
             let already_exists = try ignore (Env.lookup env var_name); true with
               | Not_found -> false
             in
+            (* This is quite irritating and not necessary.
             if already_exists then failwith "For-loop variable must not already exist in environment";
+            *)
+            ()
         | _ ->
             failwith "For start must have assignment, like $i = 0"
       end;
@@ -1325,7 +1328,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
                (Ast.AFvalue (pos4, (Ast.Int (pos5, "2"))));
                (Ast.AFvalue (pos6, (Ast.Int (pos7, "3"))))]*)
               
-  | expr -> raise (Not_implemented (sprintf "infer_exprs: %s" (show_expr expr)))
+  | p, expr -> raise (Not_implemented (sprintf "infer_exprs: %s at %s" (show_expr (p, expr)) (get_pos_msg p)))
 
 (**
  * Infer numerical binary operations, like +, -

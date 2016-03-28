@@ -69,7 +69,10 @@ let structs_gc : (string, struct_) Hashtbl.t = Hashtbl.create 10
  *)
 let get_struct_field_number struct_ field_name =
   let {struct_name; struct_fields} = struct_ in
-  let i = ref (-1) in
+
+  (* Has to take into account the struct type-information header *)
+  (* Header is two i32_t, so start at 1 (no header = start at -1) *)
+  let i = ref (1) in
   let _ = List.find (fun field ->
     i := !i + 1;
     let (name, _) = field in
@@ -176,12 +179,12 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
   let add_of_size = build_add size zend_refcounted_size "size" llbuilder in
 
   (* Call custom gc malloc *)
-  let args = [|add_of_size|] in
+  let args = [|const_int i64_t 256|] in
   let malloc =
     match lookup_function "llvm_gc_allocate" llm with
       | Some callee -> callee
       | None ->
-          raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm.gcroot"))
+          raise (Llvm_error (sprintf "unknown function referenced: %s" "llvm_gc_allocate"))
   in
   let malloc_result = build_call malloc args "tmp" llbuilder in
   let malloc_result_casted = build_bitcast malloc_result ty "tmp2" llbuilder in
@@ -571,11 +574,18 @@ and codegen_struct struct_ llbuilder : unit =
   print_endline "codegen_struct";
   match struct_ with
   | {struct_name = name; struct_fields = fields} ->
+      (* Extract llvm types from fields *)
       let fields = List.map (fun field ->
         match field with
         | (field_name, field_ty) -> llvm_ty_of_ty field_ty
       ) fields in
+
+      (* Add header with type-information for GC *)
+      (* For now just two i32 - how many bytes is that? *)
+      let fields = i32_t :: fields in
+      let fields = i32_t :: fields in
       let fields = Array.of_list fields in
+
       let name = String.sub name 1 (String.length name - 1) in  (* Strip leading \ (namespace thing) *)
       let t = struct_type llctx fields in
       Hashtbl.add structs name t;
@@ -657,7 +667,8 @@ and codegen_stmt (stmt : stmt ) llbuilder : llvalue =
       (*
          *)
 
-  | For ( (p1, Binop ((Eq None), (p2, Lvar ((p3, var_name), TNumber)), (p4, (Int (p5, var_value))), TUnit)) as start, end_, step, body) ->
+  | For ( (p1, Binop ((Eq None), (p2, Lvar ((p3, var_name), TNumber)), (p4, (Lvar _)), TUnit)) as start, end_, step, body)
+  | For ( (p1, Binop ((Eq None), (p2, Lvar ((p3, var_name), TNumber)), (p4, (Int _)), TUnit)) as start, end_, step, body) ->
       (* Output this as:
        *   var = alloca double
        *   ...
@@ -1187,6 +1198,8 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         | Minus ->
             build_fsub lhs rhs "subtmp" llbuilder
         | Star ->
+            dump_value rhs;
+            dump_value lhs;
             build_fmul lhs rhs "multmp" llbuilder
         | Slash ->
             build_fdiv lhs rhs "multmp" llbuilder
@@ -1342,10 +1355,10 @@ let _ =
   (* If no error, dump a lot of info *)
   if parser_return.error = None then begin
 
-    print_endline (Ast.show_program parser_return.ast);
+    (*print_endline (Ast.show_program parser_return.ast);*)
 
     let program = Infer.infer_program 0 parser_return.ast in
-    printf "%s\n" (Typedast.show_program program);
+    (*printf "%s\n" (Typedast.show_program program);*)
 
     (* Generate printd external function *)
     let f_param = {param_id = (Pos.none, "x"); param_type = TNumber} in
@@ -1439,6 +1452,7 @@ let _ =
       (*dump_module llm;*)
 
       let filename_without_suffix = String.sub filename 0 (String.length filename - 4) in
+      printf "writing file %s\n" (filename_without_suffix ^ ".bc");
       ignore (Llvm_bitwriter.write_bitcode_file llm (filename_without_suffix ^ ".bc"));
 
     with

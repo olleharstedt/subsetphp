@@ -16,7 +16,7 @@
 static int nr_of_free = 0;
 
 extern double printd(double x) {
-  printf("%f\n", x);
+  printf("%.9f\n", x);
   return 0;
 }
 
@@ -25,7 +25,8 @@ extern double prints(zend_string* str) {
   return 0;
 }
 
-extern double sqrt(double x) {
+// Not needed
+extern double subsetphp_sqrt(double x) {
   return sqrt(x);
 }
 

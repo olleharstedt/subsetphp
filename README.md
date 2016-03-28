@@ -685,6 +685,12 @@ $arrOfStructs = array($struct1);
 Benchmark
 ---------
 
+nbody (on my machine):
+
+* PHP 7.0.0 - 3 min (180 sec)
+* subsetphp - 10 sec (18x faster than PHP 7)
+* Java - 6 sec
+
 The goal is to compare subsetphp with PHP in benchmark "binary trees" from benchmarkgames.
 Actually, all benchmarks should be tested. And then also common programming problems, to see how a solution could look in subsetphp.
 
