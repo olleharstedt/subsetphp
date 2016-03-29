@@ -644,6 +644,16 @@ it could be any class with variables x and y. Even harder with interfaces. So mu
 
 Also, can't infer if it's fix-size or dynamic-size array - just assume fixed-size until otherwise/if it's not changed in the function? But do we know the length?
 
+If we have both 2DPoints (x, y) and 3DPoints (x, y, z), it won't be possible to enforce which type to use in a function like:
+
+```php
+function drawPoints(array $points) {
+  // do stuff with $points[i]->x and $points[i]->y
+}
+```
+
+Or even worse if you have interface with `drawMe()`, and want a function which draws only points, not circles or squares.
+
 Unions
 ------
 
