@@ -903,7 +903,12 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
             
             (p, Typedast.ArrayDynamicSize_get (typed_lvar, (pos3, Typedast.Number (float_of_int index)), ty_of_ty element_type)), env, element_type
 
-        | _ -> assert false
+        | _ ->
+            raise (Infer_exception (
+              sprintf "Tried to access variable %s as an array, but don't know which kind of array it is. Did you type-hint function argument as array? %s" 
+              array_var_name
+              (get_pos_msg p))
+            )
       end;
 
   (* Like $a[$i] *)
