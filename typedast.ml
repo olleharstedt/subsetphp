@@ -70,6 +70,7 @@ and expr = Pos.t * expr_
 and expr_ =
   | Array of afield list * ty
   | ArrayFixedSize_get of expr * expr * ty  (* lvar, index, ty of return *)
+  | ArrayDynamicSize_get of expr * expr * ty  (* lvar, index, ty of return *)
   | True
   | False
   | Id of id * ty

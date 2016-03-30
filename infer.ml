@@ -527,9 +527,8 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
       (* Check so start contains an assignement *)
       begin match start with
         | p, Binop (Eq None, (p4, Lvar (p5, var_name)), _) ->
-            let already_exists = try ignore (Env.lookup env var_name); true with
-              | Not_found -> false
-            in
+            (try ignore (Env.lookup env var_name) with
+              | Not_found -> ());
             (* This is quite irritating and not necessary.
             if already_exists then failwith "For-loop variable must not already exist in environment";
             *)
@@ -584,39 +583,53 @@ and infer_stmt (env : Env.env) level (stmt : stmt) : (Typedast.stmt * Env.env) =
  * @return f_param list
  *)
 and create_typed_params env (f_params : Ast.fun_param list) =
-  printf "create_typed_params";
+  printf "create_typed_params\n";
   (*Env.dump env;*)
-  let open Typedast in
-  let rec aux (params : Ast.fun_param list) typed_params =
+  let rec aux (params : fun_param list) typed_params =
     match params with
       | [] ->
           typed_params
-      | {Ast.param_id = (pos, name); Ast.param_hint = Some (pos2, (Ast.Happly ((pos3, class_name), [])))} :: params ->
+      | {param_id = (pos, name); param_hint = Some (pos2, (Happly ((pos3, "array"), [])))} :: params ->
+
+          let already_exists = try ignore (Env.lookup env name); true with
+            | Not_found -> false
+          in
+          if not already_exists then begin
+            raise (Infer_exception (sprintf "Array %s cannot be typed. Not used in function?" name))
+          end;
+
+          let ty = Env.lookup env name in
+          let typed_param = Typedast.({
+            param_id = (pos, name);
+            param_type = TDynamicSizeArray (ty_of_ty ty)
+          }) in
+          aux params (typed_params @ [typed_param])
+      | {param_id = (pos, name); param_hint = Some (pos2, (Happly ((pos3, class_name), [])))} :: params ->
           (* Check if class name exists in scope *)
           let class_ty = try Env.lookup env class_name with
-            | Not_found -> failwith ("create_typed_params: found no class with name " ^ class_name)
+            | Not_found -> raise (Infer_exception ("create_typed_params: found no class with name " ^ class_name))
           in
-          let typed_param = {
+          let typed_param = Typedast.({
             param_id = (pos, name);
             param_type = ty_of_ty class_ty;
-          } in
+          }) in
           aux params (typed_params @ [typed_param])
-      | {Ast.param_id = (pos, name)} :: params ->
+      | {param_id = (pos, name)} :: params ->
           printf "name = %s" name;
           let already_exists = try ignore (Env.lookup env name); true with
             | Not_found -> false
           in
           let typed_param  = if already_exists then begin
             let ty = Env.lookup env name in
-            {
+            Typedast.({
               param_id = (pos, name);
               param_type = ty_of_ty ty;
-            }
+            })
             end else begin
-            {
+            Typedast.({
               param_id = (pos, name);
               param_type = TUnknown;
-            }
+            })
           end in
           aux params (typed_params @ [typed_param])
   in
@@ -654,6 +667,9 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
     (* No hint, so we need a new inferred variable *)
     | None ->
         new_var level
+    | Some "array" ->
+        let t = new_var level in
+        TDynamicSizeArray t
     | Some hint ->
         let object_ty = try Env.lookup env hint with
           | Not_found -> raise (Infer_exception (sprintf "infer_fun: Found no class with name %s" hint))
@@ -867,10 +883,11 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
         | Not_found -> raise (Infer_exception (sprintf "Tried to get from array, but array is not defined: %s" (get_pos_msg p)))
       in
 
+      let index = int_of_string index_string in
+
       (* array_type can be, e.g., TFixedSizeArray (3, TNumber) *)
       begin match array_type with
         | TFixedSizeArray (array_length, element_type) ->
-            let index = int_of_string index_string in
 
             (* With fixed-size array (tuple) we can check out-of-bound *)
             if index + 1 > array_length then
@@ -880,8 +897,12 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
             
             (p, Typedast.ArrayFixedSize_get (typed_lvar, (pos3, Typedast.Number (float_of_int index)), ty_of_ty element_type)), env, element_type
 
-        | TDynamicSizeArray _ ->
-            raise (Not_implemented (sprintf "Dynamicall sized arrays not not yet implemented: %s" (get_pos_msg p)))
+        | TDynamicSizeArray element_type ->
+
+            let typed_lvar, env, level = infer_expr env level (pos1, (Lvar (pos2, array_var_name))) in
+            
+            (p, Typedast.ArrayDynamicSize_get (typed_lvar, (pos3, Typedast.Number (float_of_int index)), ty_of_ty element_type)), env, element_type
+
         | _ -> assert false
       end;
 

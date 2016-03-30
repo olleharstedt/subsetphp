@@ -179,7 +179,7 @@ let create_new_gcroot_malloc llbuilder ty size : llvalue * llvalue =
   let add_of_size = build_add size zend_refcounted_size "size" llbuilder in
 
   (* Call custom gc malloc *)
-  let args = [|const_int i64_t 256|] in
+  let args = [|add_of_size|] in
   let malloc =
     match lookup_function "llvm_gc_allocate" llm with
       | Some callee -> callee
