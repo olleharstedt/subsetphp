@@ -831,13 +831,13 @@ Possible to use another parser and lexer.
 
 Double maintenance?
 
-fn instead of function
-no $ for variables
-. to access member variables/methods
-no ; - use () to let an expression span multiple lines
-use if-then-else instead of ? :
-syntactic sugar for [1, 2, 3].length, [1, 2, 3].slice() etc
-keep hashmap syntax, like [olle => 1, peter => 2] but no "olle" needed? but if olle is a variable?
+* fn instead of function
+* no $ for variables
+* . to access member variables/methods
+* no ; - use () to let an expression span multiple lines
+* use if-then-else instead of ? :
+* syntactic sugar for [1, 2, 3].length, [1, 2, 3].slice() etc
+* keep hashmap syntax, like [olle => 1, peter => 2] but no "olle" needed? but if olle is a variable?
 
 ```
 fn x, y {
