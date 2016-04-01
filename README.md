@@ -19,7 +19,8 @@ Version goals
        Infer arrays of object posted to functions (structural typing?)
        Rewrite nbody with functions
        Fix for-loop bug (`for ($i = 10; $i < 5; $i += 1)`, should not enter loop)
-- 0.3: Make a static home-page using subsetphp, compare with PHP.
+- 0.3: Call php.net functions - how? E.g. var_dump, mysqli.
+       Make a static home-page using subsetphp, compare with PHP.
 - 0.4: Make a dynamic home-page?
 - 0.4: Do all (or some?) "99 problems" in subsetphp (details here: https://www.reddit.com/r/ProgrammingLanguages/comments/16gtqg/say_you_are_trying_to_design_a_programming/)
 - 1.0: Convert something (part of a framework?) to subsetphp and run it, benchmark.
@@ -174,7 +175,7 @@ What PHP-features _cannot_ be used from LLVM? Reflection? Add own meta-data (how
 
 Hack vs strict Hack vs LLVM. No benchmark for strict Hack?
 
-Call PHP-functions from LLVM? Like `var_dump` etc.
+Call PHP-functions from LLVM? Like `var_dump` etc. Won't work because of different memory model (refcount vs mark-and-sweep). But the compiler will be meaningless without it.
 
 > 17:07:25 - Drup: php -> ast -> typed ast -> IR -> llvm
 >
@@ -822,3 +823,49 @@ type ty = Int | String | Double | StrintBuffer | Promotable of ref ty
 > 22:38:23 - mrvn: you could have type 'a arithmetic and `Int arithmetic. Then divide is [< `Int | `Float ] aithemtic -> [< `Int | `Float ] aithemtic -> [`Float] arithmetic
 
 > 23:02:59 - mrvn: If you have "type t = Int : int -> t | Text : string -> t" then you can't limit a function to just one of them. With phantom types you can.
+
+Alternate syntax
+----------------
+
+Possible to use another parser and lexer.
+
+Double maintenance?
+
+fn instead of function
+no $ for variables
+. to access member variables/methods
+no ; - use () to let an expression span multiple lines
+use if-then-else instead of ? :
+syntactic sugar for [1, 2, 3].length, [1, 2, 3].slice() etc
+keep hashmap syntax, like [olle => 1, peter => 2] but no "olle" needed? but if olle is a variable?
+
+```
+fn x, y {
+  return x + y
+}
+
+fn arr : array, p : Point {
+  arr[0] = p.x
+  arr[1] = p.y
+}
+
+fn arr : array, x, y {
+}
+
+class Point {
+  public x
+  public y
+}
+
+fn drawAPoint p : Point, s : Slice {
+  p.drawMe(s)
+}
+
+foreach arr as key => val {
+}
+
+[1, 2, 3].map(fn x => {
+  return x + 1
+})
+```
+
