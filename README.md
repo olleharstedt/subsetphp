@@ -844,6 +844,14 @@ Still PHP 5.6, just another syntax.
 * make keywords and classes case-sensitive
 
 ```
+
+/**
+ * Add x and y
+ *
+ * @param int x
+ * @param int y
+ * @return int
+ */
 fn x, y {
   return x + y
 }
