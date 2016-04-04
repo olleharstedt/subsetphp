@@ -842,7 +842,6 @@ Still PHP 5.6, just another syntax.
 * syntactic sugar for `[1, 2, 3].length`, `[1, 2, 3].slice()` etc instead of `count($arr)`
 * still use `::` for static access
 * make keywords and classes case-sensitive
-* don't use `function` for class methods - `public` or `private`/`protected` is enough
 
 ```
 fn x, y {
