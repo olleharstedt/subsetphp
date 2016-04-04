@@ -871,8 +871,9 @@ class Point {
     return x.toString() . y.toString()
   }
 
-  private calculateSomething {
-    this.x += this.y
+  private calculateSomething a, b {
+    this.x += a
+    this.y += b
   }
 
   public static getInstance {
