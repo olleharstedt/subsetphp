@@ -827,9 +827,11 @@ type ty = Int | String | Double | StrintBuffer | Promotable of ref ty
 Alternate syntax
 ----------------
 
-Possible to use another parser and lexer.
+Possible to use another parser and lexer, but same AST.
 
 Double maintenance?
+
+Still PHP 5.6, just another syntax.
 
 * `fn` instead of `function`
 * skip `fn` keyword for class methods - we have `public`, `protected` or `private` instead
@@ -840,6 +842,7 @@ Double maintenance?
 * syntactic sugar for `[1, 2, 3].length`, `[1, 2, 3].slice()` etc instead of `count($arr)`
 * still use `::` for static access
 * make keywords and classes case-sensitive
+* don't use `function` for class methods - `public` or `private`/`protected` is enough
 
 ```
 fn x, y {
