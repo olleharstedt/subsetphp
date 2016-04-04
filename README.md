@@ -831,13 +831,15 @@ Possible to use another parser and lexer.
 
 Double maintenance?
 
-* fn instead of function
+* `fn` instead of `function`
+* skip `fn` keyword for class methods - we have `public`, `protected` or `private` instead
 * no $ for variables
 * `.` to access member variables/methods instead of `->`
 * no `;` - use `()` to let an expression span multiple lines
-* use if-then-else instead of ? :
-* syntactic sugar for [1, 2, 3].length, [1, 2, 3].slice() etc instead of `count($arr)`
-* keep hashmap syntax, like [olle => 1, peter => 2] but no "olle" needed? but if olle is a variable?
+* use if-then-else instead of `? :`
+* syntactic sugar for `[1, 2, 3].length`, `[1, 2, 3].slice()` etc instead of `count($arr)`
+* still use `::` for static access
+* make keywords and classes case-sensitive
 
 ```
 fn x, y {
@@ -855,6 +857,27 @@ fn arr : array, x, y {
 class Point {
   public x
   public y
+
+  public __construct x y {
+    this.x = x
+    this.y = y
+  }
+
+  public drawMe {
+    draw(this.x, this.y)
+  }
+
+  public toString {
+    return x.toString() . y.toString()
+  }
+
+  private calculateSomething {
+    this.x += this.y
+  }
+
+  public static getInstance {
+    return new Point()
+  }
 }
 
 fn drawAPoint p : Point, s : Slice {
@@ -867,5 +890,7 @@ foreach arr as key => val {
 [1, 2, 3].map(fn x => {
   return x + 1
 })
+
+something = if empty(foo) then 1 else 10
 ```
 
