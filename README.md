@@ -852,16 +852,13 @@ Still PHP 5.6, just another syntax.
  * @param int y
  * @return int
  */
-fn x, y {
+fn add x, y {
   return x + y
 }
 
-fn arr : array, p : Point {
+fn doStuffWithPoint arr : array, p : Point {
   arr[0] = p.x
   arr[1] = p.y
-}
-
-fn arr : array, x, y {
 }
 
 class Point {
