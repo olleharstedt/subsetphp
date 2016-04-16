@@ -2,7 +2,7 @@ Type-inferred strict subset of PHP with LLVM-bindings.
 
 Because Hacklang is not strict or fast enough.
 
-_Disclaimer: Almost nothing is implemented yet._
+_First benchmark_: [14 times faster than PHP 7.0 in the nbody benchmark](http://olleharstedt.github.io/subsetphp/2016/03/18/nbody.html).
 
 Version goals
 -------------
