@@ -4,6 +4,8 @@ Because Hacklang is not strict or fast enough.
 
 _First benchmark_: [14 times faster than PHP 7.0 in the nbody benchmark](http://olleharstedt.github.io/subsetphp/2016/03/18/nbody.html).
 
+Installation instructions [here](http://olleharstedt.github.io/installation/) (Ubuntu).
+
 Version goals
 -------------
 
