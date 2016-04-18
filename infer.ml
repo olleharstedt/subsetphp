@@ -606,7 +606,7 @@ and create_typed_params env (f_params : Ast.fun_param list) =
           let ty = Env.lookup env name in
           let typed_param = Typedast.({
             param_id = (pos, name);
-            param_type = TDynamicSizeArray (ty_of_ty ty)
+            param_type = ty_of_ty ty;
           }) in
           aux params (typed_params @ [typed_param])
       | {param_id = (pos, name); param_hint = Some (pos2, (Happly ((pos3, class_name), [])))} :: params ->
