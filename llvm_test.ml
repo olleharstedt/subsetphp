@@ -967,7 +967,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             alloca
             in
       let value_expr_code = codegen_expr value_expr llbuilder in
-      let store = (build_store value_expr_code variable llbuilder) in
+      ignore (build_store value_expr_code variable llbuilder);
       value_expr_code
 
   (* Create new struct, like $p = new Point() *)
