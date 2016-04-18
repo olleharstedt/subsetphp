@@ -213,7 +213,12 @@ let rec ty_of_ty (typ : ty) : Typedast.ty =
       begin match tvar with 
         | Link ty ->
             ty_of_ty ty
-        | _ -> Typedast.TUnknown
+
+        (* Problem here is that we have to get "typed type" before
+         * inference is fully done. Therefore, delay the return value
+         * by wrapping it into a closure. *)
+        | _ -> Typedast.Delayed (fun () ->
+            ty_of_ty (TVar tvar_ref))
       end
   | TConst _ | TApp _ -> failwith "ty_of_ty: Has no correspondance in Typedast"
   | TFixedSizeArray (length, ty) -> Typedast.TFixedSizeArray (length, ty_of_ty ty)

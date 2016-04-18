@@ -945,9 +945,16 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       ignore (build_store add_code variable llbuilder);
       add_code
 
+  (* In case type of lvar is delayed (see note in ty_of_ty in infer.ml) *)
+  | p, Binop (Eq None, (lhs_pos, Lvar (lvar, Delayed fn)), value_expr, binop_ty) ->
+      let typ = fn () in
+
+      (* This new expression is same as above but with delayed type get *)
+      let new_expr = (p, Binop (Eq None, (lhs_pos, Lvar (lvar, typ)), value_expr, binop_ty)) in
+      codegen_expr new_expr llbuilder
+
   (* Assign number to variable *)
   | p, Binop (Eq None, (lhs_pos, Lvar ((lvar_pos, lvar_name), TNumber)), value_expr, binop_ty) ->
-      printf "assign number to variable %s\n" lvar_name;
       let the_function = block_parent (insertion_block llbuilder) in
       let variable = try Hashtbl.find global_named_values lvar_name with
         | Not_found ->
@@ -960,9 +967,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             alloca
             in
       let value_expr_code = codegen_expr value_expr llbuilder in
-      dump_value value_expr_code;
       let store = (build_store value_expr_code variable llbuilder) in
-      dump_value store;
       value_expr_code
 
   (* Create new struct, like $p = new Point() *)

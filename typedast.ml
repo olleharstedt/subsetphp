@@ -46,6 +46,9 @@ type ty =
 
   | TArrow of ty list * ty  (* function type: e.g. `(int, int) -> int` *)
 
+  (* Wrap type in closure to delay its return, so inference can complete *)
+  | Delayed of (unit -> ty)
+
 and id = Pos.t * string
 and pstring = Pos.t * string
 
