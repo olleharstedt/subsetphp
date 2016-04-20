@@ -838,7 +838,7 @@ Still PHP 5.6, just another syntax.
 * `fn` instead of `function`
 * skip `fn` keyword for class methods - we have `public`, `protected` or `private` instead
 * no $ for variables
-* `.` to access member variables/methods instead of `->`
+* `.` to access member variables/methods instead of `->`. BUT: How to type-infer strings with concatenation `.`? `+.`?
 * no `;` - use `()` to let an expression span multiple lines
 * use if-then-else instead of `? :`
 * syntactic sugar for `[1, 2, 3].length`, `[1, 2, 3].slice()` etc instead of `count($arr)`

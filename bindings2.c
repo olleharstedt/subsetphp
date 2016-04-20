@@ -186,3 +186,39 @@ extern void subsetphp_gc_init() {
 
 extern void subsetphp_add_new_structtype(zend_string* name, int lenght, int* pointer_offsets) {
 }
+
+
+/**
+ * Implementation of dynamic size array
+ * Copied from http://stackoverflow.com/questions/3536153/c-dynamically-growing-array
+ */
+typedef struct {
+  /* Type header for GC info, 64 bit. Should never
+   * be accessed manually outside of GC. */
+  int32_t _i;
+  int32_t _j;
+  int8_t *array;  /* i8_ptr used as pointer in LLVM */
+  int32_t used;  /* size_t = i32_t */
+  int32_t size;
+} array;
+
+extern void initArray(array *a, size_t initialSize) {
+  a->array = (int8_t *) llvm_gc_allocate(initialSize * sizeof(int32_t));
+  a->used = 0;
+  a->size = initialSize;
+}
+
+extern void insertArray(array *a, int32_t element) {
+  if (a->used == a->size) {
+    a->size *= 2;
+    a->array = (int8_t *)llvm_gc_allocate(a->size * sizeof(int32_t));  // TODO: Use realloc? With GC?
+  }
+  a->array[a->used++] = element;
+}
+
+// TODO: Should never be used, but collected by GC
+void freeArray(array *a) {
+  free(a->array);
+  a->array = NULL;
+  a->used = a->size = 0;
+}

@@ -98,7 +98,7 @@ let llvm_ty_of_ty ty = match ty with
   | TWeak_poly {contents = ((Some TString))} -> zend_string_ptr_type
   | TStruct (class_name, _) -> 
       let class_ty = try Hashtbl.find structs class_name with
-          | Not_found -> raise (Llvm_error (sprintf "llvm_ty_of_ty_fun: Class %s was not found" class_name))
+          | Not_found -> raise (Llvm_error (sprintf "llvm_ty_of_ty: Class %s was not found" class_name))
       in
       pointer_type class_ty  (* Pointer instead? *)
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
@@ -126,6 +126,15 @@ let llvm_ty_of_ty_fun ty = match ty with
       dump_type class_ty;
       pointer_type class_ty  (* Pointer instead? *)
 
+  | TDynamicSizeArray ty -> 
+      let array_struct_type = struct_type llctx [|
+        i32_t;  (* Type header *)
+        i32_t;
+        pointer_type (llvm_ty_of_ty ty);  (* pointer to array *)
+        i32_t;  (* used *)
+        i32_t;  (* size *)
+      |] in
+      pointer_type array_struct_type
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty_fun: %s" (show_ty ty)))
 (** 
  * Create an alloca instruction in the entry block of the function. This
@@ -324,8 +333,6 @@ let rec codegen_fun (fun_ : fun_) the_fpm =
     create_argument_allocas the_function fun_ llbuilder;
 
     ignore (codegen_block fun_.f_body llbuilder);
-
-    dump_value the_function;
 
     (* Validate the generated code, checking for consistency. *)
     Llvm_analysis.assert_valid_function the_function;
@@ -835,12 +842,9 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
 
       (*build_alloca llvm_array_type "arr" llbuilder*)
       print_endline "type:";
-      dump_type (pointer_type llvm_array_type);
       let build, alloca = create_new_gcroot_malloc llbuilder (pointer_type llvm_array_type) (size_of llvm_array_type) in
       print_endline "build:";
-      dump_value build;
       print_endline "alloca:";
-      dump_value alloca;
       alloca
 
   (* Like $array[1] *)
@@ -849,9 +853,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         (pos3, Number index),
         element_type) ->
 
-      print_endline "ArrayFixedSize_get";
-
-      (*let struct_ty = Hashtbl.find structs struct_name in*)
       let arr : llvalue = try Hashtbl.find global_named_values array_var_name with
         | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" array_var_name))
       in
@@ -869,8 +870,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         (pos3, Lvar ((pos4, lvar_name), TNumber)),
         element_type) ->
 
-      print_endline "ArrayFixedSize_get $array[$i]";
-
       (*let struct_ty = Hashtbl.find structs struct_name in*)
       let arr : llvalue = try Hashtbl.find global_named_values array_var_name with
         | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" array_var_name))
@@ -881,6 +880,30 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       let index = build_fptoui index_expr i32_t "index" llbuilder in
 
       let gep = build_gep loaded_array [|zero; index|] "gep" llbuilder in
+      let load = build_load gep "load" llbuilder in
+      load
+
+  (* Like $array[0] with dynamically sized array *)
+  | p, ArrayDynamicSize_get (
+        (pos1, Lvar ((pos2, array_var_name), var_type)),
+        (pos3, Number index),
+        element_type) ->
+
+      let arr : llvalue = try Hashtbl.find global_named_values array_var_name with
+        | Not_found -> raise (Llvm_error (sprintf "Tried to load number from struct variable that doesn't exist: %s" array_var_name))
+      in
+      let loaded_array_struct = build_load arr "loaded_array_struct" llbuilder in
+
+      (* TODO: Add bounds check Throw exception? PHP notice: Undefined offset x in file y, line z *)
+      (* Why index 2 here? Because that's the address of the array. See the struct
+       * def in bindings2.c:
+       *)
+      let gep = build_struct_gep loaded_array_struct 2 "gep" llbuilder in
+      let loaded_array = build_load gep "loaded_array" llbuilder in
+
+      let index = int_of_float index in
+      let llvm_index = const_int i32_t index in
+      let gep = build_gep loaded_array [|llvm_index|] "gep" llbuilder in
       let load = build_load gep "load" llbuilder in
       load
 
@@ -967,7 +990,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             alloca
             in
       let value_expr_code = codegen_expr value_expr llbuilder in
-      ignore (build_store value_expr_code variable llbuilder);
+      let store = build_store value_expr_code variable llbuilder in
       value_expr_code
 
   (* Create new struct, like $p = new Point() *)
@@ -1088,7 +1111,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             let llvm_array_type = array_type (llvm_ty_of_ty the_array_type) array_length in
             (*let llvm_length = const_int i32_t array_length in*)
             let alloca = build_alloca (pointer_type llvm_array_type) lvar_name builder in
-            dump_value alloca;
             let tmp = build_bitcast alloca ptr_ptr_t "tmp" builder in
             let callee =
               match lookup_function "llvm.gcroot" llm with
@@ -1103,9 +1125,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             alloca
       in
       let value_expr_code = codegen_expr value_expr llbuilder in
-      dump_value value_expr_code;
       let store_expr = build_store value_expr_code variable llbuilder in
-      dump_value store_expr;
       value_expr_code
 
   (* Assign int/float to struct 
@@ -1136,7 +1156,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         | Not_found -> raise (Llvm_error (sprintf "Tried to assign number to struct variable that doesn't exist: %s" lvar_name))
       in
       print_endline "here";
-      dump_value stru;
 
       (* Get struct type, cast pointer to this type, then get gep *)
       let struct_ty = Hashtbl.find structs struct_name in
@@ -1203,8 +1222,6 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
         | Minus ->
             build_fsub lhs rhs "subtmp" llbuilder
         | Star ->
-            dump_value rhs;
-            dump_value lhs;
             build_fmul lhs rhs "multmp" llbuilder
         | Slash ->
             build_fdiv lhs rhs "multmp" llbuilder
