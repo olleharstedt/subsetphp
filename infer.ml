@@ -1132,7 +1132,7 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let generalized_ty = generalize level value_ty in
       let var_type = try Env.lookup env var_name with
         | Not_found ->
-          raise (Infer_exception (sprintf "You have to init an array before usage: %s" (get_pos_msg p)));
+          raise (Infer_exception (sprintf "You have to initialize an array before usage: %s" (get_pos_msg p)));
       in
 
       begin match var_type with
