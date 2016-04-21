@@ -826,6 +826,13 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
   | p, Float (pos, pstring) ->
       (p, Typedast.Float (pos, pstring)), env, TNumber
 
+  (* Array, like $arr = [], that is init dynamic array *)
+  | p, Array [] ->
+      (* Use TWeak_poly *)
+      let array_type = Typedast.TDynamicSizeArray (Typedast.TWeak_poly (ref None)) in
+      let t = new_var level in
+      (p, Typedast.Array ([], array_type)), env, TDynamicSizeArray t
+
   (* Array, like [1, 2, 3] *)
   | p, Array array_values ->
 
@@ -1014,7 +1021,11 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
         failwith "Left hand-side is not defined"
 
   (* =, Assignment *)
-  | p, Binop (Eq None, (pos_lvar, Lvar (pos_var_name, var_name)), value_expr) ->
+  | p, Binop (
+        Eq None, 
+        (pos_lvar, Lvar (pos_var_name, var_name)),
+        value_expr
+    ) ->
       let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
 
       (* Abort if right-hand is unit *)
@@ -1037,7 +1048,11 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       (p, Typedast.Binop (Typedast.Eq None, (pos_lvar, typed_lvar), typed_value_expr, Typedast.TUnit)), env, TUnit
 
   (* Assignment to object field, like $point->x = 10 *)
-  | p, Binop (Eq None, (pos1, Obj_get ((pos2, (Lvar (pos3, obj_name))), (pos4, (Id (pos5, field_name))), og_null_flavor)), value_expr) ->
+  | p, Binop (
+        Eq None, 
+        (pos1, Obj_get ((pos2, (Lvar (pos3, obj_name))), (pos4, (Id (pos5, field_name))), og_null_flavor)),
+        value_expr
+    ) ->
       let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
 
       (* Abort if right-hand is unit *)
@@ -1100,6 +1115,44 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
       let eq = (p, (Typedast.Binop (Typedast.Eq None, obj_get, typed_value_expr, Typedast.TUnit))) in
 
       eq, env, TUnit
+
+    (* Assignment to array, like $arr[] = 1 *)
+    | p, Binop (
+          (Eq None), 
+          (pos1, Array_get ((pos2, (Lvar (pos3, var_name))), None)),
+          value_expr
+      ) ->
+      let (typed_value_expr, env, value_ty) = infer_expr env (level + 1) value_expr in
+
+      (* Abort if right-hand is unit *)
+      if value_ty = TUnit then 
+        raise (Infer_exception (sprintf "Right-hand can't evaluate to void: %s" (get_pos_msg p)));
+
+      (* Do type-inference magic *)
+      let generalized_ty = generalize level value_ty in
+      let var_type = try Env.lookup env var_name with
+        | Not_found ->
+          raise (Infer_exception (sprintf "You have to init an array before usage: %s" (get_pos_msg p)));
+      in
+
+      begin match var_type with
+      | TDynamicSizeArray t ->
+          unify t generalized_ty;
+      | _ ->
+          raise (Infer_exception (sprintf "Illegal type for array assignment: %s" (get_pos_msg p)));
+      end;
+
+      (* Return typed tree, env and unit (assigment is always unit) *)
+      (p, Typedast.Binop (
+        Typedast.Eq None, 
+        (pos1, Typedast.Array_get (
+          (pos2, (Typedast.Lvar ((pos3, var_name), ty_of_ty var_type))),
+          None, 
+          Typedast.TUnit)
+        ),
+        typed_value_expr,
+        Typedast.TUnit
+      )), env, TUnit
 
   (* Numerical op *)
   | p, Binop (bop, expr1, expr2) when is_numerical_op bop ->

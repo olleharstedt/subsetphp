@@ -203,7 +203,7 @@ typedef struct {
 } array;
 
 extern void initArray(array *a, size_t initialSize) {
-  a->array = (int8_t *) llvm_gc_allocate(initialSize * sizeof(int32_t));
+  a->array = (int8_t *)malloc(initialSize * sizeof(int32_t));
   a->used = 0;
   a->size = initialSize;
 }
@@ -211,13 +211,12 @@ extern void initArray(array *a, size_t initialSize) {
 extern void insertArray(array *a, int32_t element) {
   if (a->used == a->size) {
     a->size *= 2;
-    a->array = (int8_t *)llvm_gc_allocate(a->size * sizeof(int32_t));  // TODO: Use realloc? With GC?
+    a->array = (int8_t *)realloc(a->array, a->size * sizeof(int32_t));
   }
   a->array[a->used++] = element;
 }
 
-// TODO: Should never be used, but collected by GC
-void freeArray(array *a) {
+extern void freeArray(array *a) {
   free(a->array);
   a->array = NULL;
   a->used = a->size = 0;
