@@ -1269,12 +1269,14 @@ and infer_expr (env : Env.env) level expr : Typedast.expr * Env.env * ty =
     let typed_expr, env, ty = infer_expr env level expr in
 
     begin match ty with
+      | TVar {contents = Link TNumber}
       | TNumber ->
           let typed_dontknow = List.map get_typed_expr dontknow in
           (p, Typedast.Call ((pos1, Typedast.Id ((pos_fn, "printd"), Typedast.TUnit)), 
             [typed_expr], typed_dontknow)), 
             env, 
             TUnit
+      | TVar {contents = Link TString}
       | TString ->
           let typed_dontknow = List.map get_typed_expr dontknow in
           (p, Typedast.Call ((pos1, Typedast.Id ((pos_fn, "prints"), Typedast.TUnit)), 
