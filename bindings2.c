@@ -203,6 +203,9 @@ typedef struct {
 } array;
 
 extern void initArray(array *a, size_t initialSize) {
+  //struct StackEntry *entry = llvm_gc_root_chain;
+  // a->array needs to be put on the shadow stack
+  // easier to just generate this code in llvm? or code it in llvm with 'shadow-stack' on?
   a->array = (int8_t *)llvm_gc_allocate(initialSize * sizeof(int32_t));
   a->used = 0;
   a->size = initialSize;
@@ -211,13 +214,13 @@ extern void initArray(array *a, size_t initialSize) {
 extern void insertArray(array *a, int32_t element) {
   if (a->used == a->size) {
     a->size *= 2;
-    a->array = (int8_t *)realloc(a->array, a->size * sizeof(int32_t));
+    a->array = (int8_t *)llvm_gc_allocate(a->size * sizeof(int32_t));
   }
   a->array[a->used++] = element;
 }
 
 extern void freeArray(array *a) {
-  free(a->array);
+  //free(a->array);  // GC will free the array
   a->array = NULL;
   a->used = a->size = 0;
 }

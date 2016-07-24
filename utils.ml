@@ -102,8 +102,8 @@ module MyMap: functor (Ord: Map.OrderedType)
   end
 
 module SMap = MyMap(String)
-module IMap = MyMap(Ident)
-module ISet = Set.Make(Ident)
+module IMap = MyMap(Fbident)
+module ISet = Set.Make(Fbident)
 module SSet = Set.Make(String)
 module CSet = Set.Make(Char)
 module Map = struct end
