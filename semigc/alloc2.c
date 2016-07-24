@@ -108,11 +108,11 @@ static int nr_of_frees = 0;
 
 /**
  * Allocate memory
- * Uses a memory block to keep track
+ * Uses a memory block list to keep track
  * of all mallocs in the system.
  *
  * @param int size
- * @return
+ * @return Pointer to malloc'ed memory. Each such block has a header with type information, using convention from Zend
  */
 void* llvm_gc_allocate(unsigned int size) {
 
@@ -134,8 +134,10 @@ void* llvm_gc_allocate(unsigned int size) {
     }
 
     // Set type info, using zend_string as base (could be any zend type with gc field)
+    // str->gc is of type _zend_refcounted, which is refcount 2 x uint32 = 64 bit
+    // This header is always FIRST in the struct.
     zend_string* str = (zend_string*) res;
-    str->gc.u.type_info = 0;
+    str->gc.u.type_info = 0; // type_info = uint32_t, 32 bits
     str->gc.refcount = 0;  // Used in mark phase
 
     // Add malloc to list of all mallocs (used by sweep phase)

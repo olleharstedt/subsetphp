@@ -43,6 +43,7 @@ let void_t = void_type llctx
 let i8_ptr_t = pointer_type i8_t
 let ptr_t = pointer_type i8_t
 let ptr_ptr_t = pointer_type ptr_t
+let llvm_array_t = named_struct_type llctx "dynamicArray"
 (* zend_string opaque type *)
 let zend_string_type = named_struct_type llctx "zend_string"
 let zend_string_ptr_type = pointer_type zend_string_type
@@ -87,7 +88,7 @@ let get_struct_field_number struct_ field_name =
  * @param Typedast.ty ty
  * @return lltype
  *)
-let llvm_ty_of_ty ty = match ty with
+let rec llvm_ty_of_ty ty = match ty with
   | TNumber -> double_type
   | TInt -> i32_t
   | TInt64 -> i64_t
@@ -96,11 +97,23 @@ let llvm_ty_of_ty ty = match ty with
   | TUnit -> void_t
   | TWeak_poly {contents = ((Some TNumber))} -> double_type
   | TWeak_poly {contents = ((Some TString))} -> zend_string_ptr_type
+  | TLLVMArray -> llvm_array_t
+  | TDynamicSizeArray ty -> 
+      let array_struct_type = struct_type llctx [|
+        i32_t;  (* Type header *)
+        i32_t;
+        pointer_type (llvm_ty_of_ty ty);  (* pointer to array *)
+        i32_t;  (* used *)
+        i32_t;  (* size *)
+      |] in
+      pointer_type array_struct_type
   | TStruct (class_name, _) -> 
       let class_ty = try Hashtbl.find structs class_name with
           | Not_found -> raise (Llvm_error (sprintf "llvm_ty_of_ty: Class %s was not found" class_name))
       in
       pointer_type class_ty  (* Pointer instead? *)
+  | Delayed fn ->
+      llvm_ty_of_ty (fn ())
   | _ -> raise (Llvm_not_implemented (sprintf "llvm_ty_of_ty: %s" (show_ty ty)))
 
 (**
@@ -119,6 +132,7 @@ let llvm_ty_of_ty_fun ty = match ty with
   | TCaml_value -> caml_value_ptr_type
   | TUnit -> void_t
   | TInt64 -> i64_t
+  | TLLVMArray -> llvm_array_t
   | TStruct (class_name, fields) ->
       let class_ty = try Hashtbl.find structs class_name with
           | Not_found -> raise (Llvm_error (sprintf "llvm_ty_of_ty_fun: Class %s was not found" class_name))
@@ -991,6 +1005,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
             in
       let value_expr_code = codegen_expr value_expr llbuilder in
       let store = build_store value_expr_code variable llbuilder in
+      ignore (store);
       value_expr_code
 
   (* Create new struct, like $p = new Point() *)
@@ -1038,6 +1053,22 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       done;
 
       build
+
+  (* Initialise new dynamic array, like $arr = [] *)
+  | (p,
+     Binop ((Eq None),
+       (pos2,
+        Lvar ((pos3, lvar_name),
+          (TDynamicSizeArray (Delayed delayed_ty)))),
+       (pos4,
+        Array ([], dyn_arr_ty)),  (* array type is always unknown here, like TDynamicSizeArray TUnresolved *)
+       TUnit)) ->
+     let ty = delayed_ty () in
+     let var_type = TDynamicSizeArray ty in
+
+     (* Create array with C *)
+     (* initArray *)
+     zero
 
   (* Assign struct to variable, like $b = $point *)
   (* TODO: Code-duplication with string assign below *)
@@ -1126,6 +1157,7 @@ and codegen_expr (expr : expr) llbuilder : llvalue =
       in
       let value_expr_code = codegen_expr value_expr llbuilder in
       let store_expr = build_store value_expr_code variable llbuilder in
+      ignore (store_expr);
       value_expr_code
 
   (* Assign int/float to struct 
@@ -1466,6 +1498,17 @@ let _ =
       f_body = [];
     } in
     ignore (codegen_proto llvm_gc_allocate);
+
+    (* initArray(array *a, initial size *)
+    let f_param1 = {param_id = (Pos.none, "arr"); param_type = TLLVMArray} in
+    let f_param2 = {param_id = (Pos.none, "initialSize"); param_type = TInt} in
+    let infer_array = {
+      f_name = (Pos.none, "\\inferArray"); 
+      f_params = [f_param1; f_param2];
+      f_ret = TPtr;
+      f_body = [];
+    } in
+    ignore (codegen_proto infer_array);
 
     try
       ignore (codegen_program program);

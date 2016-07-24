@@ -15,6 +15,7 @@ type ty =
   | TString
   | TString_literal
   | TZend_string_ptr
+  | TLLVMArray
 
   (* struct name and field list *)
   | TStruct of string * ty list
@@ -138,6 +139,7 @@ let rec string_of_ty ty = match ty with
   | TZend_string_ptr -> "TZend_string_ptr"
   | TFixedSizeArray (size, ty) -> "TFixedSizeArray " ^ (string_of_int size) ^ ", " ^ (string_of_ty ty) 
   | TDynamicSizeArray ty -> "TDynamicSizeArray " ^ (string_of_ty ty) 
+  | TLLVMArray -> "TLLVMArray"
   | TStruct (name, tys) -> "TStruct " ^ name ^ ": [" ^ (List.fold_left (fun a b -> a ^ string_of_ty b) "" tys) ^ "]"
   | TPtr_ptr -> "TPtr_ptr"
   | TPtr -> "TPtr"
@@ -158,3 +160,4 @@ let rec string_of_ty ty = match ty with
           "TPromotable " ^ string_of_ty t
     end
   | TArrow (ty_list, ty) -> failwith "string_of_ty: Not implemented"
+  | Delayed _ -> "Delayed"

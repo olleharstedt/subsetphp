@@ -203,7 +203,7 @@ typedef struct {
 } array;
 
 extern void initArray(array *a, size_t initialSize) {
-  a->array = (int8_t *)malloc(initialSize * sizeof(int32_t));
+  a->array = (int8_t *)llvm_gc_allocate(initialSize * sizeof(int32_t));
   a->used = 0;
   a->size = initialSize;
 }

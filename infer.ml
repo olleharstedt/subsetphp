@@ -657,7 +657,7 @@ and infer_fun (env : Env.env) level fun_ : Typedast.def * Env.env * ty =
     | _, name -> 
         name
     in
-    (* Type-hine *)
+    (* Type-hint *)
     let hint = match param.param_hint with
     | None -> None
     | Some (pos, Ast.Happly ((pos2, hint_string), [])) -> 
