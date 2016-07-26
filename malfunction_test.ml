@@ -29,7 +29,22 @@ let dum = (Lexing.dummy_pos, Lexing.dummy_pos)
 
 let test_code =
   (dum, List ([
-    (dum, Atom "module")
+    (dum, Atom "module");
+    (dum, List [
+      (dum, Atom "_");
+      (dum, List [
+          (dum, Atom "apply");
+          (dum, List [
+              (dum, Atom "global");
+              (dum, Atom "$Pervasives");
+              (dum, Atom "$print_string")
+          ]);
+          (dum, String "Hello, world!\n");
+      ])
+    ]);
+    (dum, List [
+      (dum, Atom "export");
+    ])
   ]))
 
 let _ =
@@ -39,4 +54,9 @@ let _ =
   *)
   Malfunction_sexp.print Format.str_formatter test_code;
   let str = Format.flush_str_formatter () in
+  let e = Malfunction_parser.parse_mod test_code in
+  (*
+  let l = Malfunction_compiler.module_to_lambda e in
+  let c = Malfunction_compiler.lambda_to_cmx "malf_file" "malf_output" l in
+  *)
   print_endline str
