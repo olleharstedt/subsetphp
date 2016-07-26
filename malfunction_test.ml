@@ -16,3 +16,27 @@
 
 open Typedast
 open Malfunction
+open Malfunction_sexp
+open Lexing
+
+(*
+(module
+  (_ (apply (global $Pervasives $print_string) "Hello, world!\n"))
+  (export))
+*)
+
+let dum = (Lexing.dummy_pos, Lexing.dummy_pos)
+
+let test_code =
+  (dum, List ([
+    (dum, Atom "module")
+  ]))
+
+let _ =
+  (*
+  let options = [`Shared] in
+  let lm = Malfunction_compiler.module_to_lambda ~options test_code in
+  *)
+  Malfunction_sexp.print Format.str_formatter test_code;
+  let str = Format.flush_str_formatter () in
+  print_endline str
