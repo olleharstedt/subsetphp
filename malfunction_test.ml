@@ -60,25 +60,25 @@ echo 10;
 let basic_code =
   (dum, List ([
     (dum, Atom "module");
+    (dum, List [
+      (dum, Atom "_");
       (dum, List [
         (dum, Atom "let");
         (dum, List [
-          (dum, Var "myVar");
+          (dum, Var "asd");
           (dum, Int 10);
         ]);
         (dum, List [
-          (dum, Atom "_");
+          (dum, Atom "apply");
           (dum, List [
-              (dum, Atom "apply");
-              (dum, List [
-                  (dum, Atom "global");
-                  (dum, Var "Pervasives");
-                  (dum, Var "print_string")
-              ]);
-              (dum, String "Hello, world!\n");
-          ])
+              (dum, Atom "global");
+              (dum, Var "Pervasives");
+              (dum, Var "print_int")
+          ]);
+          (dum, Var "asd")
         ]);
       ]);
+    ]);
     (dum, List [
       (dum, Atom "export");
     ])
