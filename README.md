@@ -826,6 +826,38 @@ type ty = Int | String | Double | StrintBuffer | Promotable of ref ty
 
 > 23:02:59 - mrvn: If you have "type t = Int : int -> t | Text : string -> t" then you can't limit a function to just one of them. With phantom types you can.
 
+Moving from LLVM to Malfunction/OCaml
+-------------------------------------
+
+Generate OCaml code instead of Malfunction?
+
+> 01:18:25 - Drup: you don't have to bother with pleasing the typechecker
+
+> 01:18:57 - Drup: depending on your language, that might be a really big gain
+
+> 01:20:08 - Drup: also, while it might be true that for any code you may want to emit, there is a corresponding ocaml program, that program might be neither pleasant nor easy to find
+
+int -> int
+float -> float
+string -> float
+fixed size array -> tuple
+dyn array -> array
+hashtable -> hashtable
+function -> function
+namespace -> module?
+object without methods -> records with mutable fields (naming?)
+object with methods -> objects
+constants -> let bindings
+for-loop -> for loop
+variables -> refs
+if-else -> if else
+ternary op -> if then else
+switch -> match
+optional arguments -> optional arguments (named?)
+multiple return statements -> ??
+including html? <?php ?> and stuff -> ??
+
+
 Alternate syntax
 ----------------
 

@@ -25,6 +25,17 @@
 21:09:42 - mrvn: Val_int(1)
 21:10:11 - ollehar: ok
 22:06:51 - mrvn: # type 'a ref = { mutable contents: 'a };;
+
+22:39:14 - Drup: # Inspect.Sexpr.dump @@ ref 1.0 ;;
+22:39:15 - Drup: (DUMP (BLK/0 :TAG 0 :VALUES 1.000000))
+
+22:41:46 - Drup: # Inspect.Sexpr.dump @@ [| 1.2 |] ;;
+22:41:46 - Drup: (DUMP (DBLA/0 1.2))
+22:42:06 - Drup: DBLA is a "double array"
+
+utop #require "inspect";;
+utop # Inspect.Sexpr.dump @@ (ref 1.0)
+
  *)
 
 (*
@@ -219,4 +230,10 @@ let _ =
   let l = Malfunction_compiler.module_to_lambda e in
   let c = Malfunction_compiler.lambda_to_cmx "malf_file" "malf_output" l in
 
+  (*
+  let a = ref 1.0 in
+  let a_ = Obj.repr a in
+  let tag = Obj.tag a_ in
+  print_int tag;
+  *)
   ()
